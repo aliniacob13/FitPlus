@@ -16,18 +16,18 @@ The app has been thought as a solution for the following user stories:
 10. As a user, I want to store my weight goals and restrictions directly into the app.
 11. As a user, I want to get suggestions of meals from a specific AI, so that I may achieve my goals.
 12. As a user, I want the AI to generate a list of groceries that will give me the exact nutrients necessary for my workout sessions.
-13. As another or maybe the same user, I want to be able to save to a list of favorites the gyms I visit frequently.
-14. Of course, I would like to also leave a review and pictures of the gyms.
+13. As a user, I want to be able to save to a list of favorites the gyms I visit frequently.
+14. As a user, I would like to also leave a review and pictures of the gyms.
 15. I want the fitness AI to remember my previous workouts so that it can progressively increase the difficulty.
-16. As a user (of course), I want to tell my diet AI about my food preferences, allergies and budget so that it can recommend me suitable meals.
+16. As a user, I want to tell my diet AI about my food preferences, allergies and budget so that it can recommend me suitable meals.
 17. I want to be able to also upload health prescriptions, given to me by a nutritionist, so that the AI knows exactly what type of diet I need.
 
 After looking at the user stories, and given the fact that we are five students in the team, we have divided the backlog to look like this:
-1. We have decided to work with PythonAPI, so setting it up would be the first step. It is divided in 3: the Router, which waits for the HTTP requests and
+1. We have decided to work with Python for the backend(using FastAPI), so setting it up would be the first step. It is divided in 3: the Router, which waits for the HTTP requests and
 sends back the responses, the Service (the functions that the app needs to have) and the Model (the actual data)
 2. Set up a database
 3. Implement a registering function (log in + sign in)
-4. Setting up the framework - React Native, combined with Typescript to catch errors
+4. Setting up the framework for the UI - React Native, combined with Typescript to catch errors
 5. Setting up the Navigation Tab Bar
 6. Set up a global state management library for the transmission of information
 7. Build the UI for the app
