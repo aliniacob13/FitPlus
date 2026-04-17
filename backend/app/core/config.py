@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # AI
+    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "gpt-4o-mini"
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
