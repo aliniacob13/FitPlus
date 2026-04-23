@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from geoalchemy2.types import Geography
 from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.gym import Gym
-from app.schemas.gym import GymResponse, NearbyQueryParams
+from app.schemas.gym import GymDetailResponse, GymResponse
 
 router = APIRouter(prefix="/gyms", tags=["Gyms"])
 
@@ -46,6 +46,11 @@ async def get_nearby_gyms(
             Gym.phone,
             Gym.website,
             Gym.rating,
+            Gym.image_url,
+            Gym.opening_hours,
+            Gym.equipment,
+            Gym.pricing_plans,
+            Gym.review_count,
             func.ST_Y(Gym.location).label("latitude"),   # ST_Y = lat pentru POINT(lon lat)
             func.ST_X(Gym.location).label("longitude"),  # ST_X = lon
             func.ST_Distance(gym_location_geog, ref_point).label("distance_m"),
@@ -60,3 +65,34 @@ async def get_nearby_gyms(
     rows = result.mappings().all()
 
     return [GymResponse(**row) for row in rows]
+
+
+@router.get("/{gym_id}", response_model=GymDetailResponse)
+async def get_gym_detail(
+    gym_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> GymDetailResponse:
+    stmt = (
+        select(
+            Gym.id,
+            Gym.name,
+            Gym.address,
+            Gym.phone,
+            Gym.website,
+            Gym.rating,
+            Gym.description,
+            Gym.image_url,
+            Gym.opening_hours,
+            Gym.equipment,
+            Gym.pricing_plans,
+            Gym.review_count,
+            func.ST_Y(Gym.location).label("latitude"),
+            func.ST_X(Gym.location).label("longitude"),
+        ).where(Gym.id == gym_id)
+    )
+
+    row = (await db.execute(stmt)).mappings().first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
+
+    return GymDetailResponse(**row)

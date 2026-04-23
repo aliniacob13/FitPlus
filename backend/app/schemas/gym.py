@@ -19,8 +19,32 @@ class GymResponse(BaseModel):
     phone: str | None
     website: str | None
     rating: float | None
+    image_url: str | None = None
+    opening_hours: dict | list | None = None
+    equipment: dict | list | None = None
+    pricing_plans: dict | list | None = None
+    review_count: int = 0
     latitude: float
     longitude: float
     distance_m: float = Field(..., description="Distanța față de punctul de referință, în metri")
+
+    model_config = {"from_attributes": True}
+
+
+class GymDetailResponse(BaseModel):
+    id: int
+    name: str
+    address: str | None
+    phone: str | None
+    website: str | None
+    rating: float | None
+    description: str | None = None
+    image_url: str | None = None
+    opening_hours: dict | list | None = None
+    equipment: dict | list | None = None
+    pricing_plans: dict | list | None = None
+    review_count: int = 0
+    latitude: float
+    longitude: float
 
     model_config = {"from_attributes": True}

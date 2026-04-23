@@ -27,7 +27,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FitPlus foloseste locatia ta pentru a afisa sali din apropiere pe harta."
+        }
+      ]
     ]
   }
 }

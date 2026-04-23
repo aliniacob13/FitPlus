@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # FastAPI
     SECRET_KEY: str = "change_me"
     DEBUG: bool = True
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 10080
 
     # AI
     LLM_PROVIDER: str = "openai"
@@ -35,6 +38,10 @@ class Settings(BaseSettings):
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+
+    # Dev / seeding (disable in production)
+    SEED_ENABLED: bool = False
+    SEED_TOKEN: str = ""
 
 
 settings = Settings()
