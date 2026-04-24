@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
+    # Maps / Places
+    GOOGLE_MAPS_API_KEY: str = ""
+
     # Dev / seeding (disable in production)
     SEED_ENABLED: bool = False
     SEED_TOKEN: str = ""
