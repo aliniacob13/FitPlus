@@ -1,5 +1,6 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Float, Index, Integer, String
+from sqlalchemy import Float, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -14,6 +15,12 @@ class Gym(Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    opening_hours: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    equipment: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    pricing_plans: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # SRID 4326 = WGS-84 (GPS coordinates — lat/lon)
     location: Mapped[Geometry] = mapped_column(

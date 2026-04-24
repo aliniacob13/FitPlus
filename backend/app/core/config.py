@@ -25,14 +25,26 @@ class Settings(BaseSettings):
     # FastAPI
     SECRET_KEY: str = "change_me"
     DEBUG: bool = True
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 10080
 
     # AI
+    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "gpt-4o-mini"
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+
+    # Maps / Places
+    GOOGLE_MAPS_API_KEY: str = ""
+
+    # Dev / seeding (disable in production)
+    SEED_ENABLED: bool = False
+    SEED_TOKEN: str = ""
 
 
 settings = Settings()
