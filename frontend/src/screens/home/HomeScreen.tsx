@@ -1,175 +1,239 @@
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  ScrollView 
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
-import { useUserStore } from '../../lib/userStore';
 import { useNavigation } from '@react-navigation/native';
+import { useUserStore } from '../../lib/userStore';
+import { Card, Button } from '../../components/ui';
+import { colors, typography, spacing, radius } from '../../theme';
 
 export default function HomeScreen() {
-  const user = useUserStore((state) => state.user);
-  const logout = useUserStore((state) => state.logout);
   const navigation = useNavigation();
+  const user       = useUserStore((state) => state.user);
+  const logout     = useUserStore((state) => state.logout);
 
-  const handleLogout = async () => {
-    await logout();
-    // RootNavigator will automatically send you back to Login because token becomes null
-  };
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Athlete';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header Section */}
+    <SafeAreaView style={styles.root}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hello,</Text>
-            {/* Displays the email or name fetched from /users/me */}
-            <Text style={styles.userName}>{user?.email || 'Athlete'}</Text>
+            <Text style={styles.greeting}>Good morning,</Text>
+            <Text style={styles.name}>{displayName} 👋</Text>
           </View>
-          <TouchableOpacity style={styles.profileButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Logout</Text>
+
+          <TouchableOpacity style={styles.avatarBtn} onPress={logout}>
+            <Text style={styles.avatarText}>
+              {displayName[0].toUpperCase()}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Today's Summary Card */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardTitle}>Today's Progress</Text>
+        {/* ── Today's Progress ────────────────────────────────── */}
+        <Card variant="accent" title="Today's Progress" padding="md">
           <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Workouts</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Minutes</Text>
-            </View>
+            <StatItem value="0" label="Workouts" />
+            <View style={styles.statDivider} />
+            <StatItem value="0" label="Minutes" />
+            <View style={styles.statDivider} />
+            <StatItem value="0" label="Kcal" />
           </View>
+        </Card>
+
+        {/* ── Quick Actions ───────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+        <Button
+          label="Start New Workout"
+          onPress={() => {/* navigate to Workout AI tab */}}
+          variant="primary"
+          size="lg"
+          fullWidth
+          style={styles.actionBtn}
+        />
+
+        <Button
+          label="Plan My Meals"
+          onPress={() => {/* navigate to Diet AI tab */}}
+          variant="outline"
+          size="lg"
+          fullWidth
+          style={styles.actionBtn}
+        />
+
+        <Button
+          label="Update Fitness Profile"
+          onPress={() => navigation.navigate('UpdateProfile' as never)}
+          variant="secondary"
+          size="md"
+          fullWidth
+          style={styles.actionBtn}
+        />
+
+        {/* ── Info cards row ──────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>Your Stats</Text>
+
+        <View style={styles.infoRow}>
+          <Card variant="elevated" style={styles.infoCard} padding="md">
+            <Text style={styles.infoEmoji}>⚖️</Text>
+            <Text style={styles.infoValue}>{user?.weight_kg ?? '—'}</Text>
+            <Text style={styles.infoLabel}>kg</Text>
+          </Card>
+
+          <Card variant="elevated" style={styles.infoCard} padding="md">
+            <Text style={styles.infoEmoji}>📏</Text>
+            <Text style={styles.infoValue}>{user?.height_cm ?? '—'}</Text>
+            <Text style={styles.infoLabel}>cm</Text>
+          </Card>
+
+          <Card variant="elevated" style={styles.infoCard} padding="md">
+            <Text style={styles.infoEmoji}>🎯</Text>
+            <Text style={styles.infoValue} numberOfLines={1}>
+              {user?.fitness_level ?? '—'}
+            </Text>
+            <Text style={styles.infoLabel}>level</Text>
+          </Card>
         </View>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Start New Workout</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondaryButton]}
-          onPress={() => navigation.navigate('UpdateProfile' as never)}
-        >
-          <Text style={styles.secondaryButtonText}>Update Fitness Profile</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.infoNote}>
-          Your data is securely synced with your account.
+        <Text style={styles.footerNote}>
+          Data synced securely with your account.
         </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Sub-component ────────────────────────────────────────────────────────────
+
+function StatItem({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.statItem}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: colors.bg.base,
   },
-  scrollContent: {
-    padding: 20,
+  scroll: {
+    padding: spacing.screen,
+    paddingBottom: spacing['2xl'],
   },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 10,
+    marginBottom: spacing.xl,
+    marginTop: spacing[3],
   },
   greeting: {
-    color: '#aaa',
-    fontSize: 16,
+    ...typography.styles.bodySmall,
+    color: colors.text.secondary,
+    marginBottom: 2,
   },
-  userName: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+  name: {
+    ...typography.styles.h2,
   },
-  profileButton: {
-    backgroundColor: '#333',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
+  avatarBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.accent.muted,
+    borderWidth: 1.5,
+    borderColor: colors.accent.base,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutText: {
-    color: '#ff4444',
-    fontSize: 12,
-    fontWeight: 'bold',
+  avatarText: {
+    color: colors.accent.base,
+    fontSize: typography.size.md,
+    fontWeight: '700',
   },
-  summaryCard: {
-    backgroundColor: '#222',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  cardTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
+
+  // Stats inside the card
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: spacing[2],
   },
   statItem: {
     alignItems: 'center',
+    flex: 1,
   },
   statValue: {
-    color: '#c5f135',
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: typography.size['3xl'],
+    fontWeight: '800',
+    color: colors.accent.base,
+    letterSpacing: -1,
   },
   statLabel: {
-    color: '#888',
-    fontSize: 12,
-    marginTop: 5,
+    ...typography.styles.label,
+    marginTop: spacing[1],
   },
+  statDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border.default,
+  },
+
+  // Section title
   sectionTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    ...typography.styles.h3,
+    marginTop: spacing[2],
+    marginBottom: spacing[4],
   },
-  actionButton: {
-    backgroundColor: '#c5f135',
-    padding: 18,
-    borderRadius: 15,
+
+  actionBtn: {
+    marginBottom: spacing[3],
+  },
+
+  // Info row cards
+  infoRow: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    marginBottom: spacing[2],
+  },
+  infoCard: {
+    flex: 1,
+    marginBottom: 0,
     alignItems: 'center',
-    marginBottom: 15,
   },
-  actionButtonText: {
-    color: '#111',
-    fontSize: 16,
-    fontWeight: 'bold',
+  infoEmoji: {
+    fontSize: 22,
+    marginBottom: spacing[1],
   },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#c5f135',
+  infoValue: {
+    fontSize: typography.size.lg,
+    fontWeight: '700',
+    color: colors.text.primary,
   },
-  secondaryButtonText: {
-    color: '#c5f135',
-    fontSize: 16,
-    fontWeight: 'bold',
+  infoLabel: {
+    ...typography.styles.caption,
+    marginTop: 2,
   },
-  infoNote: {
-    color: '#555',
-    fontSize: 12,
+
+  footerNote: {
+    ...typography.styles.caption,
     textAlign: 'center',
-    marginTop: 20,
-  }
+    marginTop: spacing.lg,
+  },
 });

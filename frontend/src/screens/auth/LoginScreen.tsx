@@ -1,180 +1,169 @@
 import React, { useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store'; // Added this!
+import * as SecureStore from 'expo-secure-store';
+import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../lib/userStore';
 import { api } from '../../lib/api';
+import { Button, Input } from '../../components/ui';
+import { colors, typography, spacing } from '../../theme';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const login      = useUserStore((state) => state.login);
+
+  const [email,     setEmail]     = useState('');
+  const [password,  setPassword]  = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  const login = useUserStore((state) => state.login);
+
+  // Field-level validation errors
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const validate = () => {
+    const next: typeof errors = {};
+    if (!email)    next.email    = 'Email is required';
+    if (!password) next.password = 'Password is required';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
-      return;
-    }
+    if (!validate()) return;
 
     setIsLoading(true);
     try {
-      console.log("Attempting login...");
-      const response = await api.post('/auth/login', {
-        email: email,
-        password: password,
-      });
+      const response = await api.post('/auth/login', { email, password });
+      const token = response.data.access_token;
 
-      const token = response.data.access_token; 
-      console.log("Login Success! Token received.");
-
-      // 1. Save the token immediately
       await SecureStore.setItemAsync('jwt_token', token);
 
-      // 2. THE REAL PART: Ask the backend for the current user profile
-      // We pass the token in the headers so the backend knows who we are
       const userResponse = await api.get('/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const realUser = userResponse.data;
-      console.log("Real user profile fetched:", realUser.email);
-
-      // 3. Log in to the global state with the REAL data
-      await login(realUser, token);
-      console.log("Zustand updated with real user. Navigating...");
-
-    
+      await login(userResponse.data, token);
+      // RootNavigator will automatically redirect to Home
     } catch (error: any) {
-      const errorMsg = error.response?.data?.detail || error.message;
-      console.log("Login Error Detail:", errorMsg);
-      Alert.alert('Login Failed', errorMsg);
+      const msg = error.response?.data?.detail || error.message;
+      Alert.alert('Login Failed', msg);
     } finally {
-      setIsLoading(false); // Reset the button state
+      setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>FitPlus</Text>
-        <Text style={styles.subtitle}>Welcome back. Ready to sweat?</Text>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Branding */}
+        <View style={styles.brandRow}>
+          <Text style={styles.logo}>FitPlus</Text>
+          <Text style={styles.tagline}>Welcome back. Ready to sweat?</Text>
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email address"
-          placeholderTextColor="#888"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
+        {/* Form */}
+        <View style={styles.form}>
+          <Input
+            label="Email address"
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={email}
+            onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }}
+            error={errors.email}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#888"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+          <Input
+            label="Password"
+            placeholder="••••••••"
+            isPassword
+            autoComplete="password"
+            value={password}
+            onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }}
+            error={errors.password}
+          />
 
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#111" />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
-        </TouchableOpacity>
+          <Button
+            label="Sign In"
+            onPress={handleLogin}
+            loading={isLoading}
+            fullWidth
+            size="lg"
+            style={styles.submitBtn}
+          />
+        </View>
 
-       <TouchableOpacity 
-          style={styles.registerLink}
-          onPress={() => navigation.navigate('Register' as never)} // Add this!
-        >
-          <Text style={styles.registerText}>
-            Don't have an account? <Text style={styles.registerTextBold}>Sign up</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register' as never)}>
+            <Text style={styles.footerLink}>Sign up</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: colors.bg.base,
+  },
+  scroll: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: spacing.screen,
+    paddingVertical: spacing['3xl'],
   },
-  formContainer: {
-    paddingHorizontal: 30,
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#c5f135', 
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#aaa',
-    marginBottom: 40,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#222',
-    color: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  button: {
-    backgroundColor: '#c5f135',
-    padding: 18,
-    borderRadius: 12,
+  brandRow: {
     alignItems: 'center',
-    marginTop: 10,
+    marginBottom: spacing['2xl'],
   },
-  buttonText: {
-    color: '#111',
-    fontSize: 18,
-    fontWeight: 'bold',
+  logo: {
+    fontSize: typography.size['4xl'],
+    fontWeight: '800',
+    color: colors.accent.base,
+    letterSpacing: -1,
+    marginBottom: spacing[2],
   },
-  registerLink: {
-    marginTop: 24,
+  tagline: {
+    ...typography.styles.bodySmall,
+    color: colors.text.secondary,
+  },
+  form: {
+    marginBottom: spacing.xl,
+  },
+  submitBtn: {
+    marginTop: spacing[2],
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  registerText: {
-    color: '#aaa',
-    fontSize: 14,
+  footerText: {
+    ...typography.styles.bodySmall,
+    color: colors.text.secondary,
   },
-  registerTextBold: {
-    color: '#c5f135',
-    fontWeight: 'bold',
+  footerLink: {
+    ...typography.styles.bodySmall,
+    color: colors.accent.text,
+    fontWeight: '700',
   },
 });

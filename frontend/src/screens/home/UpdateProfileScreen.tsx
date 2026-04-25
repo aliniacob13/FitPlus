@@ -1,136 +1,255 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   Alert,
-  ActivityIndicator 
+  SafeAreaView,
+  TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { api } from '../../lib/api';
 import { useUserStore } from '../../lib/userStore';
-import { useNavigation } from '@react-navigation/native';
+import { Button, Input, Card } from '../../components/ui';
+import { colors, typography, spacing } from '../../theme';
+
+// ─── Fitness level options ────────────────────────────────────────────────────
+
+const FITNESS_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Elite'];
 
 export default function UpdateProfileScreen() {
-  const user = useUserStore((state) => state.user);
+  const navigation = useNavigation();
+  const user  = useUserStore((state) => state.user);
   const login = useUserStore((state) => state.login);
   const token = useUserStore((state) => state.token);
-  const navigation = useNavigation();
 
-  // Initialize state with existing user data if available
-  const [fullName, setFullName] = useState(user?.full_name || '');
-  const [weight, setWeight] = useState(user?.weight?.toString() || '');
-  const [height, setHeight] = useState(user?.height?.toString() || '');
-  const [goals, setGoals] = useState(user?.fitness_goals || '');
-  const [isLoading, setIsLoading] = useState(false);
+  const [fullName,      setFullName]      = useState(user?.name || '');
+  const [weight,        setWeight]        = useState(user?.weight_kg?.toString() || '');
+  const [height,        setHeight]        = useState(user?.height_cm?.toString() || '');
+  const [goals,         setGoals]         = useState(user?.goals || '');
+  const [fitnessLevel,  setFitnessLevel]  = useState(user?.fitness_level || '');
+  const [isLoading,     setIsLoading]     = useState(false);
 
   const handleUpdate = async () => {
     setIsLoading(true);
     try {
-      // The payload matches the UserProfileUpdateRequest schema
       const payload = {
-        full_name: fullName,
-        weight: weight ? parseFloat(weight) : null,
-        height: height ? parseFloat(height) : null,
-        fitness_goals: goals
+        name:          fullName     || null,
+        weight_kg:     weight       ? parseFloat(weight) : null,
+        height_cm:     height       ? parseFloat(height) : null,
+        goals:         goals        || null,
+        fitness_level: fitnessLevel || null,
       };
 
-      const response = await api.put('/users/me', payload); // Hits the route in users.py
-      
-      // Update the global store with the new data returned by the server
+      const response = await api.put('/users/me', payload);
+
       if (token) {
         await login(response.data, token);
       }
 
-      Alert.alert('Success', 'Profile updated successfully!');
+      Alert.alert('Saved!', 'Your profile has been updated.');
       navigation.goBack();
     } catch (error: any) {
-      const errorMsg = error.response?.data?.detail || "Could not update profile";
-      Alert.alert('Update Failed', errorMsg);
+      const msg = error.response?.data?.detail || 'Could not update profile.';
+      Alert.alert('Update Failed', msg);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Fitness Profile</Text>
-      <Text style={styles.subtitle}>Help us customize your workout plan.</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput 
-          style={styles.input} 
-          value={fullName} 
-          onChangeText={setFullName} 
-          placeholder="Your Name"
-          placeholderTextColor="#666"
-        />
-      </View>
-
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-          <Text style={styles.label}>Weight (kg)</Text>
-          <TextInput 
-            style={styles.input} 
-            value={weight} 
-            onChangeText={setWeight} 
-            keyboardType="numeric"
-            placeholder="70"
-            placeholderTextColor="#666"
-          />
+    <SafeAreaView style={styles.root}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header ─────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>← Back</Text>
+          </TouchableOpacity>
         </View>
-        <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.label}>Height (cm)</Text>
-          <TextInput 
-            style={styles.input} 
-            value={height} 
-            onChangeText={setHeight} 
-            keyboardType="numeric"
-            placeholder="180"
-            placeholderTextColor="#666"
+
+        <Text style={styles.pageTitle}>Fitness Profile</Text>
+        <Text style={styles.pageSubtitle}>
+          Help us personalize your workout and diet plans.
+        </Text>
+
+        {/* ── Basic info ─────────────────────────────────────── */}
+        <Card variant="default" title="Basic Info" padding="md">
+          <Input
+            label="Full name"
+            placeholder="Jane Doe"
+            value={fullName}
+            onChangeText={setFullName}
+            autoComplete="name"
           />
-        </View>
-      </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Fitness Goals</Text>
-        <TextInput 
-          style={[styles.input, styles.textArea]} 
-          value={goals} 
-          onChangeText={setGoals} 
-          multiline
-          numberOfLines={4}
-          placeholder="e.g., Lose weight, build muscle, improve cardio..."
-          placeholderTextColor="#666"
+          {/* Weight + Height side by side */}
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Input
+                label="Weight (kg)"
+                placeholder="70"
+                keyboardType="decimal-pad"
+                value={weight}
+                onChangeText={setWeight}
+              />
+            </View>
+            <View style={[styles.halfInput, styles.halfRight]}>
+              <Input
+                label="Height (cm)"
+                placeholder="175"
+                keyboardType="decimal-pad"
+                value={height}
+                onChangeText={setHeight}
+              />
+            </View>
+          </View>
+        </Card>
+
+        {/* ── Fitness level ───────────────────────────────────── */}
+        <Card variant="default" title="Fitness Level" padding="md">
+          <View style={styles.chipRow}>
+            {FITNESS_LEVELS.map((level) => {
+              const active = fitnessLevel === level;
+              return (
+                <TouchableOpacity
+                  key={level}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setFitnessLevel(level)}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {level}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Card>
+
+        {/* ── Goals ───────────────────────────────────────────── */}
+        <Card variant="default" title="Your Goals" padding="md">
+          <Input
+            label="Describe your fitness goals"
+            placeholder="e.g. Lose weight, build muscle, improve cardio..."
+            value={goals}
+            onChangeText={setGoals}
+            multiline
+            numberOfLines={4}
+            inputStyle={styles.textArea}
+            hint="The more detail you give, the better your AI recommendations."
+          />
+        </Card>
+
+        {/* ── Actions ─────────────────────────────────────────── */}
+        <Button
+          label="Save Profile"
+          onPress={handleUpdate}
+          loading={isLoading}
+          fullWidth
+          size="lg"
+          style={styles.saveBtn}
         />
-      </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleUpdate} disabled={isLoading}>
-        {isLoading ? <ActivityIndicator color="#111" /> : <Text style={styles.saveButtonText}>Save Profile</Text>}
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.backButtonText}>Cancel</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <Button
+          label="Cancel"
+          onPress={() => navigation.goBack()}
+          variant="ghost"
+          size="md"
+          fullWidth
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#111' },
-  content: { padding: 25, paddingTop: 60 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#c5f135', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#aaa', marginBottom: 30 },
-  inputGroup: { marginBottom: 20 },
-  label: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  input: { backgroundColor: '#222', color: '#fff', borderRadius: 12, padding: 15, fontSize: 16, borderWidth: 1, borderColor: '#333' },
-  textArea: { height: 100, textAlignVertical: 'top' },
-  row: { flexDirection: 'row' },
-  saveButton: { backgroundColor: '#c5f135', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-  saveButtonText: { color: '#111', fontSize: 18, fontWeight: 'bold' },
-  backButton: { marginTop: 20, alignItems: 'center' },
-  backButtonText: { color: '#888', fontSize: 14 },
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg.base,
+  },
+  scroll: {
+    padding: spacing.screen,
+    paddingBottom: spacing['2xl'],
+  },
+
+  // Header nav
+  header: {
+    marginBottom: spacing[4],
+    marginTop: spacing[2],
+  },
+  backBtn: {
+    alignSelf: 'flex-start',
+  },
+  backBtnText: {
+    color: colors.accent.text,
+    fontSize: typography.size.base,
+    fontWeight: '600',
+  },
+
+  // Page heading
+  pageTitle: {
+    ...typography.styles.h1,
+    marginBottom: spacing[1],
+  },
+  pageSubtitle: {
+    ...typography.styles.bodySmall,
+    color: colors.text.secondary,
+    marginBottom: spacing.xl,
+  },
+
+  // Side-by-side inputs
+  row: {
+    flexDirection: 'row',
+  },
+  halfInput: {
+    flex: 1,
+  },
+  halfRight: {
+    marginLeft: spacing[3],
+  },
+
+  // Multi-line input override
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+    paddingTop: spacing[3],
+  },
+
+  // Fitness level chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    marginTop: spacing[1],
+  },
+  chip: {
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: colors.bg.elevated,
+  },
+  chipActive: {
+    backgroundColor: colors.accent.muted,
+    borderColor: colors.accent.base,
+  },
+  chipText: {
+    color: colors.text.secondary,
+    fontSize: typography.size.sm,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: colors.accent.text,
+  },
+
+  saveBtn: {
+    marginBottom: spacing[3],
+  },
 });
