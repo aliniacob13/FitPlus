@@ -10,3 +10,8 @@ export type MainTabParamList = {
   Diet: undefined;
   Profile: undefined;
 };
+
+export type AppStackParamList = {
+  MainTabs: undefined;
+  UpdateProfile: undefined;
+};
