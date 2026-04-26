@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardTypeOptions } from "react-native";
 
 import { colors, spacing } from "@/constants/theme";
 
@@ -9,6 +10,8 @@ type InputProps = {
   placeholder?: string;
   secureTextEntry?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  keyboardType?: KeyboardTypeOptions;
+  multiline?: boolean;
 };
 
 export const Input = ({
@@ -18,17 +21,21 @@ export const Input = ({
   placeholder,
   secureTextEntry = false,
   autoCapitalize = "none",
+  keyboardType,
+  multiline = false,
 }: InputProps) => (
   <View style={styles.container}>
     <Text style={styles.label}>{label}</Text>
     <TextInput
-      style={styles.input}
+      style={[styles.input, multiline && styles.multiline]}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
       placeholderTextColor={colors.mutedText}
       secureTextEntry={secureTextEntry}
       autoCapitalize={autoCapitalize}
+      keyboardType={keyboardType}
+      multiline={multiline}
     />
   </View>
 );
@@ -49,5 +56,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     color: colors.text,
     paddingHorizontal: spacing.md,
+  },
+  multiline: {
+    minHeight: 100,
+    textAlignVertical: "top",
+    paddingTop: spacing.sm,
   },
 });
