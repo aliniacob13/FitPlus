@@ -93,6 +93,7 @@ For detailed diagrams (UML, component architecture, workflows), see the [Archite
 | [Task Distribution](docs/task_distribution.md)      | Overview of who does what — links to individual task sheets |
 | [Contributing & Git Workflow](docs/contributing.md) | Branch strategy, PR process, commit conventions |
 | [AI Tools Report](docs/ai_tools_report.md)          | How AI tools were used throughout development |
+| [pgAdmin Docker Setup](docs/pgadmin_docker_setup.md) | One-command setup for pgAdmin + DB access |
 
 ### Individual Task Sheets
 
