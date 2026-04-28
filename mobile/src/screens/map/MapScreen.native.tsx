@@ -192,26 +192,12 @@ export const MapScreen = () => {
 
     const lookup = async () => {
       try {
-        const dbGyms = await gymApi.getNearby({
-          latitude: selectedGym.latitude,
-          longitude: selectedGym.longitude,
-          radius_m: 300,
-        });
         if (cancelled) return;
 
-        const selectedName = selectedGym.name.toLowerCase();
-        const firstWord = (s: string) => s.split(/\s+/)[0];
-        const match = dbGyms.find((g) => {
-          const dbName = g.name.toLowerCase();
-          return selectedName.includes(firstWord(dbName)) || dbName.includes(firstWord(selectedName));
-        });
-
-        if (match) {
-          const detail = await gymApi.getDetailExtended(match.id);
-          if (!cancelled) {
-            setLinkedDbGym(detail);
-            initFavoriteState(match.id, detail.is_favorited);
-          }
+        const detail = await gymApi.resolvePlaceToDbGym(selectedGym.place_id);
+        if (!cancelled) {
+          setLinkedDbGym(detail);
+          initFavoriteState(detail.id, detail.is_favorited);
         }
       } catch {
         // No DB match — graceful no-op
