@@ -14,4 +14,5 @@ export type MainTabParamList = {
 export type AppStackParamList = {
   MainTabs: undefined;
   UpdateProfile: undefined;
+  FavoriteGyms: undefined;
 };
