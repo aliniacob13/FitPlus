@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from geoalchemy2 import Geometry
 from sqlalchemy import Float, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -32,6 +34,9 @@ class Gym(Base):
         # GIST index for fast spatial queries (ST_DWithin, ST_Distance, etc.)
         Index("ix_gyms_location_gist", "location", postgresql_using="gist"),
     )
+
+    reviews: Mapped[list[GymReview]] = relationship("GymReview", back_populates="gym", cascade="all, delete-orphan")
+    favorited_by: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="gym", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Gym id={self.id} name={self.name!r}>"

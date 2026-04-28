@@ -1,5 +1,6 @@
 import { AuthStack } from "@/navigation/AuthStack";
 import { MainTabs } from "@/navigation/MainTabs";
+import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
@@ -15,6 +16,7 @@ const AuthenticatedStack = () => (
   >
     <Stack.Screen name="MainTabs" component={MainTabs} />
     <Stack.Screen name="UpdateProfile" component={UpdateProfileScreen} />
+    <Stack.Screen name="FavoriteGyms" component={FavoriteGymsScreen} />
   </Stack.Navigator>
 );
 
