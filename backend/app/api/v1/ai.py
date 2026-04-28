@@ -17,7 +17,7 @@ from app.schemas.ai import (
     ConversationSummaryResponse,
     MessageResponse,
 )
-from app.services.llm_service import llm_service
+from app.services.llm_service import LLMProviderError, llm_service
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -159,7 +159,14 @@ async def _chat(
     history = await _get_recent_history(db, conversation.id)
     system_prompt = build_system_prompt(prompt_template, current_user)
     llm_messages = _build_llm_messages(history, payload.message)
-    assistant_response = await llm_service.generate(system_prompt, llm_messages)
+    try:
+        assistant_response = await llm_service.generate(system_prompt, llm_messages)
+    except LLMProviderError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"LLM provider error: {exc.message}",
+        ) from exc
 
     db.add(Message(conversation_id=conversation.id, role="user", content=payload.message))
     db.add(Message(conversation_id=conversation.id, role="assistant", content=assistant_response))
@@ -203,6 +210,9 @@ async def _chat_stream(
 
             yield {"event": "meta", "data": str(conversation.id)}
             yield {"event": "done", "data": "[DONE]"}
+        except LLMProviderError as exc:
+            await db.rollback()
+            yield {"event": "error", "data": f"LLM provider error: {exc.message}"}
         except Exception as exc:
             await db.rollback()
             yield {"event": "error", "data": str(exc)}

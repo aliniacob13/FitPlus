@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -29,4 +29,11 @@ class Conversation(Base):
         back_populates="conversation",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "agent_type IN ('workout', 'diet')",
+            name="ck_conversations_agent_type",
+        ),
     )

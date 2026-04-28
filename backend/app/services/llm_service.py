@@ -6,6 +6,13 @@ import httpx
 from app.core.config import settings
 
 
+class LLMProviderError(Exception):
+    def __init__(self, message: str, provider_status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.message = message
+        self.provider_status_code = provider_status_code
+
+
 class LLMService:
     def __init__(self) -> None:
         self.provider = settings.LLM_PROVIDER.lower()
@@ -46,12 +53,21 @@ class LLMService:
             "Content-Type": "application/json",
         }
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            response.raise_for_status()
+            try:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise LLMProviderError(
+                    self._extract_provider_error_message(exc.response),
+                    provider_status_code=exc.response.status_code,
+                ) from exc
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"OpenAI request failed: {exc}") from exc
+
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
 
@@ -71,12 +87,21 @@ class LLMService:
             "Content-Type": "application/json",
         }
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                json=payload,
-                headers=headers,
-            )
-            response.raise_for_status()
+            try:
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    json=payload,
+                    headers=headers,
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise LLMProviderError(
+                    self._extract_provider_error_message(exc.response),
+                    provider_status_code=exc.response.status_code,
+                ) from exc
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"Anthropic request failed: {exc}") from exc
+
             data = response.json()
             return "".join(block.get("text", "") for block in data.get("content", [])).strip()
 
@@ -98,26 +123,34 @@ class LLMService:
         }
 
         async with httpx.AsyncClient(timeout=60) as client:
-            async with client.stream(
-                "POST",
-                "https://api.openai.com/v1/chat/completions",
-                json=payload,
-                headers=headers,
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if not line or not line.startswith("data: "):
-                        continue
-                    chunk = line.removeprefix("data: ").strip()
-                    if chunk == "[DONE]":
-                        break
-                    try:
-                        data = json.loads(chunk)
-                    except json.JSONDecodeError:
-                        continue
-                    delta = data.get("choices", [{}])[0].get("delta", {}).get("content")
-                    if delta:
-                        yield delta
+            try:
+                async with client.stream(
+                    "POST",
+                    "https://api.openai.com/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        chunk = line.removeprefix("data: ").strip()
+                        if chunk == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(chunk)
+                        except json.JSONDecodeError:
+                            continue
+                        delta = data.get("choices", [{}])[0].get("delta", {}).get("content")
+                        if delta:
+                            yield delta
+            except httpx.HTTPStatusError as exc:
+                raise LLMProviderError(
+                    self._extract_provider_error_message(exc.response),
+                    provider_status_code=exc.response.status_code,
+                ) from exc
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"OpenAI stream request failed: {exc}") from exc
 
     async def _stream_anthropic(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
         if not settings.ANTHROPIC_API_KEY:
@@ -139,25 +172,33 @@ class LLMService:
         }
 
         async with httpx.AsyncClient(timeout=60) as client:
-            async with client.stream(
-                "POST",
-                "https://api.anthropic.com/v1/messages",
-                json=payload,
-                headers=headers,
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if not line or not line.startswith("data: "):
-                        continue
-                    chunk = line.removeprefix("data: ").strip()
-                    try:
-                        data = json.loads(chunk)
-                    except json.JSONDecodeError:
-                        continue
-                    if data.get("type") == "content_block_delta":
-                        text = data.get("delta", {}).get("text")
-                        if text:
-                            yield text
+            try:
+                async with client.stream(
+                    "POST",
+                    "https://api.anthropic.com/v1/messages",
+                    json=payload,
+                    headers=headers,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        chunk = line.removeprefix("data: ").strip()
+                        try:
+                            data = json.loads(chunk)
+                        except json.JSONDecodeError:
+                            continue
+                        if data.get("type") == "content_block_delta":
+                            text = data.get("delta", {}).get("text")
+                            if text:
+                                yield text
+            except httpx.HTTPStatusError as exc:
+                raise LLMProviderError(
+                    self._extract_provider_error_message(exc.response),
+                    provider_status_code=exc.response.status_code,
+                ) from exc
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"Anthropic stream request failed: {exc}") from exc
 
     async def _stream_fallback(self, messages: list[dict[str, str]]) -> AsyncIterator[str]:
         response = self._fallback_response(messages)
@@ -174,6 +215,25 @@ class LLMService:
             "LLM provider is not configured yet. "
             f"Received your message: {latest_user_message}"
         )
+
+    @staticmethod
+    def _extract_provider_error_message(response: httpx.Response) -> str:
+        try:
+            payload = response.json()
+        except ValueError:
+            return f"LLM provider request failed with status {response.status_code}."
+
+        if isinstance(payload, dict):
+            error = payload.get("error")
+            if isinstance(error, dict):
+                message = error.get("message")
+                if message:
+                    return str(message)
+            message = payload.get("message")
+            if message:
+                return str(message)
+
+        return f"LLM provider request failed with status {response.status_code}."
 
 
 llm_service = LLMService()

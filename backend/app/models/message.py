@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -25,3 +25,10 @@ class Message(Base):
     )
 
     conversation = relationship("Conversation", back_populates="messages")
+
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'assistant')",
+            name="ck_messages_role",
+        ),
+    )
