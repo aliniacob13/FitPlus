@@ -83,6 +83,7 @@ async def get_my_favorites(
             FavoriteGym.id.label("favorite_id"),
             FavoriteGym.gym_id,
             FavoriteGym.created_at,
+            Gym.place_id,
             Gym.name,
             Gym.address,
             Gym.image_url,

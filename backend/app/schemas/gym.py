@@ -16,6 +16,7 @@ class NearbyQueryParams(BaseModel):
 
 class GymResponse(BaseModel):
     id: int
+    place_id: str | None = None
     name: str
     address: str | None
     phone: str | None
@@ -56,6 +57,7 @@ class GymReviewResponse(BaseModel):
 class FavoriteGymResponse(BaseModel):
     favorite_id: int
     gym_id: int
+    place_id: str | None = None
     name: str
     address: str | None
     image_url: str | None
@@ -70,6 +72,7 @@ class FavoriteGymResponse(BaseModel):
 
 class GymDetailResponse(BaseModel):
     id: int
+    place_id: str | None = None
     name: str
     address: str | None
     phone: str | None

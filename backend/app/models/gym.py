@@ -12,6 +12,8 @@ class Gym(Base):
     __tablename__ = "gyms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    place_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True, index=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="seed")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)

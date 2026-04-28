@@ -2,6 +2,7 @@ import { api } from "@/services/api";
 
 export type NearbyGym = {
   id: number;
+  place_id?: string | null;
   name: string;
   address: string | null;
   phone: string | null;
@@ -19,6 +20,7 @@ export type NearbyGym = {
 
 export type GymDetail = {
   id: number;
+  place_id?: string | null;
   name: string;
   address: string | null;
   phone: string | null;
@@ -82,6 +84,10 @@ export const gymApi = {
   },
   getDetailExtended: async (gymId: number): Promise<GymDetailExtended> => {
     const { data } = await api.get<GymDetailExtended>(`/gyms/${gymId}`);
+    return data;
+  },
+  resolvePlaceToDbGym: async (placeId: string): Promise<GymDetailExtended> => {
+    const { data } = await api.post<GymDetailExtended>(`/gyms/resolve-place/${encodeURIComponent(placeId)}`);
     return data;
   },
   addReview: async (gymId: number, payload: { rating: number; comment?: string }): Promise<GymReview> => {
