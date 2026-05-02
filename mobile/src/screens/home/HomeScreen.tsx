@@ -1,5 +1,6 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -8,7 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { colors, spacing, typography } from "@/constants/theme";
+import { nutritionApi } from "@/services/nutritionApi";
 import { useAuthStore } from "@/store/authStore";
+import { todayString, useFoodDiaryStore } from "@/store/foodDiaryStore";
 import { useUserStore } from "@/store/userStore";
 import { AppStackParamList, MainTabParamList } from "@/types/navigation";
 
@@ -28,8 +31,37 @@ export const HomeScreen = () => {
   const navigation = useNavigation<HomeNav>();
   const profile = useUserStore((state) => state.profile);
   const logout = useAuthStore((state) => state.logout);
+  const dailyKcalTarget = useFoodDiaryStore((state) => state.dailyKcalTarget);
+  const hasCalorieTarget = useFoodDiaryStore((state) => state.hasCalorieTarget);
+  const diaryDate = useFoodDiaryStore((state) => state.date);
+  const diaryKcal = useFoodDiaryStore((state) => state.totals.kcal);
+  const [todayKcal, setTodayKcal] = useState(0);
 
   const displayName = profile?.name || profile?.email?.split("@")[0] || "Athlete";
+  const remainingKcal = useMemo(() => {
+    const target = dailyKcalTarget ?? 0;
+    return Math.max(target - todayKcal, 0);
+  }, [dailyKcalTarget, todayKcal]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadToday = async () => {
+        try {
+          const { data } = await nutritionApi.getFoodLog(todayString());
+          setTodayKcal(Math.round(data.totals.kcal));
+        } catch {
+          setTodayKcal(0);
+        }
+      };
+      void loadToday();
+    }, []),
+  );
+
+  useEffect(() => {
+    if (diaryDate === todayString()) {
+      setTodayKcal(Math.round(diaryKcal));
+    }
+  }, [diaryDate, diaryKcal]);
 
   return (
     <Screen>
@@ -54,11 +86,28 @@ export const HomeScreen = () => {
           </View>
         </Card>
 
+        <Card variant="elevated" title="Calories Today" padding="md">
+          <View style={styles.calorieStatsRow}>
+            <StatItem value={String(todayKcal)} label="Consumed" />
+            <View style={styles.statDivider} />
+            <StatItem value={hasCalorieTarget ? String(dailyKcalTarget ?? 0) : "—"} label="Target" />
+            <View style={styles.statDivider} />
+            <StatItem value={hasCalorieTarget ? String(remainingKcal) : "—"} label="Remaining" />
+          </View>
+        </Card>
+
         <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Button
+          label="Set Calorie Target"
+          onPress={() => navigation.navigate("CalorieTarget")}
+          variant="outline"
+          size="lg"
+          fullWidth
+        />
         <Button label="Start New Workout" onPress={() => navigation.navigate("Workout")} size="lg" fullWidth />
         <Button
-          label="Plan My Meals"
-          onPress={() => navigation.navigate("Diet")}
+          label="Food Diary"
+          onPress={() => navigation.navigate("FoodDiary")}
           variant="outline"
           size="lg"
           fullWidth
@@ -134,6 +183,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
     paddingVertical: spacing[2],
+  },
+  calorieStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: spacing[1],
   },
   statItem: {
     alignItems: "center",

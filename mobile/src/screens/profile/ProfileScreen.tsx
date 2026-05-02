@@ -130,6 +130,7 @@ export const ProfileScreen = () => {
 
         <Button label="Refresh profile" onPress={() => void fetchMe()} loading={loading} variant="outline" fullWidth />
         <Button label="Save profile" onPress={() => void handleSave()} loading={saving} fullWidth />
+        <Button label="Calorie Calculator" onPress={() => navigation.navigate("CalorieTarget")} variant="secondary" fullWidth />
         <Button label="Open full edit screen" onPress={() => navigation.navigate("UpdateProfile")} variant="secondary" fullWidth />
         <Button label="Logout" onPress={handleLogout} variant="danger" fullWidth />
       </ScrollView>

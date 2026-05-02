@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # Maps / Places
     GOOGLE_MAPS_API_KEY: str = ""
 
+    # Nutrition / Food search
+    # USDA FoodData Central API key — get a free key at https://fdc.nal.usda.gov/api-key-signup
+    # Falls back to "DEMO_KEY" (30 req/hr, 50 req/day) when left empty.
+    USDA_API_KEY: str = ""
+
     # Dev / seeding (disable in production)
     SEED_ENABLED: bool = False
     SEED_TOKEN: str = ""

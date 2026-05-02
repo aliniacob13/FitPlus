@@ -1,5 +1,8 @@
 import { AuthStack } from "@/navigation/AuthStack";
 import { MainTabs } from "@/navigation/MainTabs";
+import { AddFoodScreen } from "@/screens/nutrition/AddFoodScreen";
+import { CalorieTargetScreen } from "@/screens/nutrition/CalorieTargetScreen";
+import { FoodDiaryScreen } from "@/screens/nutrition/FoodDiaryScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
@@ -15,6 +18,9 @@ const AuthenticatedStack = () => (
   >
     <Stack.Screen name="MainTabs" component={MainTabs} />
     <Stack.Screen name="UpdateProfile" component={UpdateProfileScreen} />
+    <Stack.Screen name="CalorieTarget" component={CalorieTargetScreen} />
+    <Stack.Screen name="FoodDiary" component={FoodDiaryScreen} />
+    <Stack.Screen name="AddFood" component={AddFoodScreen} />
   </Stack.Navigator>
 );
 
