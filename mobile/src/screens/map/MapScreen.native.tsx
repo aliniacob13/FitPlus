@@ -1,14 +1,18 @@
 import * as Location from "expo-location";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
 
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { GymReviewForm } from "@/components/gym/GymReviewForm";
+import { GymReviewList } from "@/components/gym/GymReviewList";
 import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
-import { colors, spacing } from "@/constants/theme";
+import { colors, radius, spacing } from "@/constants/theme";
+import { GymDetailExtended, gymApi } from "@/services/gymApi";
 import { GeocodeResult, RealGymDetail, RealGymSummary, placesApi } from "@/services/placesApi";
+import { useGymStore } from "@/store/gymStore";
 
 const BUCHAREST = {
   latitude: 44.4268,
@@ -17,9 +21,12 @@ const BUCHAREST = {
   longitudeDelta: 0.12,
 };
 const CITY_RADIUS_M = 25_000;
+const RATING_OPTIONS = [0, 3.0, 3.5, 4.0, 4.5] as const;
 
 export const MapScreen = () => {
   const mapRef = useRef<MapView | null>(null);
+  const heartScale = useRef(new Animated.Value(1)).current;
+
   const [region, setRegion] = useState<Region>(BUCHAREST);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [cityName, setCityName] = useState<string>("Bucuresti");
@@ -33,15 +40,47 @@ export const MapScreen = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nearestGyms = useMemo(() => nearbyGyms.slice(0, 5), [nearbyGyms]);
+  // Filter state
+  const [minRating, setMinRating] = useState(0);
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [favoritePlaceIds, setFavoritePlaceIds] = useState<Set<string>>(new Set());
+
+  // DB gym linking for reviews + DB favorites
+  const [linkedDbGym, setLinkedDbGym] = useState<GymDetailExtended | null>(null);
+  const [loadingDbGym, setLoadingDbGym] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+
+  const favoriteDbIds = useGymStore((s) => s.favoriteGymIds);
+  const toggleDbFavorite = useGymStore((s) => s.toggleFavorite);
+  const initFavoriteState = useGymStore((s) => s.initFavoriteState);
+
+  // ── Derived / filtered data ───────────────────────────────────────────────
+
+  const filteredNearbyGyms = useMemo(
+    () =>
+      nearbyGyms.filter((gym) => {
+        if (minRating > 0) {
+          if (gym.rating == null) return false;
+          if (gym.rating < minRating) return false;
+        }
+        if (onlyFavorites && !favoritePlaceIds.has(gym.place_id)) return false;
+        return true;
+      }),
+    [nearbyGyms, minRating, onlyFavorites, favoritePlaceIds],
+  );
+
+  const nearestGyms = useMemo(() => filteredNearbyGyms.slice(0, 5), [filteredNearbyGyms]);
+
+  const isGymFavorited = useMemo(() => {
+    if (!selectedGym) return false;
+    if (linkedDbGym !== null) return favoriteDbIds.has(linkedDbGym.id);
+    return favoritePlaceIds.has(selectedGym.place_id);
+  }, [selectedGym, linkedDbGym, favoriteDbIds, favoritePlaceIds]);
+
+  // ── Map helpers ───────────────────────────────────────────────────────────
 
   const centerMap = (latitude: number, longitude: number) => {
-    const nextRegion: Region = {
-      latitude,
-      longitude,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
-    };
+    const nextRegion: Region = { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
     setRegion(nextRegion);
     mapRef.current?.animateToRegion(nextRegion, 500);
   };
@@ -55,20 +94,13 @@ export const MapScreen = () => {
         setError("Permisiunea de locatie a fost refuzata. Folosim zona default.");
         return null;
       }
-
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const coords = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
+      const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
       setUserLocation(coords);
       centerMap(coords.latitude, coords.longitude);
-
       const geocode = await Location.reverseGeocodeAsync(coords);
       const city = geocode[0]?.city ?? geocode[0]?.subregion ?? geocode[0]?.region;
-      if (city) {
-        setCityName(city);
-      }
+      if (city) setCityName(city);
       return coords;
     } catch {
       setError("Nu am putut determina locatia curenta.");
@@ -84,15 +116,9 @@ export const MapScreen = () => {
     try {
       const refLat = reference?.latitude ?? userLocation?.latitude ?? region.latitude;
       const refLng = reference?.longitude ?? userLocation?.longitude ?? region.longitude;
-      const gyms = await placesApi.searchNearbyGyms({
-        latitude: refLat,
-        longitude: refLng,
-        radius_m: CITY_RADIUS_M,
-      });
+      const gyms = await placesApi.searchNearbyGyms({ latitude: refLat, longitude: refLng, radius_m: CITY_RADIUS_M });
       setNearbyGyms(gyms);
-      if (!gyms.length) {
-        setError(`Nu am gasit sali in aria selectata pentru ${cityName}.`);
-      }
+      if (!gyms.length) setError(`Nu am gasit sali in aria selectata pentru ${cityName}.`);
     } catch {
       setError("Nu am putut incarca salile din apropiere.");
     } finally {
@@ -116,28 +142,19 @@ export const MapScreen = () => {
   };
 
   const recenterOnUser = () => {
-    if (!userLocation) {
-      setError("Locatia utilizatorului nu este disponibila inca.");
-      return;
-    }
+    if (!userLocation) { setError("Locatia utilizatorului nu este disponibila inca."); return; }
     centerMap(userLocation.latitude, userLocation.longitude);
   };
 
   const useManualLocation = async () => {
     const query = manualLocation.trim();
-    if (!query) {
-      setError("Introdu un oras sau o adresa.");
-      return;
-    }
+    if (!query) { setError("Introdu un oras sau o adresa."); return; }
     setLoadingManualLocation(true);
     setError(null);
     try {
       const geocoded: GeocodeResult = await placesApi.geocode(query);
-      if (geocoded.city) {
-        setCityName(geocoded.city);
-      } else {
-        setCityName(geocoded.formatted_address);
-      }
+      if (geocoded.city) setCityName(geocoded.city);
+      else setCityName(geocoded.formatted_address);
       centerMap(geocoded.latitude, geocoded.longitude);
       await loadNearby({ latitude: geocoded.latitude, longitude: geocoded.longitude });
     } catch {
@@ -148,38 +165,115 @@ export const MapScreen = () => {
   };
 
   const openWebsite = () => {
-    if (!selectedGym?.website) {
-      return;
-    }
+    if (!selectedGym?.website) return;
     void Linking.openURL(selectedGym.website);
   };
 
   const openDirections = (mode: "walking" | "driving" | "transit") => {
-    if (!selectedGym) {
-      return;
-    }
+    if (!selectedGym) return;
     const origin = userLocation
       ? `${userLocation.latitude},${userLocation.longitude}`
       : `${region.latitude},${region.longitude}`;
     const destination = `${selectedGym.latitude},${selectedGym.longitude}`;
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=${mode}`;
-    void Linking.openURL(url);
+    void Linking.openURL(
+      `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=${mode}`,
+    );
   };
+
+  // ── DB gym lookup (for reviews + DB favorites) ────────────────────────────
+
+  useEffect(() => {
+    if (!selectedGym) {
+      setLinkedDbGym(null);
+      setShowReviewForm(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingDbGym(true);
+    setLinkedDbGym(null);
+    setShowReviewForm(false);
+
+    const lookup = async () => {
+      try {
+        if (cancelled) return;
+
+        const detail = await gymApi.resolvePlaceToDbGym(selectedGym.place_id, {
+          name: selectedGym.name,
+          address: selectedGym.address,
+          latitude: selectedGym.latitude,
+          longitude: selectedGym.longitude,
+          rating: selectedGym.rating,
+          image_url: selectedGym.photo_urls?.[0] ?? null,
+        });
+        if (!cancelled) {
+          setLinkedDbGym(detail);
+          initFavoriteState(detail.id, detail.is_favorited);
+        }
+      } catch {
+        // graceful no-op — section will show unavailable message
+      } finally {
+        if (!cancelled) setLoadingDbGym(false);
+      }
+    };
+
+    void lookup();
+    return () => { cancelled = true; };
+  }, [selectedGym]);
+
+  // ── Heart / favorite helpers ──────────────────────────────────────────────
+
+  const animateHeart = () => {
+    Animated.sequence([
+      Animated.timing(heartScale, { toValue: 1.45, duration: 100, useNativeDriver: true }),
+      Animated.timing(heartScale, { toValue: 1.0, duration: 150, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const handleHeartToggle = async () => {
+    if (!selectedGym) return;
+    animateHeart();
+
+    setFavoritePlaceIds((prev) => {
+      const next = new Set(prev);
+      prev.has(selectedGym.place_id) ? next.delete(selectedGym.place_id) : next.add(selectedGym.place_id);
+      return next;
+    });
+
+    if (linkedDbGym !== null) {
+      const success = await toggleDbFavorite(linkedDbGym.id);
+      if (!success) {
+        Alert.alert("Eroare", "Nu s-a putut actualiza favoritul. Incearca din nou.");
+        setFavoritePlaceIds((prev) => {
+          const next = new Set(prev);
+          prev.has(selectedGym.place_id) ? next.add(selectedGym.place_id) : next.delete(selectedGym.place_id);
+          return next;
+        });
+      }
+    }
+  };
+
+  const refreshLinkedDbGym = () => {
+    if (!linkedDbGym) return;
+    gymApi
+      .getDetailExtended(linkedDbGym.id)
+      .then((detail) => setLinkedDbGym(detail))
+      .catch(() => {});
+  };
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     let mounted = true;
     const bootstrapMap = async () => {
       const coords = await loadLocation();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       await loadNearby(coords ?? undefined);
     };
     void bootstrapMap();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Screen padded={false}>
@@ -198,7 +292,32 @@ export const MapScreen = () => {
           <Button label="Recenter" onPress={recenterOnUser} />
           <Button label="Sali in zona hartii" onPress={() => void loadNearby()} loading={loadingNearby} />
         </View>
+
+        {/* ── Filter row ── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
+          <Text style={styles.filterLabel}>Min ★:</Text>
+          {RATING_OPTIONS.map((n) => (
+            <Pressable
+              key={n}
+              onPress={() => setMinRating(n)}
+              style={[styles.chip, minRating === n && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, minRating === n && styles.chipTextActive]}>
+                {n === 0 ? "Any" : `${n}+`}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => setOnlyFavorites((v) => !v)}
+            style={[styles.chip, styles.chipFav, onlyFavorites && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, onlyFavorites && styles.chipTextActive]}>
+              {onlyFavorites ? "♥ Favs only" : "♡ Favs only"}
+            </Text>
+          </Pressable>
+        </ScrollView>
       </View>
+
       {error ? (
         <View style={styles.errorWrap}>
           <ErrorState message={error} />
@@ -215,13 +334,13 @@ export const MapScreen = () => {
       >
         {userLocation ? (
           <Marker
-            coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+            coordinate={userLocation}
             pinColor="#2563EB"
             title="Locatia ta"
             description="Acesta este punctul tau curent"
           />
         ) : null}
-        {nearbyGyms.map((gym) => (
+        {filteredNearbyGyms.map((gym) => (
           <Marker
             key={gym.place_id}
             coordinate={{ latitude: gym.latitude, longitude: gym.longitude }}
@@ -238,17 +357,17 @@ export const MapScreen = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {nearestGyms.map((gym) => (
             <Pressable key={gym.place_id} style={styles.nearestCard} onPress={() => void openDetail(gym)}>
-              <Text style={styles.nearestName} numberOfLines={1}>
-                {gym.name}
-              </Text>
+              <Text style={styles.nearestName} numberOfLines={1}>{gym.name}</Text>
               <Text style={styles.nearestMeta}>
-                {gym.distance_m ? `${(gym.distance_m / 1000).toFixed(2)} km` : "N/A"} {gym.rating ? `| ${gym.rating.toFixed(1)}★` : ""}
+                {gym.distance_m ? `${(gym.distance_m / 1000).toFixed(2)} km` : "N/A"}{" "}
+                {gym.rating ? `| ${gym.rating.toFixed(1)}★` : ""}
               </Text>
             </Pressable>
           ))}
         </ScrollView>
       </View>
 
+      {/* ── Gym detail modal ── */}
       <Modal visible={Boolean(selectedGym)} transparent animationType="slide" onRequestClose={() => setSelectedGym(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -256,12 +375,21 @@ export const MapScreen = () => {
               {loadingDetail ? <Text style={styles.meta}>Se incarca...</Text> : null}
               {selectedGym ? (
                 <>
+                  {/* Header row: title + heart + close */}
                   <View style={styles.row}>
                     <Text style={styles.modalTitle}>{selectedGym.name}</Text>
+                    <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                      <Pressable onPress={() => void handleHeartToggle()} style={styles.heartBtn} hitSlop={8}>
+                        <Text style={[styles.heartText, isGymFavorited && styles.heartTextActive]}>
+                          {isGymFavorited ? "♥" : "♡"}
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
                     <Pressable onPress={() => setSelectedGym(null)}>
                       <Text style={styles.close}>Inchide</Text>
                     </Pressable>
                   </View>
+
                   {selectedGym.photo_urls[0] ? (
                     <Image source={{ uri: selectedGym.photo_urls[0] }} style={styles.heroImage} resizeMode="cover" />
                   ) : null}
@@ -282,12 +410,39 @@ export const MapScreen = () => {
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>Program</Text>
                       {selectedGym.opening_hours.map((line) => (
-                        <Text key={line} style={styles.meta}>
-                          {line}
-                        </Text>
+                        <Text key={line} style={styles.meta}>{line}</Text>
                       ))}
                     </View>
                   ) : null}
+
+                  {/* ── Reviews section (linked DB gym) ── */}
+                  {loadingDbGym ? (
+                    <Text style={styles.meta}>Se incarca recenzii...</Text>
+                  ) : !linkedDbGym ? (
+                    <Text style={styles.meta}>Recenziile si favoritele nu sunt disponibile pentru aceasta sala.</Text>
+                  ) : (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Recenzii</Text>
+                      <GymReviewList
+                        reviews={linkedDbGym.reviews}
+                        averageRating={linkedDbGym.average_rating}
+                      />
+                      {showReviewForm ? (
+                        <GymReviewForm
+                          gymId={linkedDbGym.id}
+                          onSuccess={() => {
+                            setShowReviewForm(false);
+                            refreshLinkedDbGym();
+                          }}
+                        />
+                      ) : (
+                        <Pressable onPress={() => setShowReviewForm(true)} style={styles.addReviewBtn}>
+                          <Text style={styles.addReviewLabel}>+ Adauga recenzie</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+
                   <Text style={styles.hint}>
                     Echipamente si preturi detaliate pot varia pe Google Places; unde exista, le putem adauga in urmatorul pas.
                   </Text>
@@ -318,6 +473,42 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
+  },
+  filterScroll: {
+    flexGrow: 0,
+  },
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing[1],
+  },
+  filterLabel: {
+    color: colors.mutedText,
+    fontSize: 13,
+    marginRight: spacing.xs,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.chip,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+  },
+  chipFav: {
+    marginLeft: spacing.xs,
+  },
+  chipActive: {
+    borderColor: colors.accent.base,
+    backgroundColor: colors.accent.muted,
+  },
+  chipText: {
+    color: colors.mutedText,
+    fontSize: 13,
+  },
+  chipTextActive: {
+    color: colors.accent.base,
+    fontWeight: "700",
   },
   errorWrap: {
     paddingHorizontal: spacing.md,
@@ -373,7 +564,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.border,
     paddingTop: spacing.sm,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   sectionTitle: {
     color: colors.text,
@@ -394,7 +585,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     gap: spacing.sm,
-    maxHeight: "70%",
+    maxHeight: "75%",
   },
   modalContent: {
     gap: spacing.sm,
@@ -410,6 +601,16 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: "700",
   },
+  heartBtn: {
+    padding: spacing[1],
+  },
+  heartText: {
+    fontSize: 24,
+    color: colors.border,
+  },
+  heartTextActive: {
+    color: "#EF4444",
+  },
   meta: {
     color: colors.mutedText,
   },
@@ -417,5 +618,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     alignItems: "center",
+  },
+  addReviewBtn: {
+    borderWidth: 1,
+    borderColor: colors.accent.base,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+  },
+  addReviewLabel: {
+    color: colors.accent.base,
+    fontWeight: "700",
+    fontSize: 14,
   },
 });
