@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -15,7 +15,7 @@ import { useGymStore } from "@/store/gymStore";
 
 const BUCHAREST = { latitude: 44.4268, longitude: 26.1025 };
 const CITY_RADIUS_M = 25_000;
-const RATING_OPTIONS = [0, 1, 2, 3, 4, 5] as const;
+const RATING_OPTIONS = [0, 3.0, 3.5, 4.0, 4.5] as const;
 
 const openMaps = (gym: { name: string; latitude: number; longitude: number }) => {
   const query = encodeURIComponent(`${gym.name} ${gym.latitude},${gym.longitude}`);
@@ -61,7 +61,10 @@ export const MapScreen = () => {
   const filteredNearbyGyms = useMemo(
     () =>
       nearbyGyms.filter((gym) => {
-        if (minRating > 0 && (gym.rating ?? 0) < minRating) return false;
+        if (minRating > 0) {
+          if (gym.rating == null) return false;
+          if (gym.rating < minRating) return false;
+        }
         if (onlyFavorites && !favoritePlaceIds.has(gym.place_id)) return false;
         return true;
       }),
@@ -110,7 +113,14 @@ export const MapScreen = () => {
     setShowReviewForm(false);
 
     gymApi
-      .resolvePlaceToDbGym(selectedGym.place_id)
+      .resolvePlaceToDbGym(selectedGym.place_id, {
+        name: selectedGym.name,
+        address: selectedGym.address,
+        latitude: selectedGym.latitude,
+        longitude: selectedGym.longitude,
+        rating: selectedGym.rating,
+        image_url: selectedGym.photo_urls?.[0] ?? null,
+      })
       .then((detail) => {
         if (!cancelled) {
           setLinkedDbGym(detail);
@@ -194,7 +204,7 @@ export const MapScreen = () => {
     ]).start();
   };
 
-  const handleHeartToggle = () => {
+  const handleHeartToggle = async () => {
     if (!selectedGym) return;
     animateHeart();
     setFavoritePlaceIds((prev) => {
@@ -203,7 +213,15 @@ export const MapScreen = () => {
       return next;
     });
     if (linkedDbGym !== null) {
-      void toggleDbFavorite(linkedDbGym.id);
+      const success = await toggleDbFavorite(linkedDbGym.id);
+      if (!success) {
+        Alert.alert("Eroare", "Nu s-a putut actualiza favoritul. Incearca din nou.");
+        setFavoritePlaceIds((prev) => {
+          const next = new Set(prev);
+          prev.has(selectedGym.place_id) ? next.add(selectedGym.place_id) : next.delete(selectedGym.place_id);
+          return next;
+        });
+      }
     }
   };
 
@@ -250,7 +268,7 @@ export const MapScreen = () => {
                 style={[styles.chip, minRating === n && styles.chipActive]}
               >
                 <Text style={[styles.chipText, minRating === n && styles.chipTextActive]}>
-                  {n === 0 ? "Any" : `${n}★`}
+                  {n === 0 ? "Any" : `${n}+`}
                 </Text>
               </Pressable>
             ))}
@@ -316,7 +334,7 @@ export const MapScreen = () => {
                   <View style={styles.row}>
                     <Text style={styles.modalTitle}>{selectedGym.name}</Text>
                     <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                      <Pressable onPress={handleHeartToggle} style={styles.heartBtn} hitSlop={8}>
+                      <Pressable onPress={() => void handleHeartToggle()} style={styles.heartBtn} hitSlop={8}>
                         <Text style={[styles.heartText, isGymFavorited && styles.heartTextActive]}>
                           {isGymFavorited ? "♥" : "♡"}
                         </Text>
@@ -354,7 +372,9 @@ export const MapScreen = () => {
                   {/* ── Reviews section ── */}
                   {loadingDbGym ? (
                     <Text style={styles.meta}>Se incarca recenzii...</Text>
-                  ) : linkedDbGym ? (
+                  ) : !linkedDbGym ? (
+                    <Text style={styles.meta}>Recenziile si favoritele nu sunt disponibile pentru aceasta sala.</Text>
+                  ) : (
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>Recenzii</Text>
                       <GymReviewList
@@ -375,7 +395,7 @@ export const MapScreen = () => {
                         </Pressable>
                       )}
                     </View>
-                  ) : null}
+                  )}
                 </>
               ) : null}
             </ScrollView>

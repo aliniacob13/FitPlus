@@ -7,7 +7,7 @@ type GymStoreState = {
   favoriteGymIds: Set<number>;
   isFetching: boolean;
   fetchFavorites: () => Promise<void>;
-  toggleFavorite: (gymId: number) => Promise<void>;
+  toggleFavorite: (gymId: number) => Promise<boolean>;
   initFavoriteState: (gymId: number, isFavorited: boolean) => void;
 };
 
@@ -31,7 +31,7 @@ export const useGymStore = create<GymStoreState>((set, get) => ({
     }
   },
 
-  toggleFavorite: async (gymId: number) => {
+  toggleFavorite: async (gymId: number): Promise<boolean> => {
     const wasIn = get().favoriteGymIds.has(gymId);
 
     // Optimistic update
@@ -43,8 +43,8 @@ export const useGymStore = create<GymStoreState>((set, get) => ({
 
     try {
       await gymApi.toggleFavorite(gymId);
-      // Refresh favorites list to keep it consistent
       get().fetchFavorites().catch(() => {});
+      return true;
     } catch {
       // Revert on failure
       set((state) => {
@@ -52,6 +52,7 @@ export const useGymStore = create<GymStoreState>((set, get) => ({
         wasIn ? next.add(gymId) : next.delete(gymId);
         return { favoriteGymIds: next };
       });
+      return false;
     }
   },
 

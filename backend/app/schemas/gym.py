@@ -68,6 +68,17 @@ class FavoriteGymResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Resolve payload (fallback gym data sent from mobile) ─────────────────────
+
+class GymResolvePayload(BaseModel):
+    name: str = Field(..., min_length=1, max_length=500)
+    address: str | None = None
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+    longitude: float = Field(..., ge=-180.0, le=180.0)
+    rating: float | None = None
+    image_url: str | None = None
+
+
 # ── Gym detail (enriched with reviews + favorite state) ──────────────────────
 
 class GymDetailResponse(BaseModel):

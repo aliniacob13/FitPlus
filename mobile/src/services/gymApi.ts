@@ -67,6 +67,15 @@ export type GymDetailExtended = GymDetail & {
   is_favorited: boolean;
 };
 
+export type GymResolveData = {
+  name: string;
+  address?: string | null;
+  latitude: number;
+  longitude: number;
+  rating?: number | null;
+  image_url?: string | null;
+};
+
 type NearbyParams = {
   latitude: number;
   longitude: number;
@@ -86,8 +95,11 @@ export const gymApi = {
     const { data } = await api.get<GymDetailExtended>(`/gyms/${gymId}`);
     return data;
   },
-  resolvePlaceToDbGym: async (placeId: string): Promise<GymDetailExtended> => {
-    const { data } = await api.post<GymDetailExtended>(`/gyms/resolve-place/${encodeURIComponent(placeId)}`);
+  resolvePlaceToDbGym: async (placeId: string, gymData?: GymResolveData): Promise<GymDetailExtended> => {
+    const { data } = await api.post<GymDetailExtended>(
+      `/gyms/resolve-place/${encodeURIComponent(placeId)}`,
+      gymData ?? null,
+    );
     return data;
   },
   addReview: async (gymId: number, payload: { rating: number; comment?: string }): Promise<GymReview> => {

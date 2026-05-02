@@ -18,6 +18,7 @@ from app.schemas.gym import (
     FavoriteGymResponse,
     GymDetailResponse,
     GymResponse,
+    GymResolvePayload,
     GymReviewCreate,
     GymReviewResponse,
 )
@@ -123,29 +124,27 @@ async def _upsert_gym_from_place(
     return gym
 
 
-async def _resolve_db_gym_by_place_id(place_id: str, db: AsyncSession) -> Gym:
-    local_id = _extract_local_id(place_id)
-    if local_id is not None:
-        gym = await db.get(Gym, local_id)
-        if not gym:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
-        return gym
-
+async def _upsert_gym_from_payload(
+    db: AsyncSession,
+    place_id: str,
+    payload: "GymResolvePayload",
+) -> Gym:
     gym = await db.scalar(select(Gym).where(Gym.place_id == place_id))
     if gym:
         return gym
-
-    if not google_places_service.is_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Gym not found in local database and Google Places is disabled.",
-        )
-
-    place = await google_places_service.get_place_details(place_id)
-    if not place:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found in Google Places.")
-
-    return await _upsert_gym_from_place(db, place_id, place)
+    gym = Gym(
+        place_id=place_id,
+        source="google_places",
+        name=payload.name,
+        address=payload.address,
+        rating=payload.rating,
+        image_url=payload.image_url,
+        location=f"SRID=4326;POINT ({payload.longitude} {payload.latitude})",
+    )
+    db.add(gym)
+    await db.commit()
+    await db.refresh(gym)
+    return gym
 
 
 # ── Nearby gyms ───────────────────────────────────────────────────────────────
@@ -268,10 +267,38 @@ async def get_gym_detail(
 @router.post("/resolve-place/{place_id}", response_model=GymDetailResponse)
 async def resolve_place_to_db_gym(
     place_id: str,
+    payload: GymResolvePayload | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(_get_current_user_optional),
 ) -> GymDetailResponse:
-    gym = await _resolve_db_gym_by_place_id(place_id, db)
+    gym: Gym | None = None
+
+    # Step 1: local_ prefix → look up directly by DB id
+    local_id = _extract_local_id(place_id)
+    if local_id is not None:
+        gym = await db.get(Gym, local_id)
+        if not gym:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
+    else:
+        # Step 2: check DB by place_id, then try Google Places
+        gym = await db.scalar(select(Gym).where(Gym.place_id == place_id))
+        if gym is None and google_places_service.is_enabled:
+            try:
+                place = await google_places_service.get_place_details(place_id)
+                if place:
+                    gym = await _upsert_gym_from_place(db, place_id, place)
+            except Exception:
+                pass
+
+        # Step 3: fallback — upsert from the basic data the mobile already has
+        if gym is None and payload is not None:
+            gym = await _upsert_gym_from_payload(db, place_id, payload)
+
+    if gym is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Gym not found and no fallback data provided.",
+        )
 
     stmt = (
         select(
