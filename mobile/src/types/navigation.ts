@@ -17,4 +17,6 @@ export type AppStackParamList = {
   CalorieTarget: undefined;
   FoodDiary: undefined;
   AddFood: { date: string };
+  LabelScan: { date: string };
+  PlateCoach: { date: string };
 };

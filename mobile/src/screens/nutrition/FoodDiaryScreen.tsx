@@ -184,6 +184,12 @@ export const FoodDiaryScreen = () => {
           disabled={!hasCalorieTarget}
           fullWidth
         />
+        <Button
+          label="Analyze Plate"
+          onPress={() => navigation.navigate("PlateCoach", { date })}
+          variant="ghost"
+          fullWidth
+        />
 
         {/* Entry list */}
         {loading ? (

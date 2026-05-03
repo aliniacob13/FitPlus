@@ -33,7 +33,7 @@ class FoodLogEntry(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "source IN ('manual', 'search', 'barcode', 'plate')",
+            "source IN ('manual', 'search', 'barcode', 'plate', 'label_scan')",
             name="ck_food_log_entries_source",
         ),
     )

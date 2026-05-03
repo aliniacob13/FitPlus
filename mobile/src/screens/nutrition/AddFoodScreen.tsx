@@ -20,6 +20,7 @@ import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { FoodSearchResultItem } from "@/services/nutritionApi";
 import { nutritionApi } from "@/services/nutritionApi";
 import { useFoodDiaryStore } from "@/store/foodDiaryStore";
+import { formatApiError } from "@/utils/apiErrors";
 import { AppStackParamList } from "@/types/navigation";
 
 type NavProp = NativeStackNavigationProp<AppStackParamList, "AddFood">;
@@ -71,8 +72,8 @@ export const AddFoodScreen = () => {
       const { data } = await nutritionApi.searchFoods(query.trim());
       setResults(data);
       if (data.length === 0) setSearchError("No results found. Try a different term.");
-    } catch {
-      setSearchError("Search failed. Check your connection and try again.");
+    } catch (err) {
+      setSearchError(formatApiError(err, "Search failed."));
     } finally {
       setSearching(false);
     }
@@ -133,6 +134,14 @@ export const AddFoodScreen = () => {
             </Pressable>
           ))}
         </View>
+
+        {/* Label scan shortcut */}
+        <TouchableOpacity
+          style={styles.scanShortcut}
+          onPress={() => navigation.navigate("LabelScan", { date })}
+        >
+          <Text style={styles.scanShortcutText}>Scan Nutrition Label</Text>
+        </TouchableOpacity>
 
         {mode === "search" ? (
           <>
@@ -316,6 +325,19 @@ const styles = StyleSheet.create({
   },
   modeChipLabelActive: {
     color: colors.accent.base,
+  },
+  scanShortcut: {
+    borderWidth: 1,
+    borderColor: colors.accent.base,
+    borderRadius: radius.md,
+    paddingVertical: spacing[2],
+    alignItems: "center",
+    backgroundColor: colors.bg.elevated,
+  },
+  scanShortcutText: {
+    color: colors.accent.base,
+    fontWeight: "600",
+    fontSize: typography.size.sm,
   },
   searchRow: {
     flexDirection: "row",

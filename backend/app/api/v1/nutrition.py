@@ -1,6 +1,6 @@
-from datetime import date as DateType
+from datetime import UTC, date as DateType, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,11 +16,13 @@ from app.schemas.nutrition import (
     FoodLogEntryResponse,
     FoodPer100g,
     FoodSearchResultItem,
+    LabelScanResponse,
     MacrosSuggestion,
     NutritionTargetRequest,
     NutritionTargetResponse,
 )
 from app.services.nutrition import compute_bmr, compute_macros, compute_target_calories, compute_tdee
+from app.services.ocr import extract_text, parse_nutrition_label
 from app.services.usda import USDAServiceError, search_foods
 
 router = APIRouter(tags=["Nutrition"])
@@ -32,12 +34,19 @@ router = APIRouter(tags=["Nutrition"])
 @router.post("/users/me/nutrition-targets/compute", response_model=NutritionTargetResponse)
 async def compute_nutrition_targets(
     payload: NutritionTargetRequest,
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> NutritionTargetResponse:
     bmr = compute_bmr(payload.sex, payload.age, payload.weight_kg, payload.height_cm)
     tdee = compute_tdee(bmr, payload.activity_level)
     target_calories = compute_target_calories(tdee, payload.goal, payload.weekly_rate_kg)
     protein_g, carbs_g, fat_g = compute_macros(payload.weight_kg, target_calories)
+
+    current_user.daily_calorie_target = float(target_calories)
+    current_user.nutrition_target_updated_at = datetime.now(UTC)
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
 
     return NutritionTargetResponse(
         bmr=bmr,
@@ -138,6 +147,50 @@ async def get_food_log(
         date=date,
         entries=[FoodLogEntryResponse.model_validate(e) for e in entries],
         totals=totals,
+    )
+
+
+# ── Phase 3 — Label scan ────────────────────────────────────────────────────
+
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+
+@router.post("/nutrition/label-scan", response_model=LabelScanResponse)
+async def label_scan(
+    image: UploadFile = File(...),
+    _current_user: User = Depends(get_current_user),
+) -> LabelScanResponse:
+    if image.content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported type '{image.content_type}'. Send JPEG, PNG, or WebP.",
+        )
+    data = await image.read()
+    max_mb = settings.NUTRITION_LABEL_SCAN_MAX_IMAGE_MB
+    if max_mb > 0:
+        max_bytes = max_mb * 1024 * 1024
+        if len(data) > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Image must be under {max_mb} MB.",
+            )
+    try:
+        text = extract_text(data)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    result = parse_nutrition_label(text)
+    return LabelScanResponse(
+        kcal=result.kcal,
+        fat_g=result.fat_g,
+        carbs_g=result.carbs_g,
+        protein_g=result.protein_g,
+        serving_size_g=result.serving_size_g,
+        per_100g=result.per_100g,
+        confidence=result.confidence,
     )
 
 

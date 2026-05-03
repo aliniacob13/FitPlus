@@ -59,7 +59,7 @@ class FoodLogCreateRequest(BaseModel):
     protein_g: float = Field(ge=0)
     carbs_g: float = Field(ge=0)
     fat_g: float = Field(ge=0)
-    source: Literal["manual", "search", "barcode", "plate"] = "manual"
+    source: Literal["manual", "search", "barcode", "plate", "label_scan"] = "manual"
     external_id: str | None = None
 
 
@@ -89,3 +89,16 @@ class FoodLogDayResponse(BaseModel):
     date: date
     entries: list[FoodLogEntryResponse]
     totals: DailyTotals
+
+
+# ── Phase 3 — Label scan ─────────────────────────────────────────────────────
+
+
+class LabelScanResponse(BaseModel):
+    kcal: float | None = None
+    fat_g: float | None = None
+    carbs_g: float | None = None
+    protein_g: float | None = None
+    serving_size_g: float | None = None
+    per_100g: bool = False
+    confidence: float  # 0.0 – 1.0; fraction of macro fields successfully parsed

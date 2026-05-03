@@ -18,6 +18,7 @@ import {
 import { useFoodDiaryStore } from "@/store/foodDiaryStore";
 import { useUserStore } from "@/store/userStore";
 import { AppStackParamList } from "@/types/navigation";
+import { formatApiError } from "@/utils/apiErrors";
 
 type NavProp = NativeStackNavigationProp<AppStackParamList, "CalorieTarget">;
 
@@ -149,8 +150,8 @@ export const CalorieTargetScreen = () => {
       });
       setResult(data);
       setDailyKcalTarget(data.target_calories);
-    } catch {
-      setError("Could not compute targets. Check your values and try again.");
+    } catch (err) {
+      setError(formatApiError(err, "Could not compute targets."));
     } finally {
       setLoading(false);
     }

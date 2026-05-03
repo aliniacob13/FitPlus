@@ -3,6 +3,8 @@ import { MainTabs } from "@/navigation/MainTabs";
 import { AddFoodScreen } from "@/screens/nutrition/AddFoodScreen";
 import { CalorieTargetScreen } from "@/screens/nutrition/CalorieTargetScreen";
 import { FoodDiaryScreen } from "@/screens/nutrition/FoodDiaryScreen";
+import { LabelScanScreen } from "@/screens/nutrition/LabelScanScreen";
+import { PlateCoachScreen } from "@/screens/nutrition/PlateCoachScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
@@ -21,6 +23,8 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="CalorieTarget" component={CalorieTargetScreen} />
     <Stack.Screen name="FoodDiary" component={FoodDiaryScreen} />
     <Stack.Screen name="AddFood" component={AddFoodScreen} />
+    <Stack.Screen name="LabelScan" component={LabelScanScreen} />
+    <Stack.Screen name="PlateCoach" component={PlateCoachScreen} />
   </Stack.Navigator>
 );
 

@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { nutritionApi } from "@/services/nutritionApi";
 import type { DailyTotals, FoodLogCreateRequest, FoodLogEntry } from "@/services/nutritionApi";
+import { formatApiError } from "@/utils/apiErrors";
 
 const toLocalDateString = (d: Date): string => {
   const y = d.getFullYear();
@@ -27,6 +28,8 @@ interface FoodDiaryState {
   addEntry: (req: FoodLogCreateRequest) => Promise<boolean>;
   deleteEntry: (id: number) => Promise<void>;
   setDailyKcalTarget: (kcal: number) => void;
+  hydrateCalorieTargetFromServer: (kcal: number | null | undefined) => void;
+  clearCalorieTarget: () => void;
 }
 
 const EMPTY_TOTALS: DailyTotals = { kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
@@ -48,8 +51,8 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
     try {
       const { data } = await nutritionApi.getFoodLog(date);
       set({ date, entries: data.entries, totals: data.totals });
-    } catch {
-      set({ error: "Could not load food log." });
+    } catch (err) {
+      set({ error: formatApiError(err, "Could not load food log.") });
     } finally {
       set({ loading: false });
     }
@@ -63,8 +66,8 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
       await get().fetchDay(req.date);
       set({ saving: false });
       return true;
-    } catch {
-      set({ error: "Could not add entry.", saving: false });
+    } catch (err) {
+      set({ error: formatApiError(err, "Could not add entry."), saving: false });
       return false;
     }
   },
@@ -75,8 +78,8 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
       await nutritionApi.deleteFoodLogEntry(id);
       const { date } = get();
       await get().fetchDay(date);
-    } catch {
-      set({ error: "Could not delete entry." });
+    } catch (err) {
+      set({ error: formatApiError(err, "Could not delete entry.") });
     }
   },
 
@@ -85,4 +88,14 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
       dailyKcalTarget: kcal,
       hasCalorieTarget: true,
     }),
+
+  hydrateCalorieTargetFromServer: (kcal) => {
+    if (kcal == null) {
+      set({ dailyKcalTarget: null, hasCalorieTarget: false });
+      return;
+    }
+    set({ dailyKcalTarget: kcal, hasCalorieTarget: true });
+  },
+
+  clearCalorieTarget: () => set({ dailyKcalTarget: null, hasCalorieTarget: false }),
 }));
