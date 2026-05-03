@@ -17,6 +17,7 @@ from app.schemas.ai import (
     ConversationSummaryResponse,
     MessageResponse,
 )
+from app.services.health_context import UserHealthContext, get_user_health_context_for_ai
 from app.services.llm_service import LLMProviderError, llm_service
 
 router = APIRouter(prefix="/ai", tags=["AI"])
@@ -157,7 +158,16 @@ async def _chat(
         title=_build_conversation_title(payload.message),
     )
     history = await _get_recent_history(db, conversation.id)
-    system_prompt = build_system_prompt(prompt_template, current_user)
+    health_context = (
+        await get_user_health_context_for_ai(current_user.id, db)
+        if agent_type == "diet"
+        else UserHealthContext()
+    )
+    system_prompt = build_system_prompt(
+        prompt_template,
+        current_user,
+        additional_context=_build_health_context_for_prompt(agent_type, health_context),
+    )
     llm_messages = _build_llm_messages(history, payload.message)
     try:
         assistant_response = await llm_service.generate(system_prompt, llm_messages)
@@ -194,7 +204,16 @@ async def _chat_stream(
         title=_build_conversation_title(message),
     )
     history = await _get_recent_history(db, conversation.id)
-    system_prompt = build_system_prompt(prompt_template, current_user)
+    health_context = (
+        await get_user_health_context_for_ai(current_user.id, db)
+        if agent_type == "diet"
+        else UserHealthContext()
+    )
+    system_prompt = build_system_prompt(
+        prompt_template,
+        current_user,
+        additional_context=_build_health_context_for_prompt(agent_type, health_context),
+    )
     llm_messages = _build_llm_messages(history, message)
 
     async def stream_events() -> AsyncIterator[dict[str, str]]:
@@ -286,3 +305,17 @@ def _build_llm_messages(history: list[Message], latest_user_message: str) -> lis
 def _build_conversation_title(message: str) -> str:
     cleaned = " ".join(message.split())
     return (cleaned[:77] + "...") if len(cleaned) > 80 else cleaned
+
+
+def _build_health_context_for_prompt(agent_type: str, context: UserHealthContext) -> str:
+    if agent_type != "diet":
+        return ""
+
+    return (
+        "DATELE UTILIZATORULUI (ia-le in considerare, dar nu le repeta inutil):\n"
+        f"- Alergii: {context.allergies}\n"
+        f"- Preferinte alimentare: {context.preferences}\n"
+        f"- Greutate curenta: {context.current_weight}\n"
+        f"- Greutate tinta: {context.target_weight}\n"
+        f"- Prescriptii medicale: {context.prescription_references}"
+    )
