@@ -33,7 +33,7 @@ class Conversation(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "agent_type IN ('workout', 'diet')",
+            "agent_type IN ('workout', 'diet', 'nutrition_vision')",
             name="ck_conversations_agent_type",
         ),
     )
