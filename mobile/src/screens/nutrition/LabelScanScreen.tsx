@@ -146,7 +146,7 @@ export const LabelScanScreen = () => {
   const canAdd = edited.name.trim().length > 0 && Number(edited.grams) > 0;
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}

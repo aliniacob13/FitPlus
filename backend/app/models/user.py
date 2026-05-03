@@ -1,14 +1,13 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from sqlalchemy import DateTime, Float, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
-from __future__ import annotations
-
-from sqlalchemy import Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models import GymReview, FavoriteGym
+from app.models.favorite import FavoriteGym
+from app.models.review import GymReview
 
 
 class User(Base):

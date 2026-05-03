@@ -6,8 +6,8 @@ Create Date: 2026-04-28
 """
 from typing import Sequence, Union
 
-revision: str = "0006"
-down_revision: Union[str, None] = "0004"
+revision: str = "0008"
+down_revision: Union[str, None] = "0007"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
