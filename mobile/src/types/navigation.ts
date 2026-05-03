@@ -19,4 +19,5 @@ export type AppStackParamList = {
   AddFood: { date: string };
   LabelScan: { date: string };
   PlateCoach: { date: string };
+  FavoriteGyms: undefined;
 };

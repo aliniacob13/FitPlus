@@ -2,8 +2,13 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
+from __future__ import annotations
+
+from sqlalchemy import Float, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models import GymReview, FavoriteGym
 
 
 class User(Base):
@@ -23,3 +28,6 @@ class User(Base):
     # Last computed daily calorie target (from nutrition calculator). Null = not set.
     daily_calorie_target: Mapped[float | None] = mapped_column(Float, nullable=True)
     nutrition_target_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    reviews: Mapped[list[GymReview]] = relationship("GymReview", back_populates="user", cascade="all, delete-orphan")
+    favorites: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="user", cascade="all, delete-orphan")

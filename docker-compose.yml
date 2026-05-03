@@ -55,9 +55,7 @@ services:
       - "8000:8000"
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
-    volumes:
-      - ./backend:/app
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   pgadmin:
     image: dpage/pgadmin4:8

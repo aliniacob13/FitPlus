@@ -5,6 +5,7 @@ import { CalorieTargetScreen } from "@/screens/nutrition/CalorieTargetScreen";
 import { FoodDiaryScreen } from "@/screens/nutrition/FoodDiaryScreen";
 import { LabelScanScreen } from "@/screens/nutrition/LabelScanScreen";
 import { PlateCoachScreen } from "@/screens/nutrition/PlateCoachScreen";
+import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
@@ -25,6 +26,7 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="AddFood" component={AddFoodScreen} />
     <Stack.Screen name="LabelScan" component={LabelScanScreen} />
     <Stack.Screen name="PlateCoach" component={PlateCoachScreen} />
+    <Stack.Screen name="FavoriteGyms" component={FavoriteGymsScreen} />
   </Stack.Navigator>
 );
 
