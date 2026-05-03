@@ -32,5 +32,10 @@ const AuthenticatedStack = () => (
 
 export const RootNavigator = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? <AuthenticatedStack /> : <AuthStack />;
+  // Remount stacks on auth flip so web does not keep stale routes / blank views.
+  return isAuthenticated ? (
+    <AuthenticatedStack key="fitplus-authenticated" />
+  ) : (
+    <AuthStack key="fitplus-unauthenticated" />
+  );
 };

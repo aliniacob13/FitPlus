@@ -276,7 +276,7 @@ export const MapScreen = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} scrollable={false}>
       <View style={styles.topBar}>
         <Text style={styles.title}>Harta sali</Text>
         <Text style={styles.subtitle}>Zona curenta: {cityName}</Text>

@@ -236,7 +236,7 @@ export const MapScreen = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} scrollable={false}>
       <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
         <View style={styles.container}>
           <Text style={styles.title}>Harta sali (Web)</Text>

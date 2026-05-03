@@ -116,7 +116,7 @@ export const FoodDiaryScreen = () => {
   const kcalPercent = Math.round(kcalProgress * 100);
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <Text style={styles.title}>Food Diary</Text>

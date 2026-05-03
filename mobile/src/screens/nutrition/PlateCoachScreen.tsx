@@ -221,7 +221,7 @@ export const PlateCoachScreen = () => {
   }, [items]);
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}

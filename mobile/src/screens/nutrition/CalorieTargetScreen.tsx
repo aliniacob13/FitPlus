@@ -160,7 +160,7 @@ export const CalorieTargetScreen = () => {
   const showWeeklyRate = goal === "lose" || goal === "gain";
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Calorie Calculator</Text>
         <Text style={styles.subtitle}>

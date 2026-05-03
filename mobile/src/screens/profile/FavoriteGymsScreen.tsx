@@ -99,7 +99,7 @@ export const FavoriteGymsScreen = () => {
   }
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backLabel}>← Back</Text>
@@ -108,6 +108,7 @@ export const FavoriteGymsScreen = () => {
       </View>
 
       <FlatList
+        style={styles.listFlex}
         data={favorites}
         keyExtractor={(item) => String(item.favorite_id)}
         renderItem={renderItem}
@@ -222,6 +223,9 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.styles.h2,
+    flex: 1,
+  },
+  listFlex: {
     flex: 1,
   },
   list: {

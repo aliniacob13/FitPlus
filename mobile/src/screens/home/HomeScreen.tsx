@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -71,9 +71,18 @@ export const HomeScreen = () => {
             <Text style={styles.greeting}>Good morning,</Text>
             <Text style={styles.name}>{displayName} 👋</Text>
           </View>
-          <TouchableOpacity style={styles.avatarBtn} onPress={() => void logout()}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+            onPress={() => void logout()}
+            style={({ pressed }) => [
+              styles.avatarBtn,
+              pressed && styles.avatarBtnPressed,
+              Platform.OS === "web" && styles.avatarBtnWeb,
+            ]}
+          >
             <Text style={styles.avatarText}>{displayName[0]?.toUpperCase() ?? "A"}</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <Card variant="accent" title="Today's Progress" padding="md">
@@ -172,6 +181,12 @@ const styles = StyleSheet.create({
     borderColor: colors.accent.base,
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarBtnPressed: {
+    opacity: 0.85,
+  },
+  avatarBtnWeb: {
+    cursor: "pointer" as const,
   },
   avatarText: {
     color: colors.accent.base,

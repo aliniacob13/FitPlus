@@ -109,7 +109,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: async () => {
-    await persistTokens(null, null);
     useFoodDiaryStore.getState().clearCalorieTarget();
     set({
       accessToken: null,
@@ -117,6 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
       error: null,
     });
+    await persistTokens(null, null);
   },
   setAccessToken: (token) => {
     set({

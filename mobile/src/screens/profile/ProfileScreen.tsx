@@ -82,7 +82,7 @@ export const ProfileScreen = () => {
     .toUpperCase();
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.avatarSection}>
           <View style={styles.avatarRing}>
