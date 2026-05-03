@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -10,6 +12,8 @@ class UserProfileResponse(BaseModel):
     height_cm: float | None = None
     fitness_level: str | None = None
     goals: str | None = None
+    daily_calorie_target: float | None = None
+    nutrition_target_updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

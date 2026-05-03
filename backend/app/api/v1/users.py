@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import ACCESS_TOKEN_TYPE, decode_token
+from app.models.favorite import FavoriteGym
+from app.models.gym import Gym
 from app.models.user import User
+from app.schemas.gym import FavoriteGymResponse
 from app.schemas.user import UserProfileResponse, UserProfileUpdateRequest
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -67,3 +71,28 @@ async def update_me(
     await db.refresh(current_user)
 
     return UserProfileResponse.model_validate(current_user)
+
+
+@router.get("/me/favorites", response_model=list[FavoriteGymResponse])
+async def get_my_favorites(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[FavoriteGymResponse]:
+    stmt = (
+        select(
+            FavoriteGym.id.label("favorite_id"),
+            FavoriteGym.gym_id,
+            FavoriteGym.created_at,
+            Gym.place_id,
+            Gym.name,
+            Gym.address,
+            Gym.image_url,
+            func.ST_Y(Gym.location).label("latitude"),
+            func.ST_X(Gym.location).label("longitude"),
+        )
+        .join(Gym, FavoriteGym.gym_id == Gym.id)
+        .where(FavoriteGym.user_id == current_user.id)
+        .order_by(FavoriteGym.created_at.desc())
+    )
+    rows = (await db.execute(stmt)).mappings().all()
+    return [FavoriteGymResponse(**row) for row in rows]

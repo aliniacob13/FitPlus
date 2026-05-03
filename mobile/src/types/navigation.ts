@@ -14,4 +14,10 @@ export type MainTabParamList = {
 export type AppStackParamList = {
   MainTabs: undefined;
   UpdateProfile: undefined;
+  CalorieTarget: undefined;
+  FoodDiary: undefined;
+  AddFood: { date: string };
+  LabelScan: { date: string };
+  PlateCoach: { date: string };
+  FavoriteGyms: undefined;
 };

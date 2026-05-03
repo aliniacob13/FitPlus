@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { UserProfile, UserProfileUpdatePayload, userApi } from "@/services/userApi";
+import { useFoodDiaryStore } from "@/store/foodDiaryStore";
 
 type UserState = {
   profile: UserProfile | null;
@@ -24,6 +25,7 @@ export const useUserStore = create<UserState>((set) => ({
     try {
       const profile = await userApi.me();
       set({ profile });
+      useFoodDiaryStore.getState().hydrateCalorieTargetFromServer(profile.daily_calorie_target);
     } catch {
       set({ error: "Nu am putut incarca profilul." });
     } finally {
@@ -35,6 +37,7 @@ export const useUserStore = create<UserState>((set) => ({
     try {
       const profile = await userApi.updateMe(payload);
       set({ profile });
+      useFoodDiaryStore.getState().hydrateCalorieTargetFromServer(profile.daily_calorie_target);
       return true;
     } catch {
       set({ error: "Nu am putut salva profilul." });

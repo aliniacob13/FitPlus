@@ -39,20 +39,39 @@ services:
       REFRESH_TOKEN_EXPIRE_MINUTES: ${REFRESH_TOKEN_EXPIRE_MINUTES:-10080}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      VISION_LLM_MODEL: ${VISION_LLM_MODEL:-gpt-4o}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      USDA_API_KEY: ${USDA_API_KEY:-}
+      NUTRITION_LABEL_SCAN_MAX_IMAGE_MB: ${NUTRITION_LABEL_SCAN_MAX_IMAGE_MB:-10}
+      NUTRITION_PLATE_MAX_IMAGE_MB: ${NUTRITION_PLATE_MAX_IMAGE_MB:-15}
+      NUTRITION_PLATE_VISION_MAX_EDGE_PX: ${NUTRITION_PLATE_VISION_MAX_EDGE_PX:-1600}
       SEED_ENABLED: ${SEED_ENABLED:-false}
       SEED_TOKEN: ${SEED_TOKEN:-}
     ports:
       - "8000:8000"
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: fitplus_pgadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@fitplus.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
     volumes:
-      - ./backend:/app
+      - pgadmin_data:/var/lib/pgadmin
 
 volumes:
   postgres_data:
+  pgadmin_data:
