@@ -168,6 +168,14 @@ async def _chat(
         current_user,
         additional_context=_build_health_context_for_prompt(agent_type, health_context),
     )
+    if agent_type == "diet":
+        print(
+            "[AI][diet-chat] "
+            f"user_id={current_user.id} "
+            f"conversation_id={conversation.id} "
+            f"health_context={health_context} "
+            f"system_prompt_excerpt={system_prompt[:500]!r}"
+        )
     llm_messages = _build_llm_messages(history, payload.message)
     try:
         assistant_response = await llm_service.generate(system_prompt, llm_messages)
@@ -214,6 +222,14 @@ async def _chat_stream(
         current_user,
         additional_context=_build_health_context_for_prompt(agent_type, health_context),
     )
+    if agent_type == "diet":
+        print(
+            "[AI][diet-chat-stream] "
+            f"user_id={current_user.id} "
+            f"conversation_id={conversation.id} "
+            f"health_context={health_context} "
+            f"system_prompt_excerpt={system_prompt[:500]!r}"
+        )
     llm_messages = _build_llm_messages(history, message)
 
     async def stream_events() -> AsyncIterator[dict[str, str]]:
@@ -311,11 +327,15 @@ def _build_health_context_for_prompt(agent_type: str, context: UserHealthContext
     if agent_type != "diet":
         return ""
 
+    current_weight = context.current_weight or "nespecificata"
+    target_weight = context.target_weight or "nespecificata"
     return (
-        "DATELE UTILIZATORULUI (ia-le in considerare, dar nu le repeta inutil):\n"
+        "DATELE UTILIZATORULUI (sunt context de baza pentru acest user):\n"
         f"- Alergii: {context.allergies}\n"
         f"- Preferinte alimentare: {context.preferences}\n"
-        f"- Greutate curenta: {context.current_weight}\n"
-        f"- Greutate tinta: {context.target_weight}\n"
-        f"- Prescriptii medicale: {context.prescription_references}"
+        f"- Obiectiv alimentar: {context.goals}\n"
+        f"- Greutate curenta: {current_weight}\n"
+        f"- Greutate tinta: {target_weight}\n"
+        f"- Prescriptii medicale: {context.prescription_references}\n"
+        "Nu afirma ca nu cunosti profilul daca informatiile de mai sus exista."
     )

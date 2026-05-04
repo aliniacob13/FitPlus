@@ -9,7 +9,9 @@ class DietPreferenceBase(BaseModel):
     goals: Optional[str] = None
 
 class DietPreferenceCreateUpdate(DietPreferenceBase):
-    pass
+    # Backward-compatibility input used by some clients:
+    # preferences can come as a single string or a list.
+    preferences: Optional[List[str] | str] = None
 
 class DietPreferenceResponse(DietPreferenceBase):
     id: int

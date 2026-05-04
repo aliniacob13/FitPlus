@@ -12,6 +12,7 @@ from app.models.user import User
 class UserHealthContext:
     allergies: str = ""
     preferences: str = ""
+    goals: str = ""
     current_weight: str = ""
     target_weight: str = ""
     prescription_references: str = ""
@@ -47,17 +48,45 @@ async def get_user_health_context_for_ai(user_id: int, db: AsyncSession) -> User
     )
     user = await db.get(User, user_id)
 
-    allergies_items = (diet_preferences.allergies if diet_preferences else None) or []
-    preferences_items = (diet_preferences.restrictions if diet_preferences else None) or []
+    raw_allergies = (diet_preferences.allergies if diet_preferences else None) or []
+    raw_preferences = (diet_preferences.restrictions if diet_preferences else None) or []
+    # Backward compatibility for environments that used "preferences" naming.
+    legacy_preferences = getattr(diet_preferences, "preferences", None) if diet_preferences else None
+    if not raw_preferences and legacy_preferences:
+        raw_preferences = legacy_preferences
+    goals_text = (diet_preferences.goals if diet_preferences else None) or (user.goals if user else None) or ""
+
+    if isinstance(raw_allergies, str):
+        allergies_items = [raw_allergies]
+    else:
+        allergies_items = raw_allergies
+
+    if isinstance(raw_preferences, str):
+        preferences_items = [raw_preferences]
+    else:
+        preferences_items = raw_preferences
+
+    print(
+        "[AI][health-context] "
+        f"user_id={user_id} "
+        f"diet_pref_found={diet_preferences is not None} "
+        f"raw_allergies={raw_allergies!r} "
+        f"raw_preferences={raw_preferences!r} "
+        f"goals={goals_text!r}"
+    )
 
     return UserHealthContext(
-        allergies=", ".join(str(item) for item in allergies_items if item),
-        preferences=", ".join(str(item) for item in preferences_items if item),
+        allergies=", ".join(str(item).strip() for item in allergies_items if str(item).strip()) or "nespecificate",
+        preferences=", ".join(str(item).strip() for item in preferences_items if str(item).strip())
+        or "nespecificate",
+        goals=goals_text.strip() or "nespecificate",
         current_weight=str(latest_weight.weight_kg) if latest_weight else "",
         target_weight=_extract_target_weight(
-            (diet_preferences.goals if diet_preferences else None) or (user.goals if user else None)
+            goals_text
         ),
         prescription_references=(
-            f"{prescriptions_count} prescription(s) uploaded." if prescriptions_count else ""
+            f"{prescriptions_count} prescription(s) uploaded."
+            if prescriptions_count
+            else "none uploaded"
         ),
     )
