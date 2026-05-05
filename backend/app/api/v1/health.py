@@ -106,7 +106,15 @@ async def upsert_diet_preferences(
         preferences = DietPreference(user_id=current_user.id)
 
     data = payload.model_dump()
-    preferences.restrictions = data["restrictions"] or []
+    normalized_restrictions = data["restrictions"] or []
+    legacy_preferences = data.get("preferences")
+    if not normalized_restrictions and legacy_preferences:
+        if isinstance(legacy_preferences, str):
+            normalized_restrictions = [legacy_preferences]
+        else:
+            normalized_restrictions = [str(item) for item in legacy_preferences if str(item).strip()]
+
+    preferences.restrictions = normalized_restrictions
     preferences.allergies = data["allergies"] or []
     preferences.goals = data["goals"]
 

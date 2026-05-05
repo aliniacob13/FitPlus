@@ -1,7 +1,7 @@
 """add diet models tables
 
 Revision ID: fa4037776ef3
-Revises: 0003
+Revises: 0007
 Create Date: 2026-04-28 16:39:42.227498
 """
 

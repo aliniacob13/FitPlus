@@ -68,5 +68,8 @@ def build_user_profile_context(user: User) -> str:
     )
 
 
-def build_system_prompt(base_prompt: str, user: User) -> str:
-    return f"{base_prompt}\n\n{build_user_profile_context(user)}"
+def build_system_prompt(base_prompt: str, user: User, additional_context: str = "") -> str:
+    prompt_parts = [base_prompt, build_user_profile_context(user)]
+    if additional_context.strip():
+        prompt_parts.append(additional_context.strip())
+    return "\n\n".join(prompt_parts)
