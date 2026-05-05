@@ -49,7 +49,7 @@ export const WeightTrackerScreen = () => {
     setError(null);
     
     try {
-      const API_BASE_URL = "http://localhost:8000/api/v1";
+      const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
       const response = await fetch(`${API_BASE_URL}/users/me/weight-log`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -130,7 +130,7 @@ export const WeightTrackerScreen = () => {
     setSaving(true);
     
     try {
-      const API_BASE_URL = "http://localhost:8000/api/v1";
+      const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
       const response = await fetch(`${API_BASE_URL}/users/me/weight-log`, {
         method: 'POST',
         headers: {
@@ -235,14 +235,21 @@ export const WeightTrackerScreen = () => {
 
         <Card variant="default" padding="md">
           <Text style={styles.chartTitle}>Evoluția Greutății</Text>
-          <LineChart
-            data={chartData}
-            width={screenWidth}
-            height={220}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chart}
-          />
+          {weightEntries.length > 0 ? (
+            <LineChart
+              data={chartData}
+              width={screenWidth}
+              height={220}
+              chartConfig={chartConfig}
+              bezier
+              style={styles.chart}
+            />
+          ) : (
+            <View style={styles.emptyChartContainer}>
+              <Text style={styles.emptyChartText}>Nu există date încă</Text>
+              <Text style={styles.emptyChartSubtext}>Adaugă prima înregistrare de greutate pentru a vedea graficul</Text>
+            </View>
+          )}
         </Card>
 
         {!showAddForm ? (
@@ -395,5 +402,22 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: "center",
     marginBottom: spacing.md,
+  },
+  emptyChartContainer: {
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyChartText: {
+    fontSize: typography.size.lg,
+    fontWeight: "600",
+    color: colors.textPalette.secondary,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  emptyChartSubtext: {
+    fontSize: typography.size.sm,
+    color: colors.textPalette.muted,
+    textAlign: "center",
   },
 });

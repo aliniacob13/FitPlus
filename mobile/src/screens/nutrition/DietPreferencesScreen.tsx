@@ -83,7 +83,7 @@ export const DietPreferencesScreen = () => {
   const [customAllergy, setCustomAllergy] = useState("");
 
   // API base URL
-  const API_BASE_URL = "http://localhost:8000/api/v1";
+  const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
 
   useEffect(() => {
     fetchPreferences();
@@ -169,7 +169,7 @@ export const DietPreferencesScreen = () => {
   const toggleAllergy = (allergy: string) => {
     setPreferences(prev => ({
       ...prev,
-      restrictions: prev.allergies.includes(allergy)
+      allergies: prev.allergies.includes(allergy)
         ? prev.allergies.filter(a => a !== allergy)
         : [...prev.allergies, allergy],
     }));

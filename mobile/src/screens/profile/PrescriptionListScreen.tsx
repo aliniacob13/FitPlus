@@ -106,7 +106,7 @@ export const PrescriptionListScreen = () => {
     setError(null);
     
     try {
-      const API_BASE_URL = "http://localhost:8000/api/v1";
+      const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
       const response = await fetch(`${API_BASE_URL}/users/me/prescriptions`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,

@@ -23,4 +23,5 @@ export type AppStackParamList = {
   WeightTracker: undefined;
   PrescriptionUpload: undefined;
   PrescriptionList: undefined;
+  DietPreferences: undefined;
 };

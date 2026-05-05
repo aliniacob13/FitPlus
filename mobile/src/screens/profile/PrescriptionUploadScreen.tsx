@@ -138,20 +138,33 @@ export const PrescriptionUploadScreen = () => {
       return;
     }
 
+    if (!accessToken) {
+      Alert.alert("Eroare", "Nu sunteți autentificat");
+      return;
+    }
+
     setUploading(true);
 
     try {
-      const API_BASE_URL = "http://localhost:8000/api/v1";
+      const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
       
       // Upload each file separately
       for (const file of selectedFiles) {
+        console.log('Uploading file:', file);
+        
         const formData = new FormData();
         
-        // Create a blob from the URI
+        // Create a blob from the URI with proper type
         const response = await fetch(file.uri);
         const blob = await response.blob();
         
-        formData.append('file', blob, file.name);
+        // Append file with proper name and type
+        formData.append('file', {
+          uri: file.uri,
+          type: file.type || 'image/jpeg',
+          name: file.name,
+        } as any);
+        
         if (notes.trim()) {
           formData.append('notes', notes);
         }
@@ -162,18 +175,27 @@ export const PrescriptionUploadScreen = () => {
           formData.append('title', prescriptionTitle);
         }
 
+        console.log('Sending FormData to:', `${API_BASE_URL}/users/me/prescriptions`);
+        
         const uploadResponse = await fetch(`${API_BASE_URL}/users/me/prescriptions`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'multipart/form-data',
+            // Don't set Content-Type for FormData - let the browser set it with boundary
           },
           body: formData,
         });
 
+        console.log('Upload response status:', uploadResponse.status);
+
         if (!uploadResponse.ok) {
-          throw new Error(`Upload failed: ${uploadResponse.status}`);
+          const errorText = await uploadResponse.text();
+          console.error('Upload failed:', uploadResponse.status, errorText);
+          throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
         }
+
+        const result = await uploadResponse.json();
+        console.log('Upload success:', result);
       }
 
       Alert.alert(
@@ -195,7 +217,8 @@ export const PrescriptionUploadScreen = () => {
       );
     } catch (error) {
       console.error('Upload error:', error);
-      Alert.alert("Eroare", "Nu am putut încărca prescripția. Încercați din nou.");
+      const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscută';
+      Alert.alert("Eroare", `Nu am putut încărca prescripția: ${errorMessage}`);
     } finally {
       setUploading(false);
     }

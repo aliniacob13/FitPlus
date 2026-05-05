@@ -133,6 +133,13 @@ export const ProfileScreen = () => {
         <Button label="Calorie Calculator" onPress={() => navigation.navigate("CalorieTarget")} variant="secondary" fullWidth />
         <Button label="Open full edit screen" onPress={() => navigation.navigate("UpdateProfile")} variant="secondary" fullWidth />
         <Button label="My Favorite Gyms" onPress={() => navigation.navigate("FavoriteGyms")} variant="outline" fullWidth />
+        
+        {/* Health & Diet Features */}
+        <Button label="Weight Tracker" onPress={() => navigation.navigate("WeightTracker")} variant="secondary" fullWidth />
+        <Button label="Diet Preferences" onPress={() => navigation.navigate("DietPreferences")} variant="secondary" fullWidth />
+        <Button label="Upload Prescription" onPress={() => navigation.navigate("PrescriptionUpload")} variant="secondary" fullWidth />
+        <Button label="My Prescriptions" onPress={() => navigation.navigate("PrescriptionList")} variant="secondary" fullWidth />
+        
         <Button label="Logout" onPress={handleLogout} variant="danger" fullWidth />
       </ScrollView>
     </Screen>
