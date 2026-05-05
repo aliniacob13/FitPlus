@@ -20,4 +20,7 @@ export type AppStackParamList = {
   LabelScan: { date: string };
   PlateCoach: { date: string };
   FavoriteGyms: undefined;
+  WeightTracker: undefined;
+  PrescriptionUpload: undefined;
+  PrescriptionList: undefined;
 };
