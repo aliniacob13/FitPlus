@@ -66,15 +66,7 @@ async def get_user_health_context_for_ai(user_id: int, db: AsyncSession) -> User
     else:
         preferences_items = raw_preferences
 
-    print(
-        "[AI][health-context] "
-        f"user_id={user_id} "
-        f"diet_pref_found={diet_preferences is not None} "
-        f"raw_allergies={raw_allergies!r} "
-        f"raw_preferences={raw_preferences!r} "
-        f"goals={goals_text!r}"
-    )
-
+    
     return UserHealthContext(
         allergies=", ".join(str(item).strip() for item in allergies_items if str(item).strip()) or "nespecificate",
         preferences=", ".join(str(item).strip() for item in preferences_items if str(item).strip())
