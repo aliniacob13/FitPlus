@@ -3,6 +3,7 @@ import { create } from "zustand";
 
 import { AuthResponse, authApi } from "@/services/authApi";
 import { setApiAuthHandlers } from "@/services/api";
+import { useFoodDiaryStore } from "@/store/foodDiaryStore";
 
 const ACCESS_TOKEN_KEY = "fitplus.access_token";
 const REFRESH_TOKEN_KEY = "fitplus.refresh_token";
@@ -108,13 +109,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   logout: async () => {
-    await persistTokens(null, null);
+    useFoodDiaryStore.getState().clearCalorieTarget();
     set({
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
       error: null,
     });
+    await persistTokens(null, null);
   },
   setAccessToken: (token) => {
     set({

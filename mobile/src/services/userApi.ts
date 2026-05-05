@@ -9,6 +9,8 @@ export type UserProfile = {
   height_cm?: number;
   fitness_level?: string;
   goals?: string;
+  daily_calorie_target?: number | null;
+  nutrition_target_updated_at?: string | null;
 };
 
 export type UserProfileUpdatePayload = {

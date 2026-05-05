@@ -55,7 +55,7 @@ export const UpdateProfileScreen = () => {
   };
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Edit profile</Text>
         <Text style={styles.subtitle}>Actualizeaza datele tale pentru recomandari mai bune.</Text>

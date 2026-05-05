@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # AI
     LLM_PROVIDER: str = "openai"
     LLM_MODEL: str = "gpt-4o-mini"
+    # Vision model used for plate coach (Phase 4). Must support image input.
+    # OpenAI: gpt-4o or gpt-4o-mini  |  Anthropic: claude-3-5-sonnet-20241022
+    VISION_LLM_MODEL: str = "gpt-4o"
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
@@ -41,6 +44,17 @@ class Settings(BaseSettings):
 
     # Maps / Places
     GOOGLE_MAPS_API_KEY: str = ""
+
+    # Nutrition / Food search
+    # USDA FoodData Central API key — get a free key at https://fdc.nal.usda.gov/api-key-signup
+    # Falls back to "DEMO_KEY" (30 req/hr, 50 req/day) when left empty.
+    USDA_API_KEY: str = ""
+
+    # Nutrition images (label scan / plate coach). 0 = no app-level size cap (still subject to proxy limits).
+    NUTRITION_LABEL_SCAN_MAX_IMAGE_MB: int = 10
+    NUTRITION_PLATE_MAX_IMAGE_MB: int = 15
+    # Downscale large plate images before sending to the vision LLM (reduces Anthropic request size).
+    NUTRITION_PLATE_VISION_MAX_EDGE_PX: int = 1600
 
     # Dev / seeding (disable in production)
     SEED_ENABLED: bool = False
