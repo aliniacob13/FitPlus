@@ -135,10 +135,10 @@ export const ProfileScreen = () => {
         <Button label="My Favorite Gyms" onPress={() => navigation.navigate("FavoriteGyms")} variant="outline" fullWidth />
         
         {/* Health & Diet Features */}
-        <Button label="Weight Tracker" onPress={() => navigation.navigate("WeightTracker")} variant="secondary" fullWidth />
-        <Button label="Diet Preferences" onPress={() => navigation.navigate("DietPreferences")} variant="secondary" fullWidth />
-        <Button label="Upload Prescription" onPress={() => navigation.navigate("PrescriptionUpload")} variant="secondary" fullWidth />
-        <Button label="My Prescriptions" onPress={() => navigation.navigate("PrescriptionList")} variant="secondary" fullWidth />
+        <Button label="Weight Tracker" onPress={() => navigation.navigate("WeightTracker")} variant="outline" fullWidth />
+        <Button label="Diet Preferences" onPress={() => navigation.navigate("DietPreferences")} variant="outline" fullWidth />
+        <Button label="Upload Prescription" onPress={() => navigation.navigate("PrescriptionUpload")} variant="outline" fullWidth />
+        <Button label="My Prescriptions" onPress={() => navigation.navigate("PrescriptionList")} variant="outline" fullWidth />
         
         <Button label="Logout" onPress={handleLogout} variant="danger" fullWidth />
       </ScrollView>

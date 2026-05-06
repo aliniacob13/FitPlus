@@ -23,7 +23,7 @@ type NavProp = NativeStackNavigationProp<AppStackParamList, "MainTabs">;
 type DietPreferences = {
   restrictions: string[];
   allergies: string[];
-  goals?: string;
+  goals: string[];
 };
 
 const commonRestrictions = [
@@ -73,7 +73,7 @@ export const DietPreferencesScreen = () => {
   const [preferences, setPreferences] = useState<DietPreferences>({
     restrictions: [],
     allergies: [],
-    goals: "",
+    goals: [],
   });
   
   const [loading, setLoading] = useState(false);
@@ -202,10 +202,26 @@ export const DietPreferencesScreen = () => {
     }));
   };
 
+  const toggleGoal = (goal: string) => {
+    setPreferences(prev => ({
+      ...prev,
+      goals: prev.goals.includes(goal)
+        ? prev.goals.filter(g => g !== goal)
+        : [...prev.goals, goal],
+    }));
+  };
+
   const removeAllergy = (allergy: string) => {
     setPreferences(prev => ({
       ...prev,
       allergies: prev.allergies.filter(a => a !== allergy),
+    }));
+  };
+
+  const removeGoal = (goal: string) => {
+    setPreferences(prev => ({
+      ...prev,
+      goals: prev.goals.filter(g => g !== goal),
     }));
   };
 
@@ -348,7 +364,7 @@ export const DietPreferencesScreen = () => {
 
         <Card variant="default" title="Obiective" padding="md">
           <Text style={styles.sectionDescription}>
-            Selectați obiectivul principal al dietei dumneavoastră.
+            Selectați obiectivele dietei dumneavoastră.
           </Text>
           
           <View style={styles.tagsContainer}>
@@ -357,13 +373,13 @@ export const DietPreferencesScreen = () => {
                 key={goal}
                 style={[
                   styles.tag,
-                  preferences.goals === goal && styles.tagSelected,
+                  preferences.goals.includes(goal) && styles.tagSelected,
                 ]}
-                onPress={() => setPreferences(prev => ({ ...prev, goals: goal }))}
+                onPress={() => toggleGoal(goal)}
               >
                 <Text style={[
                   styles.tagText,
-                  preferences.goals === goal && styles.tagTextSelected,
+                  preferences.goals.includes(goal) && styles.tagTextSelected,
                 ]}>
                   {goal}
                 </Text>
@@ -371,12 +387,23 @@ export const DietPreferencesScreen = () => {
             ))}
           </View>
 
-          <Input
-            label="Sau introduceți un obiectiv personalizat"
-            value={preferences.goals || ""}
-            onChangeText={(text) => setPreferences(prev => ({ ...prev, goals: text }))}
-            placeholder="Ex: Sănătate generală"
-          />
+          {preferences.goals.length > 0 && (
+            <View style={styles.selectedContainer}>
+              <Text style={styles.selectedTitle}>Selectate:</Text>
+              <View style={styles.selectedTags}>
+                {preferences.goals.map((goal) => (
+                  <TouchableOpacity
+                    key={goal}
+                    style={styles.selectedTag}
+                    onPress={() => removeGoal(goal)}
+                  >
+                    <Text style={styles.selectedTagText}>{goal}</Text>
+                    <Text style={styles.removeTagText}>×</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </Card>
 
         <Button
