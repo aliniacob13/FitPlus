@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -14,6 +15,17 @@ import { useUserStore } from "@/store/userStore";
 import { AppStackParamList } from "@/types/navigation";
 
 type NavProp = NativeStackNavigationProp<AppStackParamList, "MainTabs">;
+
+type StatRowProps = { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; value: string };
+const StatRow = ({ icon, label, value }: StatRowProps) => (
+  <View style={styles.statRow}>
+    <View style={styles.statRowLeft}>
+      <Ionicons name={icon} size={15} color={colors.textPalette.secondary} />
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+    <Text style={styles.statValue}>{value}</Text>
+  </View>
+);
 
 export const ProfileScreen = () => {
   const navigation = useNavigation<NavProp>();
@@ -44,9 +56,7 @@ export const ProfileScreen = () => {
 
   const parseOptionalNumber = (value: string): number | undefined => {
     const trimmed = value.trim();
-    if (!trimmed) {
-      return undefined;
-    }
+    if (!trimmed) return undefined;
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) ? parsed : undefined;
   };
@@ -61,9 +71,7 @@ export const ProfileScreen = () => {
       fitness_level: fitnessLevel.trim() || undefined,
       goals: goals.trim() || undefined,
     });
-    if (success) {
-      setSaveMessage("Profil salvat.");
-    }
+    if (success) setSaveMessage("Profile saved successfully.");
   };
 
   const handleLogout = () => {
@@ -84,6 +92,7 @@ export const ProfileScreen = () => {
   return (
     <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* ── Avatar hero ── */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarRing}>
             <View style={styles.avatar}>
@@ -94,46 +103,59 @@ export const ProfileScreen = () => {
           <Text style={styles.email}>{profile?.email ?? "N/A"}</Text>
           {profile?.fitness_level ? (
             <View style={styles.levelBadge}>
+              <Ionicons name="trophy-outline" size={11} color={colors.accent.base} />
               <Text style={styles.levelBadgeText}>{profile.fitness_level}</Text>
             </View>
           ) : null}
         </View>
 
+        {/* ── Body Stats ── */}
         <Card variant="default" title="Body Stats" padding="md">
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Age</Text>
-            <Text style={styles.statValue}>{profile?.age ? `${profile.age} yrs` : "—"}</Text>
-          </View>
+          <StatRow icon="scale-outline" label="Age" value={profile?.age ? `${profile.age} yrs` : "—"} />
           <View style={styles.divider} />
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Weight</Text>
-            <Text style={styles.statValue}>{profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}</Text>
-          </View>
+          <StatRow icon="barbell-outline" label="Weight" value={profile?.weight_kg ? `${profile.weight_kg} kg` : "—"} />
           <View style={styles.divider} />
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Height</Text>
-            <Text style={styles.statValue}>{profile?.height_cm ? `${profile.height_cm} cm` : "—"}</Text>
-          </View>
+          <StatRow icon="resize-outline" label="Height" value={profile?.height_cm ? `${profile.height_cm} cm` : "—"} />
+          {profile?.goals ? (
+            <>
+              <View style={styles.divider} />
+              <StatRow icon="flag-outline" label="Goals" value={profile.goals} />
+            </>
+          ) : null}
         </Card>
 
-        <Card variant="default" title="Quick edit" padding="md">
-          <Input label="Nume" value={name} onChangeText={setName} placeholder="Ex: Miruna" autoCapitalize="words" />
-          <Input label="Varsta" value={age} onChangeText={setAge} placeholder="Ex: 24" keyboardType="numeric" />
-          <Input label="Greutate (kg)" value={weightKg} onChangeText={setWeightKg} placeholder="Ex: 60.5" keyboardType="numeric" />
-          <Input label="Inaltime (cm)" value={heightCm} onChangeText={setHeightCm} placeholder="Ex: 168" keyboardType="numeric" />
-          <Input label="Nivel fitness" value={fitnessLevel} onChangeText={setFitnessLevel} placeholder="beginner / intermediate" />
-          <Input label="Obiective" value={goals} onChangeText={setGoals} placeholder="Ex: slabire, tonifiere" multiline />
+        {/* ── Quick edit ── */}
+        <Card variant="default" title="Edit Profile" padding="md">
+          <View style={styles.fields}>
+            <Input label="Name" value={name} onChangeText={setName} placeholder="E.g. Alex" autoCapitalize="words" />
+            <Input label="Age" value={age} onChangeText={setAge} placeholder="E.g. 24" keyboardType="numeric" />
+            <Input label="Weight (kg)" value={weightKg} onChangeText={setWeightKg} placeholder="E.g. 70.5" keyboardType="numeric" />
+            <Input label="Height (cm)" value={heightCm} onChangeText={setHeightCm} placeholder="E.g. 175" keyboardType="numeric" />
+            <Input label="Fitness level" value={fitnessLevel} onChangeText={setFitnessLevel} placeholder="beginner / intermediate / advanced" />
+            <Input label="Goals" value={goals} onChangeText={setGoals} placeholder="E.g. fat loss, muscle gain" multiline />
+          </View>
         </Card>
 
         {error ? <ErrorState message={error} /> : null}
-        {saveMessage ? <Text style={styles.success}>{saveMessage}</Text> : null}
+        {saveMessage ? (
+          <View style={styles.successBanner}>
+            <Ionicons name="checkmark-circle-outline" size={16} color={colors.success} />
+            <Text style={styles.successText}>{saveMessage}</Text>
+          </View>
+        ) : null}
 
-        <Button label="Refresh profile" onPress={() => void fetchMe()} loading={loading} variant="outline" fullWidth />
-        <Button label="Save profile" onPress={() => void handleSave()} loading={saving} fullWidth />
+        <Button label="Save Profile" onPress={() => void handleSave()} loading={saving} size="lg" fullWidth />
+        <Button label="Refresh Profile" onPress={() => void fetchMe()} loading={loading} variant="outline" fullWidth />
+
+        {/* ── Navigation ── */}
+        <Text style={styles.sectionLabel}>More</Text>
         <Button label="Calorie Calculator" onPress={() => navigation.navigate("CalorieTarget")} variant="secondary" fullWidth />
-        <Button label="Open full edit screen" onPress={() => navigation.navigate("UpdateProfile")} variant="secondary" fullWidth />
-        <Button label="My Favorite Gyms" onPress={() => navigation.navigate("FavoriteGyms")} variant="outline" fullWidth />
-        <Button label="Logout" onPress={handleLogout} variant="danger" fullWidth />
+        <Button label="Full Edit Screen" onPress={() => navigation.navigate("UpdateProfile")} variant="secondary" fullWidth />
+        <Button label="My Favourite Gyms" onPress={() => navigation.navigate("FavoriteGyms")} variant="outline" fullWidth />
+
+        <View style={styles.logoutSection}>
+          <Button label="Log out" onPress={handleLogout} variant="danger" fullWidth />
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -144,10 +166,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing["2xl"],
   },
-  success: {
-    color: colors.success,
-    fontWeight: "700",
-  },
+  // ── Avatar ──
   avatarSection: {
     alignItems: "center",
     paddingVertical: spacing.xl,
@@ -189,12 +208,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     paddingVertical: spacing[1],
     paddingHorizontal: spacing[4],
     borderRadius: radius.chip,
     backgroundColor: colors.accent.muted,
     borderWidth: 1,
-    borderColor: `${colors.accent.base}40`,
+    borderColor: colors.accent.base + "40",
   },
   levelBadgeText: {
     color: colors.accent.text,
@@ -203,11 +225,17 @@ const styles = StyleSheet.create({
     letterSpacing: typography.tracking.widest,
     textTransform: "uppercase",
   },
+  // ── Stat rows ──
   statRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: spacing[3],
+  },
+  statRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
   },
   statLabel: {
     ...typography.styles.bodySmall,
@@ -217,9 +245,41 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     fontWeight: "700",
     color: colors.textPalette.primary,
+    maxWidth: "55%",
+    textAlign: "right",
   },
   divider: {
     height: 1,
     backgroundColor: colors.borderPalette.muted,
+  },
+  // ── Form ──
+  fields: {
+    gap: spacing[2],
+  },
+  // ── Success ──
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    padding: spacing[3],
+    borderRadius: radius.md,
+    backgroundColor: colors.success + "18",
+    borderWidth: 1,
+    borderColor: colors.success + "40",
+  },
+  successText: {
+    color: colors.success,
+    fontWeight: "600",
+    fontSize: typography.size.sm,
+  },
+  // ── Sections ──
+  sectionLabel: {
+    ...typography.styles.label,
+    marginTop: spacing[3],
+    marginBottom: spacing[1],
+    marginLeft: 2,
+  },
+  logoutSection: {
+    marginTop: spacing[3],
   },
 });

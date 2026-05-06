@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, shadows, spacing, typography } from "@/constants/theme";
 import { aiApi, Conversation, Message } from "@/services/aiApi";
 
@@ -49,7 +50,7 @@ const MessageBubble = ({ message }: { message: LocalMessage }) => {
     <View style={[bubbleStyles.row, isUser ? bubbleStyles.rowUser : bubbleStyles.rowAI]}>
       {!isUser && (
         <View style={bubbleStyles.aiAvatar}>
-          <Text style={bubbleStyles.aiAvatarText}>AI</Text>
+          <Ionicons name="flash" size={13} color={colors.accent.base} />
         </View>
       )}
       <View
@@ -74,7 +75,7 @@ const MessageBubble = ({ message }: { message: LocalMessage }) => {
 const TypingBubble = () => (
   <View style={[bubbleStyles.row, bubbleStyles.rowAI]}>
     <View style={bubbleStyles.aiAvatar}>
-      <Text style={bubbleStyles.aiAvatarText}>AI</Text>
+      <Ionicons name="flash" size={13} color={colors.accent.base} />
     </View>
     <View style={[bubbleStyles.bubble, bubbleStyles.bubbleAI, bubbleStyles.typingBubble]}>
       <View style={bubbleStyles.dots}>
