@@ -119,25 +119,35 @@ export const PrescriptionListScreen = () => {
       }
 
       const data = await response.json();
-      const transformedPrescriptions = data.map((item: any) => ({
-        id: item.id.toString(),
-        title: item.filename.replace(/\.[^/.]+$/, ""), // Remove file extension
-        doctorName: "", // Backend doesn't store this yet
-        notes: item.notes,
-        files: [{
-          uri: item.s3_url_or_path.startsWith('http') 
-            ? item.s3_url_or_path 
-            : `https://via.placeholder.com/100x150/3B82F6/FFFFFF?text=${encodeURIComponent(item.filename)}`,
-          name: item.filename,
-          type: item.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
-        }],
-        createdAt: item.uploaded_at,
-        status: "active" as const, // Backend doesn't have status yet
-      }));
+      const transformedPrescriptions = data.map((item: any) => {
+        // Build absolute URL for image paths
+        const buildImageUrl = (path: string) => {
+          if (path.startsWith('http')) {
+            return path; // Already absolute URL
+          }
+          // Build absolute URL for relative paths
+          const baseUrl = "http://172.20.10.4:8000";
+          return path.startsWith('/') ? `${baseUrl}${path}` : `${baseUrl}/${path}`;
+        };
+
+        return {
+          id: item.id.toString(),
+          title: item.title || item.filename.replace(/\.[^/.]+$/, ""), // Use title from backend, fallback to filename
+          doctorName: item.doctor_name || "", // Use doctor_name from backend if available
+          notes: item.notes,
+          files: [{
+            uri: buildImageUrl(item.s3_url_or_path),
+            name: item.filename,
+            type: item.filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+          }],
+          createdAt: item.uploaded_at,
+          status: "active" as const, // Backend doesn't have status yet
+        };
+      });
       
       setPrescriptions(transformedPrescriptions);
     } catch (err) {
-      setError("Nu am putut încărca prescripțiile. Încercați din nou.");
+      setError("Could not load prescriptions. Please try again.");
       console.error("Error fetching prescriptions:", err);
     } finally {
       setLoading(false);
@@ -181,16 +191,66 @@ export const PrescriptionListScreen = () => {
 
   const handleDeletePrescription = (prescription: Prescription) => {
     Alert.alert(
-      "Confirmare ștergere",
-      `Sunteți sigur că doriți să ștergeți prescripția "${prescription.title}"?`,
+      "Confirm Delete",
+      `Are you sure you want to delete the prescription "${prescription.title}"?`,
       [
-        { text: "Anulează", style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Șterge",
+          text: "Delete",
           style: "destructive",
-          onPress: () => {
-            // Aici ar fi logica de ștergere
-            Alert.alert("Succes", "Prescripția a fost ștearsă.");
+          onPress: async () => {
+            if (!accessToken) {
+              Alert.alert("Error", "You are not authenticated");
+              return;
+            }
+
+            try {
+              const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
+              
+              // Validate prescription ID
+              if (!prescription.id) {
+                console.error('[Delete] No prescription ID found');
+                Alert.alert("Error", "Prescription ID not found.");
+                return;
+              }
+              
+              // Ensure ID is a string
+              const prescriptionId = String(prescription.id).trim();
+              if (!prescriptionId) {
+                console.error('[Delete] Invalid prescription ID');
+                Alert.alert("Error", "Prescription ID is invalid.");
+                return;
+              }
+
+              // Build the delete URL
+              const url = `${API_BASE_URL}/users/me/prescriptions/${prescriptionId}`;
+              console.log('[Delete] URL:', url);
+              
+              const response = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+              });
+
+              console.log('[Delete] Response status:', response.status);
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Delete] Failed:', response.status, errorText);
+                throw new Error(`Delete failed: ${response.status} - ${errorText}`);
+              }
+
+              // Update local state
+              setPrescriptions(prev => prev.filter(p => p.id !== prescription.id));
+              console.log('[Delete] Removed from local state');
+              
+              Alert.alert("Success", "Prescription deleted successfully.");
+            } catch (error) {
+              console.error('[Delete] Error:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscută';
+              Alert.alert("Error", `Could not delete prescription: ${errorMessage}`);
+            }
           },
         },
       ]
@@ -208,17 +268,17 @@ export const PrescriptionListScreen = () => {
   return (
     <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Prescripțiile Mele</Text>
+        <Text style={styles.title}>My Prescriptions</Text>
 
         <Button
-          label="Adaugă Prescripție Nouă"
+          label="Add New Prescription"
           onPress={() => navigation.navigate("PrescriptionUpload" as any)}
           fullWidth
         />
 
-        {/* Prescripții Active */}
+        {/* Active Prescriptions */}
         {activePrescriptions.length > 0 && (
-          <Card variant="default" title="Prescripții Active" padding="md">
+          <Card variant="default" title="Active Prescriptions" padding="md">
             {activePrescriptions.map((prescription) => (
               <View key={prescription.id}>
                 <TouchableOpacity
@@ -237,7 +297,7 @@ export const PrescriptionListScreen = () => {
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(prescription.status) }]}>
                         <Text style={styles.statusText}>{getStatusText(prescription.status)}</Text>
                       </View>
-                      <Text style={styles.fileCount}>{prescription.files.length} fișiere</Text>
+                      <Text style={styles.fileCount}>{prescription.files.length} files</Text>
                     </View>
                   </View>
                   {prescription.notes && (
@@ -246,7 +306,7 @@ export const PrescriptionListScreen = () => {
                     </Text>
                   )}
                   <View style={styles.prescriptionFooter}>
-                    <Text style={styles.viewFilesText}>Vezi fișiere</Text>
+                    <Text style={styles.viewFilesText}>View Files</Text>
                     <TouchableOpacity
                       style={styles.deleteButton}
                       onPress={(e) => {
@@ -254,7 +314,7 @@ export const PrescriptionListScreen = () => {
                         handleDeletePrescription(prescription);
                       }}
                     >
-                      <Text style={styles.deleteButtonText}>Șterge</Text>
+                      <Text style={styles.deleteButtonText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -266,9 +326,9 @@ export const PrescriptionListScreen = () => {
           </Card>
         )}
 
-        {/* Prescripții Finalizate */}
+        {/* Completed Prescriptions */}
         {completedPrescriptions.length > 0 && (
-          <Card variant="default" title="Finalizate" padding="md">
+          <Card variant="default" title="Completed" padding="md">
             {completedPrescriptions.map((prescription) => (
               <View key={prescription.id}>
                 <TouchableOpacity
@@ -287,7 +347,7 @@ export const PrescriptionListScreen = () => {
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(prescription.status) }]}>
                         <Text style={styles.statusText}>{getStatusText(prescription.status)}</Text>
                       </View>
-                      <Text style={styles.fileCount}>{prescription.files.length} fișiere</Text>
+                      <Text style={styles.fileCount}>{prescription.files.length} files</Text>
                     </View>
                   </View>
                   {prescription.notes && (
@@ -296,7 +356,7 @@ export const PrescriptionListScreen = () => {
                     </Text>
                   )}
                   <View style={styles.prescriptionFooter}>
-                    <Text style={styles.viewFilesText}>Vezi fișiere</Text>
+                    <Text style={styles.viewFilesText}>View Files</Text>
                     <TouchableOpacity
                       style={styles.deleteButton}
                       onPress={(e) => {
@@ -304,7 +364,7 @@ export const PrescriptionListScreen = () => {
                         handleDeletePrescription(prescription);
                       }}
                     >
-                      <Text style={styles.deleteButtonText}>Șterge</Text>
+                      <Text style={styles.deleteButtonText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -316,9 +376,9 @@ export const PrescriptionListScreen = () => {
           </Card>
         )}
 
-        {/* Prescripții Expirate */}
+        {/* Expired Prescriptions */}
         {expiredPrescriptions.length > 0 && (
-          <Card variant="default" title="Expirate" padding="md">
+          <Card variant="default" title="Expired" padding="md">
             {expiredPrescriptions.map((prescription) => (
               <View key={prescription.id}>
                 <TouchableOpacity
@@ -337,7 +397,7 @@ export const PrescriptionListScreen = () => {
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(prescription.status) }]}>
                         <Text style={styles.statusText}>{getStatusText(prescription.status)}</Text>
                       </View>
-                      <Text style={styles.fileCount}>{prescription.files.length} fișiere</Text>
+                      <Text style={styles.fileCount}>{prescription.files.length} files</Text>
                     </View>
                   </View>
                   {prescription.notes && (
@@ -346,7 +406,7 @@ export const PrescriptionListScreen = () => {
                     </Text>
                   )}
                   <View style={styles.prescriptionFooter}>
-                    <Text style={styles.viewFilesText}>Vezi fișiere</Text>
+                    <Text style={styles.viewFilesText}>View Files</Text>
                     <TouchableOpacity
                       style={styles.deleteButton}
                       onPress={(e) => {
@@ -354,7 +414,7 @@ export const PrescriptionListScreen = () => {
                         handleDeletePrescription(prescription);
                       }}
                     >
-                      <Text style={styles.deleteButtonText}>Șterge</Text>
+                      <Text style={styles.deleteButtonText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -366,15 +426,20 @@ export const PrescriptionListScreen = () => {
           </Card>
         )}
 
-        {/* Modal pentru vizualizare fișiere */}
+        {/* Modal for viewing files */}
         {selectedPrescription && (
-          <Card variant="elevated" title={`Fișiere - ${selectedPrescription.title}`} padding="md">
+          <Card variant="elevated" title={`Files - ${selectedPrescription.title}`} padding="md">
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.filesContainer}>
                 {selectedPrescription.files.map((file, index) => (
                   <View key={index} style={styles.filePreview}>
                     {file.type.startsWith("image/") ? (
-                      <Image source={{ uri: file.uri }} style={styles.fileImage} />
+                      <Image 
+                        source={{ uri: file.uri }} 
+                        style={styles.fileImage}
+                        resizeMode="contain"
+                        onError={(e) => console.log('[Image] Error loading image:', e.nativeEvent.error)}
+                      />
                     ) : (
                       <View style={styles.filePlaceholder}>
                         <Text style={styles.filePlaceholderText}>📄</Text>
@@ -388,7 +453,7 @@ export const PrescriptionListScreen = () => {
               </View>
             </ScrollView>
             <Button
-              label="Închide"
+              label="Close"
               onPress={() => setSelectedPrescription(null)}
               variant="outline"
               fullWidth
@@ -398,7 +463,7 @@ export const PrescriptionListScreen = () => {
 
         {loading && (
           <Card variant="default" padding="md">
-            <Text style={styles.emptyText}>Se încarcă prescripțiile...</Text>
+            <Text style={styles.emptyText}>Loading prescriptions...</Text>
           </Card>
         )}
 
@@ -406,7 +471,7 @@ export const PrescriptionListScreen = () => {
           <Card variant="default" padding="md">
             <Text style={styles.errorText}>{error}</Text>
             <Button
-              label="Reîncearcă"
+              label="Retry"
               onPress={fetchPrescriptions}
               variant="outline"
               fullWidth
@@ -416,16 +481,16 @@ export const PrescriptionListScreen = () => {
 
         {!loading && !error && prescriptions.length === 0 && (
           <Card variant="default" padding="md">
-            <Text style={styles.emptyText}>Nu aveți nicio prescripție încă.</Text>
+            <Text style={styles.emptyText}>You don't have any prescriptions yet.</Text>
             <Button
-              label="Adaugă Prima Prescripție"
+              label="Add First Prescription"
               onPress={() => navigation.navigate("PrescriptionUpload" as any)}
             />
           </Card>
         )}
 
         <Button
-          label="Înapoi"
+          label="Back"
           onPress={() => navigation.goBack()}
           variant="ghost"
           fullWidth
@@ -530,13 +595,14 @@ const styles = StyleSheet.create({
   },
   filePreview: {
     alignItems: "center",
-    width: 80,
+    width: 140,
   },
   fileImage: {
-    width: 60,
-    height: 80,
+    width: '100%',
+    height: 400,
     borderRadius: radius.sm,
     marginBottom: spacing[1],
+    backgroundColor: colors.bg.elevated,
   },
   filePlaceholder: {
     width: 60,

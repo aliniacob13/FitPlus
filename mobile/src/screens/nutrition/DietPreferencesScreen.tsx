@@ -28,7 +28,7 @@ type DietPreferences = {
 
 const commonRestrictions = [
   "Vegetarian",
-  "Vegan",
+  "Vegan", 
   "Gluten-Free",
   "Dairy-Free",
   "Low-Carb",
@@ -41,29 +41,29 @@ const commonRestrictions = [
 ];
 
 const commonAllergies = [
-  "Lactoză",
+  "Lactose",
   "Gluten",
-  "Ouă",
-  "Nuci",
-  "Arahide",
-  "Fructe de mare",
-  "Soia",
+  "Eggs",
+  "Nuts",
+  "Peanuts",
+  "Seafood",
+  "Soy",
   "Sesame",
-  "Mustar",
-  "Pește",
-  "Crustacee",
+  "Mustard",
+  "Fish",
+  "Shellfish",
   "Molluscs",
 ];
 
 const commonGoals = [
-  "Slăbit",
-  "Masă musculară",
-  "Mentenanță",
-  "Energie crescută",
-  "Sănătate digestivă",
-  "Control diabet",
-  "Sănătate cardiacă",
-  "Performanță sportivă",
+  "Weight Loss",
+  "Muscle Gain",
+  "Maintenance",
+  "Increased Energy",
+  "Digestive Health",
+  "Diabetes Control",
+  "Heart Health",
+  "Sports Performance",
 ];
 
 export const DietPreferencesScreen = () => {
@@ -108,13 +108,20 @@ export const DietPreferencesScreen = () => {
       }
 
       const data = await response.json();
+      // Normalize goals to handle both string and array formats from backend
+      const normalizedGoals = Array.isArray(data.goals) 
+        ? data.goals 
+        : (typeof data.goals === 'string' && data.goals.trim() 
+          ? [data.goals] 
+          : []);
+      
       setPreferences({
         restrictions: data.restrictions || [],
         allergies: data.allergies || [],
-        goals: data.goals || "",
+        goals: normalizedGoals,
       });
     } catch (err) {
-      setError("Nu am putut încărca preferințele. Încercați din nou.");
+      setError("Could not load preferences. Please try again.");
       console.error("Error fetching diet preferences:", err);
     } finally {
       setLoading(false);
@@ -128,13 +135,19 @@ export const DietPreferencesScreen = () => {
     setError(null);
     
     try {
+      // Convert goals array to string for backend compatibility
+      const payloadForBackend = {
+        ...preferences,
+        goals: Array.isArray(preferences.goals) ? preferences.goals.join(', ') : preferences.goals,
+      };
+      
       const response = await fetch(`${API_BASE_URL}/users/me/diet-preferences`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(preferences),
+        body: JSON.stringify(payloadForBackend),
       });
 
       if (!response.ok) {
@@ -142,15 +155,22 @@ export const DietPreferencesScreen = () => {
       }
 
       const data = await response.json();
+      // Normalize goals to handle both string and array formats from backend
+      const normalizedGoals = Array.isArray(data.goals) 
+        ? data.goals 
+        : (typeof data.goals === 'string' && data.goals.trim() 
+          ? [data.goals] 
+          : []);
+      
       setPreferences({
         restrictions: data.restrictions || [],
         allergies: data.allergies || [],
-        goals: data.goals || "",
+        goals: normalizedGoals,
       });
       
-      Alert.alert("Succes", "Preferințele au fost salvate!");
+      Alert.alert("Success", "Preferences saved successfully!");
     } catch (err) {
-      setError("Nu am putut salva preferințele. Încercați din nou.");
+      setError("Could not save preferences. Please try again.");
       console.error("Error saving diet preferences:", err);
     } finally {
       setSaving(false);
@@ -203,12 +223,15 @@ export const DietPreferencesScreen = () => {
   };
 
   const toggleGoal = (goal: string) => {
-    setPreferences(prev => ({
-      ...prev,
-      goals: prev.goals.includes(goal)
-        ? prev.goals.filter(g => g !== goal)
-        : [...prev.goals, goal],
-    }));
+    setPreferences(prev => {
+      const safeGoals = Array.isArray(prev?.goals) ? prev.goals : (typeof prev?.goals === 'string' ? [prev.goals] : []);
+      return {
+        ...prev,
+        goals: safeGoals.includes(goal)
+          ? safeGoals.filter(g => g !== goal)
+          : [...safeGoals, goal],
+      };
+    });
   };
 
   const removeAllergy = (allergy: string) => {
@@ -219,22 +242,25 @@ export const DietPreferencesScreen = () => {
   };
 
   const removeGoal = (goal: string) => {
-    setPreferences(prev => ({
-      ...prev,
-      goals: prev.goals.filter(g => g !== goal),
-    }));
+    setPreferences(prev => {
+      const safeGoals = Array.isArray(prev?.goals) ? prev.goals : (typeof prev?.goals === 'string' ? [prev.goals] : []);
+      return {
+        ...prev,
+        goals: safeGoals.filter(g => g !== goal),
+      };
+    });
   };
 
   return (
     <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Preferințe Dietetice</Text>
+        <Text style={styles.title}>Dietary Preferences</Text>
 
         {error && (
           <Card variant="default" padding="md">
             <Text style={styles.errorText}>{error}</Text>
             <Button
-              label="Reîncearcă"
+              label="Retry"
               onPress={fetchPreferences}
               variant="outline"
               fullWidth
@@ -242,9 +268,9 @@ export const DietPreferencesScreen = () => {
           </Card>
         )}
 
-        <Card variant="default" title="Restricții Alimentare" padding="md">
+        <Card variant="default" title="Dietary Restrictions" padding="md">
           <Text style={styles.sectionDescription}>
-            Selectați restricțiile alimentare pe care le aveți.
+            Select your dietary restrictions.
           </Text>
           
           <View style={styles.tagsContainer}>
@@ -269,10 +295,10 @@ export const DietPreferencesScreen = () => {
 
           <View style={styles.customInputRow}>
             <Input
-              label="Adaugă restricție personalizată"
+              label="Add custom restriction"
               value={customRestriction}
               onChangeText={setCustomRestriction}
-              placeholder="Ex: Fără procesate"
+              placeholder="Ex: No processed foods"
             />
             <TouchableOpacity
               style={styles.addButton}
@@ -302,9 +328,9 @@ export const DietPreferencesScreen = () => {
           )}
         </Card>
 
-        <Card variant="default" title="Alergii" padding="md">
+        <Card variant="default" title="Allergies" padding="md">
           <Text style={styles.sectionDescription}>
-            Selectați alergiile alimentare pe care le aveți.
+            Select your food allergies.
           </Text>
           
           <View style={styles.tagsContainer}>
@@ -329,10 +355,10 @@ export const DietPreferencesScreen = () => {
 
           <View style={styles.customInputRow}>
             <Input
-              label="Adaugă alergie personalizată"
+              label="Add custom allergy"
               value={customAllergy}
               onChangeText={setCustomAllergy}
-              placeholder="Ex: Citrice"
+              placeholder="Ex: Citrus"
             />
             <TouchableOpacity
               style={styles.addButton}
@@ -362,9 +388,9 @@ export const DietPreferencesScreen = () => {
           )}
         </Card>
 
-        <Card variant="default" title="Obiective" padding="md">
+        <Card variant="default" title="Goals" padding="md">
           <Text style={styles.sectionDescription}>
-            Selectați obiectivele dietei dumneavoastră.
+            Select your diet goals.
           </Text>
           
           <View style={styles.tagsContainer}>
@@ -373,13 +399,13 @@ export const DietPreferencesScreen = () => {
                 key={goal}
                 style={[
                   styles.tag,
-                  preferences.goals.includes(goal) && styles.tagSelected,
+                  (preferences?.goals || []).includes(goal) && styles.tagSelected,
                 ]}
                 onPress={() => toggleGoal(goal)}
               >
                 <Text style={[
                   styles.tagText,
-                  preferences.goals.includes(goal) && styles.tagTextSelected,
+                  (preferences?.goals || []).includes(goal) && styles.tagTextSelected,
                 ]}>
                   {goal}
                 </Text>
@@ -387,11 +413,11 @@ export const DietPreferencesScreen = () => {
             ))}
           </View>
 
-          {preferences.goals.length > 0 && (
+          {(preferences?.goals || []).length > 0 && (
             <View style={styles.selectedContainer}>
-              <Text style={styles.selectedTitle}>Selectate:</Text>
+              <Text style={styles.selectedTitle}>Selected:</Text>
               <View style={styles.selectedTags}>
-                {preferences.goals.map((goal) => (
+                {(preferences?.goals || []).map((goal) => (
                   <TouchableOpacity
                     key={goal}
                     style={styles.selectedTag}
@@ -407,7 +433,7 @@ export const DietPreferencesScreen = () => {
         </Card>
 
         <Button
-          label="Salvează Preferințele"
+          label="Save Preferences"
           onPress={savePreferences}
           loading={saving}
           disabled={loading}
@@ -415,7 +441,7 @@ export const DietPreferencesScreen = () => {
         />
 
         <Button
-          label="Înapoi la Nutriție"
+          label="Back to Nutrition"
           onPress={() => navigation.goBack()}
           variant="ghost"
           fullWidth

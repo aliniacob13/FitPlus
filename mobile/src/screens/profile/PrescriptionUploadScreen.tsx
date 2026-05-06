@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -33,8 +34,6 @@ export const PrescriptionUploadScreen = () => {
   const navigation = useNavigation<NavProp>();
   const { accessToken } = useAuthStore();
   const [selectedFiles, setSelectedFiles] = useState<PrescriptionFile[]>([]);
-  const [prescriptionTitle, setPrescriptionTitle] = useState("");
-  const [doctorName, setDoctorName] = useState("");
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -42,8 +41,8 @@ export const PrescriptionUploadScreen = () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
-        "Permisiune necesară",
-        "Avem nevoie de permisiunea pentru a accesa galeria foto."
+        "Permission Required",
+        "We need permission to access the photo gallery."
       );
       return false;
     }
@@ -54,8 +53,8 @@ export const PrescriptionUploadScreen = () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
-        "Permisiune necesară",
-        "Avem nevoie de permisiunea pentru a accesa camera."
+        "Permission Required",
+        "We need permission to access the camera."
       );
       return false;
     }
@@ -85,7 +84,7 @@ export const PrescriptionUploadScreen = () => {
         setSelectedFiles((prev) => [...prev, ...newFiles]);
       }
     } catch (error) {
-      Alert.alert("Eroare", "Nu am putut selecta imaginile din galerie.");
+      Alert.alert("Error", "Could not select images from gallery.");
     }
   };
 
@@ -111,7 +110,7 @@ export const PrescriptionUploadScreen = () => {
         setSelectedFiles((prev) => [...prev, newFile]);
       }
     } catch (error) {
-      Alert.alert("Eroare", "Nu am putut face fotografia.");
+      Alert.alert("Error", "Could not take photo.");
     }
   };
 
@@ -128,18 +127,13 @@ export const PrescriptionUploadScreen = () => {
   };
 
   const handleUpload = async () => {
-    if (!prescriptionTitle.trim()) {
-      Alert.alert("Eroare", "Vă rugăm introduceți titlul prescripției.");
-      return;
-    }
-
     if (selectedFiles.length === 0) {
-      Alert.alert("Eroare", "Vă rugăm selectați cel puțin un fișier.");
+      Alert.alert("Error", "Please select at least one file.");
       return;
     }
 
     if (!accessToken) {
-      Alert.alert("Eroare", "Nu sunteți autentificat");
+      Alert.alert("Error", "You are not authenticated");
       return;
     }
 
@@ -166,14 +160,12 @@ export const PrescriptionUploadScreen = () => {
         if (notes.trim()) {
           formData.append('notes', notes);
         }
-        if (doctorName.trim()) {
-          formData.append('doctor_name', doctorName);
-        }
-        if (prescriptionTitle.trim()) {
-          formData.append('title', prescriptionTitle);
-        }
 
         console.log('[Upload] Sending FormData to:', `${API_BASE_URL}/users/me/prescriptions`);
+        
+        // Create AbortController for timeout (React Native compatible)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
         
         const uploadResponse = await fetch(`${API_BASE_URL}/users/me/prescriptions`, {
           method: 'POST',
@@ -182,8 +174,10 @@ export const PrescriptionUploadScreen = () => {
             // Don't set Content-Type for FormData - let React Native set it with boundary
           },
           body: formData,
-          signal: AbortSignal.timeout(30000), // 30 second timeout
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
 
         console.log('[Upload] Response status:', uploadResponse.status);
 
@@ -199,16 +193,14 @@ export const PrescriptionUploadScreen = () => {
 
       console.log('[Upload] All files uploaded successfully');
       Alert.alert(
-        "Succes",
-        "Prescripția a fost încărcată cu succes!",
+        "Success",
+        "Prescription uploaded successfully!",
         [
           {
             text: "OK",
             onPress: () => {
               // Reset form
               setSelectedFiles([]);
-              setPrescriptionTitle("");
-              setDoctorName("");
               setNotes("");
               navigation.goBack();
             },
@@ -217,9 +209,9 @@ export const PrescriptionUploadScreen = () => {
       );
     } catch (error) {
       console.error('[Upload] Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscută';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[Upload] Error message:', errorMessage);
-      Alert.alert("Eroare", `Nu am putut încărca prescripția: ${errorMessage}`);
+      Alert.alert("Error", `Could not upload prescription: ${errorMessage}`);
     } finally {
       setUploading(false);
     }
@@ -228,43 +220,33 @@ export const PrescriptionUploadScreen = () => {
   return (
     <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Încărcare Prescripție</Text>
+        <Text style={styles.title}>Upload Prescription</Text>
 
         <Card variant="default" padding="md">
-          <Input
-            label="Titlu Prescripție"
-            value={prescriptionTitle}
-            onChangeText={setPrescriptionTitle}
-            placeholder="Ex: Prescripție vitamine"
-          />
-          <Input
-            label="Nume Doctor"
-            value={doctorName}
-            onChangeText={setDoctorName}
-            placeholder="Ex: Dr. Popescu"
-          />
-          <Input
-            label="Note (opțional)"
+          <Text style={styles.notesLabel}>Notes (optional)</Text>
+          <TextInput
+            style={styles.notesInput}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Note sau instrucțiuni suplimentare"
+            placeholder="Additional notes or instructions"
             multiline
+            textAlignVertical="top"
           />
         </Card>
 
-        <Card variant="default" title="Selectare Fișiere" padding="md">
+        <Card variant="default" title="Select Files" padding="md">
           <View style={styles.buttonRow}>
             <TouchableOpacity style={styles.uploadButton} onPress={pickFromGallery}>
-              <Text style={styles.uploadButtonText}>📷 Galerie Foto</Text>
+              <Text style={styles.uploadButtonText}>📷 Photo Gallery</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
-              <Text style={styles.uploadButtonText}>📸 Fă Poză</Text>
+              <Text style={styles.uploadButtonText}>📸 Take Photo</Text>
             </TouchableOpacity>
           </View>
 
           {selectedFiles.length > 0 && (
             <View style={styles.filesContainer}>
-              <Text style={styles.filesTitle}>Fișiere selectate ({selectedFiles.length})</Text>
+              <Text style={styles.filesTitle}>Selected Files ({selectedFiles.length})</Text>
               {selectedFiles.map((file, index) => (
                 <View key={index} style={styles.fileItem}>
                   <Image source={{ uri: file.uri }} style={styles.thumbnail} />
@@ -287,22 +269,22 @@ export const PrescriptionUploadScreen = () => {
         </Card>
 
         <Button
-          label="Încarcă Prescripția"
+          label="Upload Prescription"
           onPress={handleUpload}
           loading={uploading}
-          disabled={!prescriptionTitle.trim() || selectedFiles.length === 0}
+          disabled={selectedFiles.length === 0}
           fullWidth
         />
 
         <Button
-          label="Vezi Prescripțiile"
+          label="View Prescriptions"
           onPress={() => navigation.navigate("PrescriptionList" as any)}
           variant="outline"
           fullWidth
         />
 
         <Button
-          label="Înapoi"
+          label="Back"
           onPress={() => navigation.goBack()}
           variant="ghost"
           fullWidth
@@ -322,6 +304,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPalette.primary,
     marginTop: spacing[3],
+  },
+  notesLabel: {
+    ...typography.styles.label,
+    marginBottom: spacing[2],
+  },
+  notesInput: {
+    borderWidth: 0,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: spacing[3],
+    minHeight: 100,
+    textAlignVertical: "top",
+    fontSize: typography.size.base,
+    color: colors.textPalette.primary,
   },
   buttonRow: {
     flexDirection: "row",

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "fitplus"
     POSTGRES_PASSWORD: str = "fitplus_secret"
     POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int = 5433
     POSTGRES_DB: str = "fitplus_db"
 
     @property
