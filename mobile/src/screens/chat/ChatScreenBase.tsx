@@ -1,3 +1,18 @@
+/**
+ * ChatScreenBase
+ *
+ * Shared implementation for WorkoutChatScreen and DietChatScreen.
+ *
+ * Key behaviours:
+ *  • Reads / writes active conversation + messages via chatStore so the
+ *    session survives tab switching.
+ *  • Streams AI responses via SSE (XHR-based aiApi.streamXxxMessage).
+ *  • Shows ChatBubble with timestamps and a blinking cursor while streaming.
+ *  • Shows TypingBubble while waiting for the first chunk.
+ *  • ConversationListModal for history browsing / switching.
+ *  • Aborts the XHR stream on component unmount.
+ */
+
 import {
   useCallback,
   useEffect,
@@ -8,9 +23,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -18,12 +31,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, shadows, spacing, typography } from "@/constants/theme";
-import { aiApi, Conversation, Message } from "@/services/aiApi";
+import { aiApi, Conversation } from "@/services/aiApi";
+import { ChatBubble, ChatMessage, TypingBubble } from "@/components/chat/ChatBubble";
+import { ConversationListModal } from "@/components/chat/ConversationList";
+import { useChatStore } from "@/store/chatStore";
+import { AppStackParamList } from "@/types/navigation";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type AgentType = "workout" | "diet";
 
@@ -34,137 +53,15 @@ export type ChatScreenBaseProps = {
   emptyEmoji: string;
   emptyHint: string;
   inputPlaceholder: string;
+  /**
+   * When provided (e.g. coming from ConversationHistoryScreen) the screen will
+   * load this conversation on first mount, overriding whatever was cached in
+   * the store.
+   */
+  initialConversationId?: number;
 };
 
-// ── Message bubble ────────────────────────────────────────────────────────────
-
-type LocalMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
-
-const MessageBubble = ({ message }: { message: LocalMessage }) => {
-  const isUser = message.role === "user";
-  return (
-    <View style={[bubbleStyles.row, isUser ? bubbleStyles.rowUser : bubbleStyles.rowAI]}>
-      {!isUser && (
-        <View style={bubbleStyles.aiAvatar}>
-          <Ionicons name="flash" size={13} color={colors.accent.base} />
-        </View>
-      )}
-      <View
-        style={[
-          bubbleStyles.bubble,
-          isUser ? bubbleStyles.bubbleUser : bubbleStyles.bubbleAI,
-        ]}
-      >
-        <Text
-          style={[
-            bubbleStyles.text,
-            isUser ? bubbleStyles.textUser : bubbleStyles.textAI,
-          ]}
-        >
-          {message.content}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-const TypingBubble = () => (
-  <View style={[bubbleStyles.row, bubbleStyles.rowAI]}>
-    <View style={bubbleStyles.aiAvatar}>
-      <Ionicons name="flash" size={13} color={colors.accent.base} />
-    </View>
-    <View style={[bubbleStyles.bubble, bubbleStyles.bubbleAI, bubbleStyles.typingBubble]}>
-      <View style={bubbleStyles.dots}>
-        <View style={[bubbleStyles.dot, bubbleStyles.dot1]} />
-        <View style={[bubbleStyles.dot, bubbleStyles.dot2]} />
-        <View style={[bubbleStyles.dot, bubbleStyles.dot3]} />
-      </View>
-    </View>
-  </View>
-);
-
-const bubbleStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: spacing[3],
-    paddingHorizontal: spacing.md,
-  },
-  rowUser: {
-    justifyContent: "flex-end",
-  },
-  rowAI: {
-    justifyContent: "flex-start",
-  },
-  aiAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing[2],
-    flexShrink: 0,
-  },
-  aiAvatarText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: colors.accent.base,
-    letterSpacing: 0.5,
-  },
-  bubble: {
-    maxWidth: "78%",
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing[3],
-  },
-  bubbleUser: {
-    backgroundColor: colors.accent.base,
-    borderBottomRightRadius: radius.sm,
-    ...shadows.accent,
-  },
-  bubbleAI: {
-    backgroundColor: colors.bg.elevated,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    borderBottomLeftRadius: radius.sm,
-  },
-  text: {
-    fontSize: typography.size.base,
-    lineHeight: 22,
-  },
-  textUser: {
-    color: colors.textPalette.inverse,
-    fontWeight: "500",
-  },
-  textAI: {
-    color: colors.textPalette.primary,
-  },
-  typingBubble: {
-    paddingVertical: spacing[4],
-    paddingHorizontal: spacing.lg,
-  },
-  dots: {
-    flexDirection: "row",
-    gap: spacing[1],
-    alignItems: "center",
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.textPalette.secondary,
-  },
-  dot1: { opacity: 0.4 },
-  dot2: { opacity: 0.7 },
-  dot3: { opacity: 1 },
-});
+type Nav = NativeStackNavigationProp<AppStackParamList>;
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
@@ -192,14 +89,8 @@ const emptyStyles = StyleSheet.create({
     paddingHorizontal: spacing["2xl"],
     gap: spacing[3],
   },
-  emoji: {
-    fontSize: 56,
-    marginBottom: spacing[2],
-  },
-  title: {
-    ...typography.styles.h3,
-    textAlign: "center",
-  },
+  emoji: { fontSize: 56, marginBottom: spacing[2] },
+  title: { ...typography.styles.h3, textAlign: "center" },
   hint: {
     ...typography.styles.bodySmall,
     textAlign: "center",
@@ -207,180 +98,7 @@ const emptyStyles = StyleSheet.create({
   },
 });
 
-// ── Conversation list modal ───────────────────────────────────────────────────
-
-type ConvModalProps = {
-  visible: boolean;
-  conversations: Conversation[];
-  activeConvId: number | null;
-  onClose: () => void;
-  onSelect: (conv: Conversation) => void;
-  onNewChat: () => void;
-  onDelete: (convId: number) => void;
-};
-
-const ConversationModal = ({
-  visible,
-  conversations,
-  activeConvId,
-  onClose,
-  onSelect,
-  onNewChat,
-  onDelete,
-}: ConvModalProps) => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="slide"
-    onRequestClose={onClose}
-  >
-    <Pressable style={modalStyles.overlay} onPress={onClose}>
-      <View
-        style={modalStyles.sheet}
-        // Prevent taps inside the sheet from closing the modal
-        onStartShouldSetResponder={() => true}
-      >
-        <View style={modalStyles.handle} />
-
-        <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Chat History</Text>
-          <TouchableOpacity onPress={onNewChat} style={modalStyles.newBtn}>
-            <Text style={modalStyles.newBtnText}>+ New Chat</Text>
-          </TouchableOpacity>
-        </View>
-
-        {conversations.length === 0 ? (
-          <View style={modalStyles.emptyRow}>
-            <Text style={modalStyles.emptyText}>No conversations yet.</Text>
-          </View>
-        ) : (
-          conversations.map((conv) => (
-            <View key={conv.id} style={modalStyles.convRow}>
-              <TouchableOpacity
-                style={[
-                  modalStyles.convItem,
-                  conv.id === activeConvId && modalStyles.convItemActive,
-                ]}
-                onPress={() => onSelect(conv)}
-                activeOpacity={0.7}
-              >
-                <Text style={modalStyles.convTitle} numberOfLines={2}>
-                  {conv.title}
-                </Text>
-                <Text style={modalStyles.convDate}>
-                  {new Date(conv.created_at).toLocaleDateString("ro-RO", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={modalStyles.deleteBtn}
-                onPress={() => onDelete(conv.id)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={modalStyles.deleteBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
-      </View>
-    </Pressable>
-  </Modal>
-);
-
-const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: colors.bg.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    borderTopWidth: 1,
-    borderColor: colors.borderPalette.default,
-    paddingBottom: spacing["2xl"],
-    maxHeight: "70%",
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.borderPalette.default,
-    alignSelf: "center",
-    marginTop: spacing[3],
-    marginBottom: spacing.md,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing[3],
-    borderBottomWidth: 1,
-    borderColor: colors.borderPalette.default,
-    marginBottom: spacing[2],
-  },
-  title: {
-    ...typography.styles.h3,
-  },
-  newBtn: {
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    borderRadius: radius.button,
-    borderWidth: 1.5,
-    borderColor: colors.accent.base,
-  },
-  newBtnText: {
-    fontSize: typography.size.sm,
-    fontWeight: "700",
-    color: colors.accent.base,
-  },
-  emptyRow: {
-    padding: spacing.md,
-    alignItems: "center",
-  },
-  emptyText: {
-    ...typography.styles.bodySmall,
-  },
-  convRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: spacing.md,
-    paddingRight: spacing[3],
-    borderBottomWidth: 1,
-    borderColor: colors.borderPalette.muted,
-  },
-  convItem: {
-    flex: 1,
-    paddingVertical: spacing[4],
-    gap: 4,
-  },
-  convItemActive: {
-    // highlight handled via title color below
-  },
-  convTitle: {
-    fontSize: typography.size.base,
-    fontWeight: "500",
-    color: colors.textPalette.primary,
-  },
-  convDate: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-  },
-  deleteBtn: {
-    padding: spacing[2],
-    marginLeft: spacing[2],
-  },
-  deleteBtnText: {
-    fontSize: typography.size.sm,
-    color: colors.textPalette.muted,
-  },
-});
-
-// ── Main ChatScreenBase ───────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
 export const ChatScreenBase = ({
   agentType,
@@ -389,19 +107,35 @@ export const ChatScreenBase = ({
   emptyEmoji,
   emptyHint,
   inputPlaceholder,
+  initialConversationId,
 }: ChatScreenBaseProps) => {
+  const navigation = useNavigation<Nav>();
+
+  // ── Store ─────────────────────────────────────────────────────────────────
+  const storeActiveId = useChatStore((s) => s[agentType].activeConversationId);
+  const storeMessages = useChatStore((s) => s[agentType].messages);
+  const setActiveConversationId = useChatStore((s) => s.setActiveConversationId);
+  const setStoreMessages = useChatStore((s) => s.setMessages);
+  const appendToStore = useChatStore((s) => s.appendMessage);
+  const patchInStore = useChatStore((s) => s.patchMessage);
+  const resetSlice = useChatStore((s) => s.resetSlice);
+
+  // ── Local UI state (not persisted) ───────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [inputText, setInputText] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  /** Waiting for the FIRST chunk — show TypingBubble */
+  const [isWaiting, setIsWaiting] = useState(false);
+  /** A stream is in progress — disable input / send */
+  const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showConvModal, setShowConvModal] = useState(false);
 
-  const flatListRef = useRef<FlatList<LocalMessage>>(null);
+  const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const inputRef = useRef<TextInput>(null);
+  const abortStreamRef = useRef<(() => void) | null>(null);
+  const streamingMsgIdRef = useRef<string | null>(null);
 
-  // ── Data loaders ─────────────────────────────────────────────────────────
+  // ── Loaders ───────────────────────────────────────────────────────────────
 
   const loadConversations = useCallback(async (): Promise<Conversation[]> => {
     try {
@@ -414,132 +148,212 @@ export const ChatScreenBase = ({
     }
   }, [agentType]);
 
-  const loadMessages = useCallback(async (convId: number) => {
-    setIsLoadingHistory(true);
-    try {
-      const raw = await aiApi.getMessages(convId);
-      setMessages(
-        raw.map((m) => ({
+  const loadMessages = useCallback(
+    async (convId: number) => {
+      setIsLoadingHistory(true);
+      try {
+        const raw = await aiApi.getMessages(convId);
+        const msgs: ChatMessage[] = raw.map((m) => ({
           id: String(m.id),
           role: m.role as "user" | "assistant",
           content: m.content,
-        })),
-      );
-    } catch {
-      setMessages([]);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }, []);
+          timestamp: m.created_at,
+        }));
+        setStoreMessages(agentType, msgs);
+        setActiveConversationId(agentType, convId);
+      } catch {
+        setStoreMessages(agentType, []);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    },
+    [agentType, setStoreMessages, setActiveConversationId],
+  );
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // ── Initial load ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     void (async () => {
       const convs = await loadConversations();
-      if (convs.length > 0) {
-        setActiveConvId(convs[0].id);
+
+      // If a specific conversation was requested (e.g. from History screen)
+      // and it differs from what's currently cached, load it.
+      if (
+        initialConversationId != null &&
+        initialConversationId !== storeActiveId
+      ) {
+        await loadMessages(initialConversationId);
+        return;
+      }
+
+      // If nothing is loaded yet, open the most recent conversation.
+      if (storeActiveId == null && convs.length > 0) {
         await loadMessages(convs[0].id);
       }
     })();
-  }, [loadConversations, loadMessages]);
+    // Only run when initialConversationId changes (tab params change).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConversationId]);
 
-  // ── Scroll to bottom when messages change ─────────────────────────────────
+  // ── Cleanup stream on unmount ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 80);
+    return () => {
+      abortStreamRef.current?.();
+    };
+  }, []);
+
+  // ── Auto-scroll ───────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (storeMessages.length > 0) {
+      setTimeout(
+        () => flatListRef.current?.scrollToEnd({ animated: true }),
+        80,
+      );
     }
-  }, [messages]);
+  }, [storeMessages]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Send ──────────────────────────────────────────────────────────────────
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const text = inputText.trim();
-    if (!text || isSending) return;
+    if (!text || isStreaming || isWaiting) return;
 
-    const tempUserMsg: LocalMessage = {
+    const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
       content: text,
+      timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, tempUserMsg]);
+    appendToStore(agentType, userMsg);
     setInputText("");
-    setIsSending(true);
+    setIsWaiting(true);
 
-    try {
-      const send =
-        agentType === "workout"
-          ? aiApi.sendWorkoutMessage
-          : aiApi.sendDietMessage;
+    const streamingId = `ai-${Date.now()}`;
+    streamingMsgIdRef.current = streamingId;
+    let firstChunk = true;
 
-      const result = await send({
-        message: text,
-        conversation_id: activeConvId ?? undefined,
-      });
+    abortStreamRef.current = (
+      agentType === "workout"
+        ? aiApi.streamWorkoutMessage
+        : aiApi.streamDietMessage
+    )(
+      { message: text, conversation_id: storeActiveId ?? undefined },
+      {
+        onChunk: (chunk) => {
+          if (firstChunk) {
+            firstChunk = false;
+            setIsWaiting(false);
+            setIsStreaming(true);
+            appendToStore(agentType, {
+              id: streamingId,
+              role: "assistant",
+              content: chunk,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            // Append chunk to the streaming message
+            patchInStore(agentType, streamingId, {
+              content:
+                (useChatStore
+                  .getState()
+                  [agentType].messages.find((m) => m.id === streamingId)
+                  ?.content ?? "") + chunk,
+            });
+          }
+        },
 
-      const aiMsg: LocalMessage = {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: result.response,
-      };
-      setMessages((prev) => [...prev, aiMsg]);
+        onDone: async (convId) => {
+          setIsStreaming(false);
+          streamingMsgIdRef.current = null;
+          if (convId !== storeActiveId) {
+            setActiveConversationId(agentType, convId);
+            await loadConversations();
+          }
+        },
 
-      // If a new conversation was created, track it
-      if (result.conversation_id !== activeConvId) {
-        setActiveConvId(result.conversation_id);
-        await loadConversations();
-      }
-    } catch {
-      const errMsg: LocalMessage = {
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        content: "A apărut o eroare. Te rog încearcă din nou.",
-      };
-      setMessages((prev) => [...prev, errMsg]);
-    } finally {
-      setIsSending(false);
-    }
-  };
+        onError: (_errMsg) => {
+          setIsWaiting(false);
+          setIsStreaming(false);
+          streamingMsgIdRef.current = null;
+          if (firstChunk) {
+            appendToStore(agentType, {
+              id: `err-${Date.now()}`,
+              role: "assistant",
+              content: "A apărut o eroare. Te rog încearcă din nou.",
+              timestamp: new Date().toISOString(),
+            });
+          }
+        },
+      },
+    );
+  }, [
+    agentType,
+    storeActiveId,
+    inputText,
+    isStreaming,
+    isWaiting,
+    appendToStore,
+    patchInStore,
+    setActiveConversationId,
+    loadConversations,
+  ]);
 
-  const handleNewChat = () => {
-    setActiveConvId(null);
-    setMessages([]);
+  // ── Conversation management ───────────────────────────────────────────────
+
+  const handleNewChat = useCallback(() => {
+    abortStreamRef.current?.();
+    setIsStreaming(false);
+    setIsWaiting(false);
+    resetSlice(agentType);
     setShowConvModal(false);
     inputRef.current?.focus();
-  };
+  }, [agentType, resetSlice]);
 
-  const handleSelectConversation = async (conv: Conversation) => {
-    setActiveConvId(conv.id);
-    setShowConvModal(false);
-    await loadMessages(conv.id);
-  };
+  const handleSelectConversation = useCallback(
+    async (conv: Conversation) => {
+      abortStreamRef.current?.();
+      setIsStreaming(false);
+      setIsWaiting(false);
+      setShowConvModal(false);
+      await loadMessages(conv.id);
+    },
+    [loadMessages],
+  );
 
-  const handleDeleteConversation = async (convId: number) => {
-    try {
-      await aiApi.deleteConversation(convId);
-      const updated = await loadConversations();
-      if (convId === activeConvId) {
-        if (updated.length > 0) {
-          setActiveConvId(updated[0].id);
-          await loadMessages(updated[0].id);
-        } else {
-          setActiveConvId(null);
-          setMessages([]);
+  const handleDeleteConversation = useCallback(
+    async (convId: number) => {
+      try {
+        await aiApi.deleteConversation(convId);
+        const updated = await loadConversations();
+        if (convId === storeActiveId) {
+          if (updated.length > 0) {
+            await loadMessages(updated[0].id);
+          } else {
+            resetSlice(agentType);
+          }
         }
+      } catch {
+        // silent
       }
-    } catch {
-      // silent failure — user stays in current conversation
-    }
+    },
+    [agentType, storeActiveId, loadConversations, loadMessages, resetSlice],
+  );
+
+  // ── Open history screen ───────────────────────────────────────────────────
+
+  const goToHistory = () => {
+    navigation.navigate("ConversationHistory", { agentType });
   };
 
-  // ── Derived state ─────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
 
-  const activeConv = conversations.find((c) => c.id === activeConvId);
-  const canSend = inputText.trim().length > 0 && !isSending;
+  const activeConv = conversations.find((c) => c.id === storeActiveId);
+  const canSend = inputText.trim().length > 0 && !isStreaming && !isWaiting;
+  const isBusy = isStreaming || isWaiting;
+  const messages = storeMessages;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -553,13 +367,20 @@ export const ChatScreenBase = ({
             {activeConv ? activeConv.title : subtitle}
           </Text>
         </View>
-        <View style={styles.headerRight}>
+
+        <View style={styles.headerActions}>
           {conversations.length > 0 && (
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setShowConvModal(true)}
               activeOpacity={0.7}
+              accessibilityLabel="Open conversation list"
             >
+              <Ionicons
+                name="chatbubbles-outline"
+                size={15}
+                color={colors.textPalette.secondary}
+              />
               <Text style={styles.headerBtnText}>History</Text>
             </TouchableOpacity>
           )}
@@ -567,9 +388,15 @@ export const ChatScreenBase = ({
             style={[styles.headerBtn, styles.newChatBtn]}
             onPress={handleNewChat}
             activeOpacity={0.7}
+            accessibilityLabel="Start new chat"
           >
+            <Ionicons
+              name="add"
+              size={15}
+              color={colors.accent.base}
+            />
             <Text style={[styles.headerBtnText, styles.newChatBtnText]}>
-              + New
+              New
             </Text>
           </TouchableOpacity>
         </View>
@@ -584,26 +411,44 @@ export const ChatScreenBase = ({
         {isLoadingHistory ? (
           <View style={styles.centered}>
             <ActivityIndicator color={colors.accent.base} size="large" />
+            <Text style={styles.loadingText}>Loading conversation…</Text>
           </View>
-        ) : messages.length === 0 ? (
-          <EmptyState
-            emoji={emptyEmoji}
-            title={title}
-            hint={emptyHint}
-          />
+        ) : messages.length === 0 && !isWaiting ? (
+          <EmptyState emoji={emptyEmoji} title={title} hint={emptyHint} />
         ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <MessageBubble message={item} />}
+            renderItem={({ item }) => (
+              <ChatBubble
+                message={item}
+                isStreaming={item.id === streamingMsgIdRef.current}
+              />
+            )}
             contentContainerStyle={styles.messageList}
             showsVerticalScrollIndicator={false}
-            ListFooterComponent={isSending ? <TypingBubble /> : null}
+            ListFooterComponent={isWaiting ? <TypingBubble /> : null}
             onContentSizeChange={() =>
               flatListRef.current?.scrollToEnd({ animated: false })
             }
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              autoscrollToTopThreshold: 10,
+            }}
           />
+        )}
+
+        {/* ── Streaming status bar ── */}
+        {isStreaming && (
+          <View style={styles.streamingBar}>
+            <ActivityIndicator
+              size="small"
+              color={colors.accent.base}
+              style={{ transform: [{ scale: 0.75 }] }}
+            />
+            <Text style={styles.streamingText}>AI is responding…</Text>
+          </View>
         )}
 
         {/* ── Input bar ── */}
@@ -617,7 +462,7 @@ export const ChatScreenBase = ({
             placeholderTextColor={colors.textPalette.muted}
             multiline
             maxLength={2000}
-            editable={!isSending}
+            editable={!isBusy}
             returnKeyType="send"
             blurOnSubmit={false}
             onSubmitEditing={() => {
@@ -629,24 +474,33 @@ export const ChatScreenBase = ({
             onPress={() => void handleSend()}
             disabled={!canSend}
             activeOpacity={0.8}
+            accessibilityLabel="Send message"
           >
-            {isSending ? (
+            {isBusy ? (
               <ActivityIndicator
                 size="small"
                 color={colors.textPalette.inverse}
               />
             ) : (
-              <Text style={styles.sendBtnIcon}>↑</Text>
+              <Ionicons
+                name="arrow-up"
+                size={20}
+                color={
+                  canSend
+                    ? colors.textPalette.inverse
+                    : colors.textPalette.muted
+                }
+              />
             )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      {/* ── Conversation history modal ── */}
-      <ConversationModal
+      {/* ── Conversation list modal ── */}
+      <ConversationListModal
         visible={showConvModal}
         conversations={conversations}
-        activeConvId={activeConvId}
+        activeConvId={storeActiveId}
         onClose={() => setShowConvModal(false)}
         onSelect={(conv) => void handleSelectConversation(conv)}
         onNewChat={handleNewChat}
@@ -659,13 +513,8 @@ export const ChatScreenBase = ({
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.bg.base,
-  },
-  flex: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.bg.base },
+  flex: { flex: 1 },
 
   // Header
   header: {
@@ -674,16 +523,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.md,
     paddingTop: spacing[3],
-    paddingBottom: spacing[4],
+    paddingBottom: spacing[3],
     borderBottomWidth: 1,
     borderColor: colors.borderPalette.default,
     backgroundColor: colors.bg.surface,
     ...shadows.sm,
+    gap: spacing[2],
   },
-  headerLeft: {
-    flex: 1,
-    marginRight: spacing[3],
-  },
+  headerLeft: { flex: 1, gap: 2, minWidth: 0 },
   headerTitle: {
     fontSize: typography.size.md,
     fontWeight: "700",
@@ -692,13 +539,16 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: typography.size.xs,
     color: colors.textPalette.muted,
-    marginTop: 2,
   },
-  headerRight: {
+  headerActions: {
     flexDirection: "row",
     gap: spacing[2],
+    flexShrink: 0,
   },
   headerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     borderRadius: radius.sm,
@@ -710,28 +560,47 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     fontWeight: "600",
     color: colors.textPalette.secondary,
-    letterSpacing: 0.3,
   },
   newChatBtn: {
     borderColor: colors.accent.base,
     backgroundColor: colors.accent.muted,
   },
-  newChatBtnText: {
-    color: colors.accent.base,
-  },
+  newChatBtnText: { color: colors.accent.base },
 
-  // Loading / centered
+  // Body
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing[3],
+  },
+  loadingText: {
+    fontSize: typography.size.sm,
+    color: colors.textPalette.muted,
   },
 
-  // Message list
   messageList: {
     paddingTop: spacing.md,
     paddingBottom: spacing[2],
     flexGrow: 1,
+  },
+
+  // Streaming status
+  streamingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[2],
+    backgroundColor: colors.accent.muted,
+    borderTopWidth: 1,
+    borderColor: colors.accent.base + "40",
+  },
+  streamingText: {
+    fontSize: typography.size.xs,
+    color: colors.accent.base,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
 
   // Input bar
@@ -749,7 +618,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     minHeight: 44,
-    maxHeight: 120,
+    maxHeight: 130,
     backgroundColor: colors.bg.elevated,
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -775,11 +644,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.elevated,
     shadowOpacity: 0,
     elevation: 0,
-  },
-  sendBtnIcon: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.textPalette.inverse,
-    lineHeight: 22,
   },
 });

@@ -6,8 +6,9 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Map: undefined;
-  Workout: undefined;
-  Diet: undefined;
+  /** Optional conversationId lets ConversationHistoryScreen pre-load a conversation */
+  Workout: { conversationId?: number } | undefined;
+  Diet: { conversationId?: number } | undefined;
   Profile: undefined;
 };
 
@@ -20,4 +21,8 @@ export type AppStackParamList = {
   LabelScan: { date: string };
   PlateCoach: { date: string };
   FavoriteGyms: undefined;
+  /** History screen – pick or delete conversations and navigate to the right chat */
+  ConversationHistory: { agentType: "workout" | "diet" };
+  /** Diet preferences – allergies, restrictions, nutritional goals */
+  DietPreferences: undefined;
 };

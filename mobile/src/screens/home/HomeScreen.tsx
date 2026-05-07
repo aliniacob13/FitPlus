@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { aiApi, Conversation } from "@/services/aiApi";
 import { nutritionApi } from "@/services/nutritionApi";
-import { useAuthStore } from "@/store/authStore";
 import { todayString, useFoodDiaryStore } from "@/store/foodDiaryStore";
 import { useUserStore } from "@/store/userStore";
 import { AppStackParamList, MainTabParamList } from "@/types/navigation";
@@ -22,6 +22,8 @@ type HomeNav = CompositeNavigationProp<
 >;
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+// ── Subcomponents ─────────────────────────────────────────────────────────────
 
 const StatItem = ({ value, label }: { value: string; label: string }) => (
   <View style={styles.statItem}>
@@ -37,56 +39,102 @@ const getGreeting = (): string => {
   return "Good evening";
 };
 
-type QuickAction = {
-  label: string;
-  icon: IoniconName;
-  screen: keyof AppStackParamList;
-  variant: "primary" | "outline" | "secondary";
-  description: string;
-};
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+// ── Quick actions ─────────────────────────────────────────────────────────────
+
+type QuickAction =
+  | {
+      label: string;
+      icon: IoniconName;
+      description: string;
+      variant: "primary" | "outline" | "secondary";
+      type: "tab";
+      tab: keyof MainTabParamList;
+    }
+  | {
+      label: string;
+      icon: IoniconName;
+      description: string;
+      variant: "primary" | "outline" | "secondary";
+      type: "stack";
+      screen: keyof AppStackParamList;
+    };
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
     label: "AI Workout Coach",
     icon: "barbell-outline",
-    screen: "Workout",
+    tab: "Workout",
+    type: "tab",
     variant: "primary",
     description: "Get a personalised plan",
+  },
+  {
+    label: "AI Diet Coach",
+    icon: "nutrition-outline",
+    tab: "Diet",
+    type: "tab",
+    variant: "outline",
+    description: "Meal & macro advice",
   },
   {
     label: "Food Diary",
     icon: "restaurant-outline",
     screen: "FoodDiary",
+    type: "stack",
     variant: "outline",
     description: "Log today's meals",
+  },
+  {
+    label: "Diet Preferences",
+    icon: "options-outline",
+    screen: "DietPreferences",
+    type: "stack",
+    variant: "outline",
+    description: "Allergies & restrictions",
   },
   {
     label: "Set Calorie Target",
     icon: "calculator-outline",
     screen: "CalorieTarget",
-    variant: "outline",
+    type: "stack",
+    variant: "secondary",
     description: "Calculate your TDEE",
   },
   {
     label: "Update Fitness Profile",
     icon: "person-outline",
     screen: "UpdateProfile",
+    type: "stack",
     variant: "secondary",
     description: "Weight, height, goals",
   },
 ];
 
+// ── HomeScreen ─────────────────────────────────────────────────────────────────
+
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeNav>();
   const profile = useUserStore((state) => state.profile);
-  const logout = useAuthStore((state) => state.logout);
   const dailyKcalTarget = useFoodDiaryStore((state) => state.dailyKcalTarget);
   const hasCalorieTarget = useFoodDiaryStore((state) => state.hasCalorieTarget);
   const diaryDate = useFoodDiaryStore((state) => state.date);
   const diaryKcal = useFoodDiaryStore((state) => state.totals.kcal);
-  const [todayKcal, setTodayKcal] = useState(0);
 
-  const displayName = profile?.name || profile?.email?.split("@")[0] || "Athlete";
+  const [todayKcal, setTodayKcal] = useState(0);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+
+  const displayName =
+    profile?.name || profile?.email?.split("@")[0] || "Athlete";
   const initials = displayName[0]?.toUpperCase() ?? "A";
 
   const remainingKcal = useMemo(() => {
@@ -99,32 +147,71 @@ export const HomeScreen = () => {
     return Math.min(todayKcal / dailyKcalTarget, 1);
   }, [hasCalorieTarget, dailyKcalTarget, todayKcal]);
 
+  // Derived stats from conversations
+  const workoutConvs = useMemo(
+    () => conversations.filter((c) => c.agent_type === "workout"),
+    [conversations],
+  );
+  const dietConvs = useMemo(
+    () => conversations.filter((c) => c.agent_type === "diet"),
+    [conversations],
+  );
+  const lastConv = useMemo(
+    () =>
+      [...conversations].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )[0] ?? null,
+    [conversations],
+  );
+
+  // ── Data loading ────────────────────────────────────────────────────────────
+
   useFocusEffect(
     useCallback(() => {
-      const loadToday = async () => {
+      const load = async () => {
         try {
+          // Calories
           const { data } = await nutritionApi.getFoodLog(todayString());
           setTodayKcal(Math.round(data.totals.kcal));
         } catch {
           setTodayKcal(0);
         }
+        try {
+          // Conversations for real stats
+          const convs = await aiApi.getConversations();
+          setConversations(convs);
+        } catch {
+          // keep previous
+        }
       };
-      void loadToday();
+      void load();
     }, []),
   );
 
+  // Keep calories in sync with food diary store
   useEffect(() => {
     if (diaryDate === todayString()) {
       setTodayKcal(Math.round(diaryKcal));
     }
   }, [diaryDate, diaryKcal]);
 
+  // ── Navigation helpers ──────────────────────────────────────────────────────
+
+  const navigateTo = (action: QuickAction) => {
+    if (action.type === "tab") {
+      navigation.navigate(action.tab);
+    } else {
+      navigation.navigate(action.screen as any);
+    }
+  };
+
   const greeting = getGreeting();
 
   return (
     <Screen>
       <View style={styles.container}>
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{greeting},</Text>
@@ -132,8 +219,8 @@ export const HomeScreen = () => {
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Log out"
-            onPress={() => void logout()}
+            accessibilityLabel="Go to profile"
+            onPress={() => navigation.navigate("Profile")}
             style={({ pressed }) => [
               styles.avatarBtn,
               pressed && styles.avatarBtnPressed,
@@ -144,29 +231,80 @@ export const HomeScreen = () => {
           </Pressable>
         </View>
 
-        {/* ── Workout progress placeholder ── */}
-        <Card variant="accent" title="Today's Activity" padding="md">
+        {/* ── Ultima activitate (Last Activity) ── */}
+        <Card variant="accent" title="AI Activity" padding="md">
           <View style={styles.statsRow}>
-            <StatItem value="0" label="Workouts" />
+            <StatItem value={String(conversations.length)} label="Total Chats" />
             <View style={styles.statDivider} />
-            <StatItem value="0" label="Minutes" />
+            <StatItem value={String(workoutConvs.length)} label="Workouts" />
             <View style={styles.statDivider} />
-            <StatItem value="0" label="Kcal" />
+            <StatItem value={String(dietConvs.length)} label="Diet" />
           </View>
-          <View style={styles.activityHint}>
-            <Ionicons name="information-circle-outline" size={13} color={colors.textPalette.muted} />
-            <Text style={styles.activityHintText}>Start a workout to track your activity</Text>
-          </View>
+
+          {lastConv ? (
+            <Pressable
+              style={styles.lastActivityRow}
+              onPress={() =>
+                navigation.navigate("ConversationHistory", {
+                  agentType: lastConv.agent_type === "workout" ? "workout" : "diet",
+                })
+              }
+              accessibilityRole="button"
+            >
+              <View style={styles.lastActivityIcon}>
+                <Ionicons
+                  name={
+                    lastConv.agent_type === "workout"
+                      ? "barbell-outline"
+                      : "nutrition-outline"
+                  }
+                  size={14}
+                  color={colors.accent.base}
+                />
+              </View>
+              <View style={styles.lastActivityText}>
+                <Text style={styles.lastActivityLabel}>Ultima activitate</Text>
+                <Text style={styles.lastActivityTitle} numberOfLines={1}>
+                  {lastConv.title}
+                </Text>
+              </View>
+              <Text style={styles.lastActivityTime}>
+                {timeAgo(lastConv.created_at)}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={colors.textPalette.muted}
+              />
+            </Pressable>
+          ) : (
+            <View style={styles.activityHint}>
+              <Ionicons
+                name="information-circle-outline"
+                size={13}
+                color={colors.textPalette.muted}
+              />
+              <Text style={styles.activityHintText}>
+                Start a chat to track your AI activity
+              </Text>
+            </View>
+          )}
         </Card>
 
-        {/* ── Calorie card with progress bar ── */}
+        {/* Calorie card */}
         <Card variant="elevated" title="Calories Today" padding="md">
           <View style={styles.calorieStatsRow}>
             <StatItem value={String(todayKcal)} label="Consumed" />
             <View style={styles.statDivider} />
-            <StatItem value={hasCalorieTarget ? String(dailyKcalTarget ?? 0) : "—"} label="Target" />
+            <StatItem
+              value={hasCalorieTarget ? String(dailyKcalTarget ?? 0) : "—"}
+              label="Target"
+            />
             <View style={styles.statDivider} />
-            <StatItem value={hasCalorieTarget ? String(remainingKcal) : "—"} label="Remaining" />
+            <StatItem
+              value={hasCalorieTarget ? String(remainingKcal) : "—"}
+              label="Remaining"
+            />
           </View>
 
           {hasCalorieTarget && (
@@ -190,7 +328,7 @@ export const HomeScreen = () => {
           )}
         </Card>
 
-        {/* ── Body stats ── */}
+        {/* Body stats */}
         <Text style={styles.sectionTitle}>Your Stats</Text>
         <View style={styles.infoRow}>
           <Card variant="elevated" style={styles.infoCard} padding="md">
@@ -212,13 +350,13 @@ export const HomeScreen = () => {
           </Card>
         </View>
 
-        {/* ── Quick Actions ── */}
+        {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsGrid}>
           {QUICK_ACTIONS.map((action) => (
             <Pressable
               key={action.label}
-              onPress={() => navigation.navigate(action.screen as any)}
+              onPress={() => navigateTo(action)}
               style={({ pressed }) => [
                 styles.actionCard,
                 action.variant === "primary" && styles.actionCardPrimary,
@@ -234,7 +372,11 @@ export const HomeScreen = () => {
                 <Ionicons
                   name={action.icon}
                   size={20}
-                  color={action.variant === "primary" ? colors.bg.base : colors.accent.base}
+                  color={
+                    action.variant === "primary"
+                      ? colors.bg.base
+                      : colors.accent.base
+                  }
                 />
               </View>
               <Text
@@ -261,11 +403,11 @@ export const HomeScreen = () => {
   );
 };
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  // ── Header ──
+  container: { gap: spacing.sm },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -278,9 +420,7 @@ const styles = StyleSheet.create({
     color: colors.textPalette.secondary,
     marginBottom: 2,
   },
-  name: {
-    ...typography.styles.h2,
-  },
+  name: { ...typography.styles.h2 },
   avatarBtn: {
     width: 42,
     height: 42,
@@ -298,7 +438,7 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     fontWeight: "700",
   },
-  // ── Stats ──
+
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -311,25 +451,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacing[1],
   },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
-  },
+  statItem: { alignItems: "center", flex: 1 },
   statValue: {
     fontSize: typography.size["3xl"],
     fontWeight: "800",
     color: colors.accent.base,
     letterSpacing: -1,
   },
-  statLabel: {
-    ...typography.styles.label,
-    marginTop: spacing[1],
-  },
+  statLabel: { ...typography.styles.label, marginTop: spacing[1] },
   statDivider: {
     width: 1,
     height: 36,
     backgroundColor: colors.borderPalette.default,
   },
+
+  // Last activity
+  lastActivityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[3],
+    marginTop: spacing[3],
+    paddingTop: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderPalette.muted,
+  },
+  lastActivityIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.accent.muted,
+    borderWidth: 1,
+    borderColor: colors.accent.base,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  lastActivityText: { flex: 1, gap: 2 },
+  lastActivityLabel: {
+    fontSize: typography.size.xs,
+    color: colors.textPalette.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    fontWeight: "600",
+  },
+  lastActivityTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: "600",
+    color: colors.textPalette.primary,
+  },
+  lastActivityTime: {
+    fontSize: typography.size.xs,
+    color: colors.textPalette.muted,
+    flexShrink: 0,
+  },
+
   activityHint: {
     flexDirection: "row",
     alignItems: "center",
@@ -343,7 +518,7 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     color: colors.textPalette.muted,
   },
-  // ── Progress bar ──
+
   progressBarWrapper: {
     marginTop: spacing[3],
     paddingTop: spacing[3],
@@ -366,7 +541,7 @@ const styles = StyleSheet.create({
     color: colors.textPalette.muted,
     textAlign: "right",
   },
-  // ── Body stats ──
+
   sectionTitle: {
     ...typography.styles.h3,
     marginTop: spacing[2],
@@ -377,25 +552,15 @@ const styles = StyleSheet.create({
     gap: spacing[3],
     marginBottom: spacing[2],
   },
-  infoCard: {
-    flex: 1,
-    marginBottom: 0,
-    alignItems: "center",
-  },
-  infoEmoji: {
-    fontSize: 22,
-    marginBottom: spacing[1],
-  },
+  infoCard: { flex: 1, marginBottom: 0, alignItems: "center" },
+  infoEmoji: { fontSize: 22, marginBottom: spacing[1] },
   infoValue: {
     fontSize: typography.size.lg,
     fontWeight: "700",
     color: colors.textPalette.primary,
   },
-  infoLabel: {
-    ...typography.styles.caption,
-    marginTop: 2,
-  },
-  // ── Quick Actions grid ──
+  infoLabel: { ...typography.styles.caption, marginTop: 2 },
+
   quickActionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -433,23 +598,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing[1],
   },
-  actionIconWrapPrimary: {
-    backgroundColor: colors.bg.base + "25",
-  },
+  actionIconWrapPrimary: { backgroundColor: colors.bg.base + "25" },
   actionLabel: {
     fontSize: typography.size.sm,
     fontWeight: "700",
     color: colors.textPalette.primary,
     lineHeight: 18,
   },
-  actionLabelPrimary: {
-    color: colors.bg.base,
-  },
+  actionLabelPrimary: { color: colors.bg.base },
   actionDesc: {
     fontSize: typography.size.xs,
     color: colors.textPalette.muted,
   },
-  actionDescPrimary: {
-    color: colors.bg.base + "99",
-  },
+  actionDescPrimary: { color: colors.bg.base + "99" },
 });

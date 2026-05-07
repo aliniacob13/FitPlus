@@ -1,6 +1,13 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button } from "@/components/ui/Button";
@@ -13,21 +20,113 @@ import { AuthStackParamList } from "@/types/navigation";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
+// ── PasswordInput ─────────────────────────────────────────────────────────────
+// Componentă locală care imită stilul Input-ului existent + buton ochi
+
+type PasswordInputProps = {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  visible: boolean;
+  onToggleVisible: () => void;
+};
+
+const PasswordInput = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  visible,
+  onToggleVisible,
+}: PasswordInputProps) => (
+  <View style={pwStyles.wrapper}>
+    <Text style={pwStyles.label}>{label}</Text>
+    <View style={pwStyles.row}>
+      <TextInput
+        style={pwStyles.input}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textPalette.muted}
+        secureTextEntry={!visible}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <TouchableOpacity
+        style={pwStyles.eyeBtn}
+        onPress={onToggleVisible}
+        activeOpacity={0.7}
+        accessibilityLabel={visible ? "Hide password" : "Show password"}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons
+          name={visible ? "eye-off-outline" : "eye-outline"}
+          size={20}
+          color={colors.textPalette.muted}
+        />
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
+const pwStyles = StyleSheet.create({
+  wrapper: { gap: 6 },
+  label: {
+    fontSize: typography.size.xs,
+    fontWeight: "600",
+    color: colors.textPalette.secondary,
+    letterSpacing: typography.tracking.wide,
+    textTransform: "uppercase",
+    marginLeft: 2,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.bg.elevated,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderPalette.default,
+    paddingHorizontal: spacing.md,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    fontSize: typography.size.base,
+    color: colors.textPalette.primary,
+  },
+  eyeBtn: {
+    paddingLeft: spacing[2],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
+
+// ── RegisterScreen ────────────────────────────────────────────────────────────
+
 export const RegisterScreen = ({ navigation }: Props) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Eye toggle state
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const register = useAuthStore((state) => state.register);
   const isSubmitting = useAuthStore((state) => state.isSubmitting);
   const error = useAuthStore((state) => state.error);
 
   const isFormValid = useMemo(
-    () => email.includes("@") && password.length >= 6 && confirmPassword === password,
+    () =>
+      email.includes("@") &&
+      password.length >= 6 &&
+      confirmPassword === password,
     [email, password, confirmPassword],
   );
 
-  const passwordsMatch = confirmPassword.length === 0 || confirmPassword === password;
+  const passwordsMatch =
+    confirmPassword.length === 0 || confirmPassword === password;
 
   const handleRegister = async () => {
     await register(email.trim(), password);
@@ -45,8 +144,15 @@ export const RegisterScreen = ({ navigation }: Props) => {
       <View style={styles.wrapper}>
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.navigate("Login")} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={20} color={colors.textPalette.secondary} />
+          <Pressable
+            onPress={() => navigation.navigate("Login")}
+            style={styles.backBtn}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={20}
+              color={colors.textPalette.secondary}
+            />
           </Pressable>
           <View style={styles.logoMark}>
             <Ionicons name="flash" size={18} color={colors.bg.base} />
@@ -57,7 +163,9 @@ export const RegisterScreen = ({ navigation }: Props) => {
         {/* ── Title ── */}
         <View style={styles.titleSection}>
           <Text style={styles.title}>Start your journey</Text>
-          <Text style={styles.subtitle}>Create your free account and unlock your potential</Text>
+          <Text style={styles.subtitle}>
+            Create your free account and unlock your potential
+          </Text>
         </View>
 
         {/* ── Feature grid ── */}
@@ -80,20 +188,24 @@ export const RegisterScreen = ({ navigation }: Props) => {
             autoCapitalize="none"
             keyboardType="email-address"
           />
-          <Input
+
+          <PasswordInput
             label="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             placeholder="Min. 6 characters"
+            visible={showPassword}
+            onToggleVisible={() => setShowPassword((v) => !v)}
           />
+
           <View>
-            <Input
+            <PasswordInput
               label="Confirm Password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              secureTextEntry
               placeholder="Repeat password"
+              visible={showConfirmPassword}
+              onToggleVisible={() => setShowConfirmPassword((v) => !v)}
             />
             {!passwordsMatch ? (
               <Text style={styles.fieldError}>Passwords do not match</Text>
@@ -124,12 +236,15 @@ export const RegisterScreen = ({ navigation }: Props) => {
         </Pressable>
 
         <Text style={styles.terms}>
-          By creating an account you agree to our Terms of Service and Privacy Policy.
+          By creating an account you agree to our Terms of Service and Privacy
+          Policy.
         </Text>
       </View>
     </Screen>
   );
 };
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   wrapper: {

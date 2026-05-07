@@ -1,5 +1,6 @@
 import { AuthStack } from "@/navigation/AuthStack";
 import { MainTabs } from "@/navigation/MainTabs";
+import { ConversationHistoryScreen } from "@/screens/chat/ConversationHistoryScreen";
 import { AddFoodScreen } from "@/screens/nutrition/AddFoodScreen";
 import { CalorieTargetScreen } from "@/screens/nutrition/CalorieTargetScreen";
 import { FoodDiaryScreen } from "@/screens/nutrition/FoodDiaryScreen";
@@ -7,6 +8,7 @@ import { LabelScanScreen } from "@/screens/nutrition/LabelScanScreen";
 import { PlateCoachScreen } from "@/screens/nutrition/PlateCoachScreen";
 import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
+import { DietPreferencesScreen } from "@/screens/profile/DietPreferencesScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -27,6 +29,14 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="LabelScan" component={LabelScanScreen} />
     <Stack.Screen name="PlateCoach" component={PlateCoachScreen} />
     <Stack.Screen name="FavoriteGyms" component={FavoriteGymsScreen} />
+    <Stack.Screen
+      name="ConversationHistory"
+      component={ConversationHistoryScreen}
+    />
+    <Stack.Screen
+      name="DietPreferences"
+      component={DietPreferencesScreen}
+    />
   </Stack.Navigator>
 );
 

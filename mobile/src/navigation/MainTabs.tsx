@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors } from "@/constants/theme";
+import { colors, radius, typography } from "@/constants/theme";
 import { DietChatScreen } from "@/screens/chat/DietChatScreen";
 import { WorkoutChatScreen } from "@/screens/chat/WorkoutChatScreen";
 import { HomeScreen } from "@/screens/home/HomeScreen";
@@ -38,15 +38,15 @@ export const MainTabs = () => (
   <Tab.Navigator
     screenOptions={{
       headerShown: false,
-      tabBarActiveTintColor: colors.primary,
-      tabBarInactiveTintColor: colors.mutedText,
+      tabBarActiveTintColor: colors.accent.base,
+      tabBarInactiveTintColor: colors.textPalette.muted,
       tabBarStyle: {
-        backgroundColor: colors.card,
-        borderTopColor: colors.border,
+        backgroundColor: colors.bg.surface,
+        borderTopColor: colors.borderPalette.default,
         borderTopWidth: 1,
-        height: 60,
-        paddingBottom: 8,
-        paddingTop: 4,
+        height: 62,
+        paddingBottom: 10,
+        paddingTop: 6,
       },
       tabBarLabelStyle: {
         fontSize: 10,
@@ -68,11 +68,18 @@ export const MainTabs = () => (
     <Tab.Screen
       name="Workout"
       component={WorkoutChatScreen}
+      /**
+       * initialParams ensures the tab always has a param object so
+       * useRoute<RouteProp<MainTabParamList, "Workout">>() never returns
+       * undefined.  The actual conversation is managed by chatStore.
+       */
+      initialParams={{ conversationId: undefined }}
       options={{ tabBarIcon: makeTabIcon("Workout") }}
     />
     <Tab.Screen
       name="Diet"
       component={DietChatScreen}
+      initialParams={{ conversationId: undefined }}
       options={{ tabBarIcon: makeTabIcon("Diet") }}
     />
     <Tab.Screen
