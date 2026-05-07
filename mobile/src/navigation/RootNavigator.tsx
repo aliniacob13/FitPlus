@@ -7,6 +7,10 @@ import { LabelScanScreen } from "@/screens/nutrition/LabelScanScreen";
 import { PlateCoachScreen } from "@/screens/nutrition/PlateCoachScreen";
 import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
+import { WeightTrackerScreen } from "@/screens/profile/WeightTrackerScreen";
+import { PrescriptionUploadScreen } from "@/screens/profile/PrescriptionUploadScreen";
+import { PrescriptionListScreen } from "@/screens/profile/PrescriptionListScreen";
+import { DietPreferencesScreen } from "@/screens/nutrition/DietPreferencesScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -27,6 +31,10 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="LabelScan" component={LabelScanScreen} />
     <Stack.Screen name="PlateCoach" component={PlateCoachScreen} />
     <Stack.Screen name="FavoriteGyms" component={FavoriteGymsScreen} />
+    <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} />
+    <Stack.Screen name="PrescriptionUpload" component={PrescriptionUploadScreen} />
+    <Stack.Screen name="PrescriptionList" component={PrescriptionListScreen} />
+    <Stack.Screen name="DietPreferences" component={DietPreferencesScreen} />
   </Stack.Navigator>
 );
 

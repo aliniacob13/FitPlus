@@ -50,6 +50,10 @@ async def get_user_health_context_for_ai(user_id: int, db: AsyncSession) -> User
 
     raw_allergies = (diet_preferences.allergies if diet_preferences else None) or []
     raw_preferences = (diet_preferences.restrictions if diet_preferences else None) or []
+    
+    # Debug logging
+    print(f"DEBUG: diet_preferences.allergies = {raw_allergies}")
+    print(f"DEBUG: diet_preferences.restrictions = {raw_preferences}")
     # Backward compatibility for environments that used "preferences" naming.
     legacy_preferences = getattr(diet_preferences, "preferences", None) if diet_preferences else None
     if not raw_preferences and legacy_preferences:
@@ -67,10 +71,19 @@ async def get_user_health_context_for_ai(user_id: int, db: AsyncSession) -> User
         preferences_items = raw_preferences
 
     
+    # Debug logging
+    print(f"DEBUG: allergies_items = {allergies_items}")
+    print(f"DEBUG: preferences_items = {preferences_items}")
+    
+    allergies_string = ", ".join(str(item).strip() for item in allergies_items if str(item).strip()) or "nespecificate"
+    preferences_string = ", ".join(str(item).strip() for item in preferences_items if str(item).strip()) or "nespecificate"
+    
+    print(f"DEBUG: Final allergies_string = {allergies_string}")
+    print(f"DEBUG: Final preferences_string = {preferences_string}")
+    
     return UserHealthContext(
-        allergies=", ".join(str(item).strip() for item in allergies_items if str(item).strip()) or "nespecificate",
-        preferences=", ".join(str(item).strip() for item in preferences_items if str(item).strip())
-        or "nespecificate",
+        allergies=allergies_string,
+        preferences=preferences_string,
         goals=goals_text.strip() or "nespecificate",
         current_weight=str(latest_weight.weight_kg) if latest_weight else "",
         target_weight=_extract_target_weight(
