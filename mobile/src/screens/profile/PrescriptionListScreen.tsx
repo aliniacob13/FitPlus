@@ -140,7 +140,7 @@ export const PrescriptionListScreen = () => {
           
           // Build URL using FastAPI static files endpoint
           const baseUrl = "http://172.20.10.4:8000";
-          return `${baseUrl}/tmp/${filename}`;
+          return `${baseUrl}/uploads/${filename}`;
         };
 
         return {

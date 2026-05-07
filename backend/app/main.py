@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from tempfile import gettempdir
+from pathlib import Path
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
@@ -22,7 +24,8 @@ app.add_middleware(
 app.include_router(v1_router, prefix="/api/v1")
 
 # Mount static files for prescription images
-app.mount("/tmp", StaticFiles(directory="tmp"), name="static")
+temp_prescriptions_dir = Path(gettempdir()) / "fitplus_prescriptions"
+app.mount("/uploads", StaticFiles(directory=str(temp_prescriptions_dir)), name="prescriptions")
 
 @app.get("/")
 async def root() -> dict[str, str]:
