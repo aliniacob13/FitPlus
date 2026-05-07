@@ -480,70 +480,6 @@ export const PrescriptionListScreen = () => {
           </Card>
         )}
 
-        {/* Modal for viewing files */}
-        {selectedPrescription && (
-          <View 
-            style={Platform.OS === 'web' ? {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 9999,
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: 20,
-            } : styles.modalOverlay}
-          >
-            <View style={Platform.OS === 'web' ? {
-              backgroundColor: colors.background,
-              borderRadius: 16,
-              padding: 20,
-              maxWidth: 600,
-              maxHeight: '80%',
-              width: '100%',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 8,
-              elevation: 5,
-            } : styles.modalContent}>
-              <Card variant="elevated" title={`Files - ${selectedPrescription.title}`} padding="md">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.filesContainer}>
-                    {selectedPrescription.files.map((file, index) => (
-                      <View key={index} style={styles.filePreview}>
-                        {file.type.startsWith("image/") ? (
-                          <Image 
-                            source={{ uri: file.uri }} 
-                            style={styles.fileImage}
-                            resizeMode="contain"
-                            onError={(e) => console.log('[Image] Error loading image:', e.nativeEvent.error, 'URI:', file.uri)}
-                          />
-                        ) : (
-                          <View style={styles.filePlaceholder}>
-                            <Text style={styles.filePlaceholderText}>📄</Text>
-                          </View>
-                        )}
-                        <Text style={styles.fileName} numberOfLines={1}>
-                          {file.name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </ScrollView>
-                <Button
-                  label="Close"
-                  onPress={() => setSelectedPrescription(null)}
-                  variant="outline"
-                  fullWidth
-                />
-              </Card>
-            </View>
-          </View>
-        )}
-
         {loading && (
           <Card variant="default" padding="md">
             <Text style={styles.emptyText}>Loading prescriptions...</Text>
@@ -582,6 +518,52 @@ export const PrescriptionListScreen = () => {
           fullWidth
         />
       </ScrollView>
+      {/* Modal for viewing files */}
+        {selectedPrescription && (
+          <View style={[styles.modalOverlay, Platform.OS === 'web' && { position: 'fixed' as any }]}>
+            <View style={styles.modalContent}>
+              <Text style={[styles.prescriptionTitle, { fontSize: 18, marginBottom: 15, textAlign: 'center' }]}>
+                Files - {selectedPrescription.title}
+              </Text>
+              
+              {/* Magia pentru Web: flexShrink lasă imaginea să facă scroll dacă e prea mare, ținând butonul de Close mereu pe ecran! */}
+              <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={true}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.filesContainer}>
+                    {selectedPrescription.files.map((file, index) => (
+                      <View key={index} style={styles.filePreview}>
+                        {file.type.startsWith("image/") ? (
+                          <Image 
+                            source={{ uri: file.uri }} 
+                            style={styles.fileImage}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <View style={styles.filePlaceholder}>
+                            <Text style={styles.filePlaceholderText}>📄</Text>
+                          </View>
+                        )}
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {file.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              </ScrollView>
+
+              {/* Butonul de Close stă mereu frumos la baza cutiei, la 20px sub imagine */}
+              <View style={{ marginTop: 20 }}>
+                <Button
+                  label="Close"
+                  onPress={() => setSelectedPrescription(null)}
+                  variant="outline"
+                  fullWidth
+                />
+              </View>
+            </View>
+          </View>
+        )}
     </Screen>
   );
 };
@@ -686,12 +668,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[2],
   },
   fileImage: {
-    width: 320,
-    height: 420, 
-    borderRadius: 20, 
+    width: Platform.OS === 'web' ? 320 : 250,
+    height: Platform.OS === 'web' ? 500 : 200, 
+    borderRadius: Platform.OS === 'web' ? 20 : 12,
     overflow: 'hidden',
     marginBottom: spacing[2],
     backgroundColor: 'transparent',
+    alignSelf: 'center',
   },
   filePlaceholder: {
     width: 60,
@@ -727,20 +710,24 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    zIndex: 9999,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   modalContent: {
     backgroundColor: colors.background,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    maxWidth: 400,
-    maxHeight: '80%',
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%', // Asigură că pe Web nu va ieși NICIODATĂ din ecran
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
 });
