@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -62,6 +63,40 @@ export const PrescriptionUploadScreen = () => {
   };
 
   const pickFromGallery = async () => {
+    console.log('[Gallery] Platform.OS:', Platform.OS);
+    
+    if (Platform.OS === 'web') {
+      // Web implementation using file input
+      try {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = 'image/*';
+        
+        input.onchange = (event) => {
+          const files = (event.target as HTMLInputElement).files;
+          if (files) {
+            const newFiles: PrescriptionFile[] = Array.from(files).map((file) => ({
+              uri: URL.createObjectURL(file),
+              name: file.name,
+              type: file.type || 'image/jpeg',
+              size: file.size || 0,
+            }));
+            
+            console.log('[Gallery Web] Selected', newFiles.length, 'files');
+            setSelectedFiles((prev) => [...prev, ...newFiles]);
+          }
+        };
+        
+        input.click();
+      } catch (error) {
+        console.error('[Gallery Web] Error:', error);
+        Alert.alert("Error", "Could not select files on web.");
+      }
+      return;
+    }
+    
+    // Mobile implementation
     const hasPermission = await requestMediaLibraryPermission();
     if (!hasPermission) return;
 
@@ -89,6 +124,15 @@ export const PrescriptionUploadScreen = () => {
   };
 
   const takePhoto = async () => {
+    console.log('[Camera] Platform.OS:', Platform.OS);
+    
+    if (Platform.OS === 'web') {
+      // Web implementation - for now just show alert
+      Alert.alert("Not Available", "Camera is not available on web. Please use the gallery option.");
+      return;
+    }
+    
+    // Mobile implementation
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
 
@@ -127,6 +171,8 @@ export const PrescriptionUploadScreen = () => {
   };
 
   const handleUpload = async () => {
+    console.log('[Upload] Platform.OS:', Platform.OS);
+    
     if (selectedFiles.length === 0) {
       Alert.alert("Error", "Please select at least one file.");
       return;
@@ -148,65 +194,107 @@ export const PrescriptionUploadScreen = () => {
       for (const file of selectedFiles) {
         console.log('[Upload] Processing file:', file);
         
-        const formData = new FormData();
-        
-        // Append file with proper structure for React Native and TypeScript
-        formData.append('file', {
-          uri: file.uri,
-          type: file.type || 'image/jpeg',
-          name: file.name,
-        } as any);
-        
-        if (notes.trim()) {
-          formData.append('notes', notes);
+        if (Platform.OS === 'web') {
+          // Web implementation - fetch the blob from object URL
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          
+          const formData = new FormData();
+          formData.append('file', blob, file.name);
+          
+          if (notes.trim()) {
+            formData.append('notes', notes);
+          }
+
+          console.log('[Upload Web] Sending FormData to:', `${API_BASE_URL}/users/me/prescriptions`);
+          
+          const uploadResponse = await fetch(`${API_BASE_URL}/users/me/prescriptions`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: formData,
+          });
+          
+          console.log('[Upload Web] Response status:', uploadResponse.status);
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error('[Upload Web] Failed:', uploadResponse.status, errorText);
+            throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+          }
+
+          const result = await uploadResponse.json();
+          console.log('[Upload Web] Success:', result);
+        } else {
+          // Mobile implementation
+          const formData = new FormData();
+          
+          // Append file with proper structure for React Native and TypeScript
+          formData.append('file', {
+            uri: file.uri,
+            type: file.type || 'image/jpeg',
+            name: file.name,
+          } as any);
+          
+          if (notes.trim()) {
+            formData.append('notes', notes);
+          }
+
+          console.log('[Upload Mobile] Sending FormData to:', `${API_BASE_URL}/users/me/prescriptions`);
+          
+          // Create AbortController for timeout (React Native compatible)
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          const uploadResponse = await fetch(`${API_BASE_URL}/users/me/prescriptions`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              // Don't set Content-Type for FormData - let React Native set it with boundary
+            },
+            body: formData,
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+
+          console.log('[Upload Mobile] Response status:', uploadResponse.status);
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error('[Upload Mobile] Failed:', uploadResponse.status, errorText);
+            throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+          }
+
+          const result = await uploadResponse.json();
+          console.log('[Upload Mobile] Success:', result);
         }
-
-        console.log('[Upload] Sending FormData to:', `${API_BASE_URL}/users/me/prescriptions`);
-        
-        // Create AbortController for timeout (React Native compatible)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-        
-        const uploadResponse = await fetch(`${API_BASE_URL}/users/me/prescriptions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            // Don't set Content-Type for FormData - let React Native set it with boundary
-          },
-          body: formData,
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-
-        console.log('[Upload] Response status:', uploadResponse.status);
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error('[Upload] Failed:', uploadResponse.status, errorText);
-          throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
-        }
-
-        const result = await uploadResponse.json();
-        console.log('[Upload] Success:', result);
       }
 
       console.log('[Upload] All files uploaded successfully');
-      Alert.alert(
-        "Success",
-        "Prescription uploaded successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              // Reset form
-              setSelectedFiles([]);
-              setNotes("");
-              navigation.goBack();
+      
+      // Reset form
+      setSelectedFiles([]);
+      setNotes("");
+      
+      if (Platform.OS === 'web') {
+        window.alert('Success! Prescription uploaded successfully!');
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          "Success",
+          "Prescription uploaded successfully!",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                navigation.goBack();
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
       console.error('[Upload] Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

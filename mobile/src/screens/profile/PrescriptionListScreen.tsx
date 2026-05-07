@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -203,71 +204,108 @@ export const PrescriptionListScreen = () => {
   };
 
   const handleDeletePrescription = (prescription: Prescription) => {
-    Alert.alert(
-      "Confirm Delete",
-      `Are you sure you want to delete the prescription "${prescription.title}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (!accessToken) {
-              Alert.alert("Error", "You are not authenticated");
-              return;
-            }
-
-            try {
-              const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
-              
-              // Validate prescription ID
-              if (!prescription.id) {
-                console.error('[Delete] No prescription ID found');
-                Alert.alert("Error", "Prescription ID not found.");
-                return;
-              }
-              
-              // Ensure ID is a string
-              const prescriptionId = String(prescription.id).trim();
-              if (!prescriptionId) {
-                console.error('[Delete] Invalid prescription ID');
-                Alert.alert("Error", "Prescription ID is invalid.");
-                return;
-              }
-
-              // Build the delete URL
-              const url = `${API_BASE_URL}/users/me/prescriptions/${prescriptionId}`;
-              console.log('[Delete] URL:', url);
-              
-              const response = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                },
-              });
-
-              console.log('[Delete] Response status:', response.status);
-
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[Delete] Failed:', response.status, errorText);
-                throw new Error(`Delete failed: ${response.status} - ${errorText}`);
-              }
-
-              // Update local state
-              setPrescriptions(prev => prev.filter(p => p.id !== prescription.id));
-              console.log('[Delete] Removed from local state');
-              
-              Alert.alert("Success", "Prescription deleted successfully.");
-            } catch (error) {
-              console.error('[Delete] Error:', error);
-              const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscută';
-              Alert.alert("Error", `Could not delete prescription: ${errorMessage}`);
-            }
+    console.log('[Delete] Platform.OS:', Platform.OS);
+    
+    if (Platform.OS === 'web') {
+      // Web implementation using window.confirm
+      const confirmed = window.confirm(`Are you sure you want to delete the prescription "${prescription.title}"?`);
+      console.log('[Delete Web] User confirmed:', confirmed);
+      
+      if (confirmed) {
+        executeDelete(prescription);
+      }
+    } else {
+      // Mobile implementation using Alert.alert
+      Alert.alert(
+        "Confirm Delete",
+        `Are you sure you want to delete the prescription "${prescription.title}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => executeDelete(prescription),
           },
+        ]
+      );
+    }
+  };
+
+  const executeDelete = async (prescription: Prescription) => {
+    console.log('[Delete] Delete confirmed for prescription:', prescription.id);
+    
+    if (!accessToken) {
+      if (Platform.OS === 'web') {
+        window.alert("Error: You are not authenticated");
+      } else {
+        Alert.alert("Error", "You are not authenticated");
+      }
+      return;
+    }
+
+    try {
+      const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
+      
+      // Validate prescription ID
+      if (!prescription.id) {
+        console.error('[Delete] No prescription ID found');
+        if (Platform.OS === 'web') {
+          window.alert("Error: Prescription ID not found.");
+        } else {
+          Alert.alert("Error", "Prescription ID not found.");
+        }
+        return;
+      }
+      
+      // Ensure ID is a string
+      const prescriptionId = String(prescription.id).trim();
+      if (!prescriptionId) {
+        console.error('[Delete] Invalid prescription ID');
+        if (Platform.OS === 'web') {
+          window.alert("Error: Prescription ID is invalid.");
+        } else {
+          Alert.alert("Error", "Prescription ID is invalid.");
+        }
+        return;
+      }
+
+      // Build the delete URL
+      const url = `${API_BASE_URL}/users/me/prescriptions/${prescriptionId}`;
+      console.log('[Delete] URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
         },
-      ]
-    );
+      });
+
+      console.log('[Delete] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Delete] Failed:', response.status, errorText);
+        throw new Error(`Delete failed: ${response.status} - ${errorText}`);
+      }
+
+      // Update local state
+      setPrescriptions(prev => prev.filter(p => p.id !== prescription.id));
+      console.log('[Delete] Removed from local state');
+      
+      if (Platform.OS === 'web') {
+        window.alert("Success: Prescription deleted successfully.");
+      } else {
+        Alert.alert("Success", "Prescription deleted successfully.");
+      }
+    } catch (error) {
+      console.error('[Delete] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscută';
+      if (Platform.OS === 'web') {
+        window.alert(`Error: Could not delete prescription: ${errorMessage}`);
+      } else {
+        Alert.alert("Error", `Could not delete prescription: ${errorMessage}`);
+      }
+    }
   };
 
   const handleViewFiles = (prescription: Prescription) => {
@@ -285,7 +323,10 @@ export const PrescriptionListScreen = () => {
 
         <Button
           label="Add New Prescription"
-          onPress={() => navigation.navigate("PrescriptionUpload" as any)}
+          onPress={() => {
+            console.log('[Navigation] Navigate to PrescriptionUpload');
+            navigation.navigate("PrescriptionUpload" as any);
+          }}
           fullWidth
         />
 
@@ -441,37 +482,66 @@ export const PrescriptionListScreen = () => {
 
         {/* Modal for viewing files */}
         {selectedPrescription && (
-          <Card variant="elevated" title={`Files - ${selectedPrescription.title}`} padding="md">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.filesContainer}>
-                {selectedPrescription.files.map((file, index) => (
-                  <View key={index} style={styles.filePreview}>
-                    {file.type.startsWith("image/") ? (
-                      <Image 
-                        source={{ uri: file.uri }} 
-                        style={styles.fileImage}
-                        resizeMode="contain"
-                        onError={(e) => console.log('[Image] Error loading image:', e.nativeEvent.error, 'URI:', file.uri)}
-                      />
-                    ) : (
-                      <View style={styles.filePlaceholder}>
-                        <Text style={styles.filePlaceholderText}>📄</Text>
+          <View 
+            style={Platform.OS === 'web' ? {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 9999,
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 20,
+            } : styles.modalOverlay}
+          >
+            <View style={Platform.OS === 'web' ? {
+              backgroundColor: colors.background,
+              borderRadius: 16,
+              padding: 20,
+              maxWidth: 600,
+              maxHeight: '80%',
+              width: '100%',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 5,
+            } : styles.modalContent}>
+              <Card variant="elevated" title={`Files - ${selectedPrescription.title}`} padding="md">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.filesContainer}>
+                    {selectedPrescription.files.map((file, index) => (
+                      <View key={index} style={styles.filePreview}>
+                        {file.type.startsWith("image/") ? (
+                          <Image 
+                            source={{ uri: file.uri }} 
+                            style={styles.fileImage}
+                            resizeMode="contain"
+                            onError={(e) => console.log('[Image] Error loading image:', e.nativeEvent.error, 'URI:', file.uri)}
+                          />
+                        ) : (
+                          <View style={styles.filePlaceholder}>
+                            <Text style={styles.filePlaceholderText}>📄</Text>
+                          </View>
+                        )}
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {file.name}
+                        </Text>
                       </View>
-                    )}
-                    <Text style={styles.fileName} numberOfLines={1}>
-                      {file.name}
-                    </Text>
+                    ))}
                   </View>
-                ))}
-              </View>
-            </ScrollView>
-            <Button
-              label="Close"
-              onPress={() => setSelectedPrescription(null)}
-              variant="outline"
-              fullWidth
-            />
-          </Card>
+                </ScrollView>
+                <Button
+                  label="Close"
+                  onPress={() => setSelectedPrescription(null)}
+                  variant="outline"
+                  fullWidth
+                />
+              </Card>
+            </View>
+          </View>
         )}
 
         {loading && (
@@ -497,7 +567,10 @@ export const PrescriptionListScreen = () => {
             <Text style={styles.emptyText}>You don't have any prescriptions yet.</Text>
             <Button
               label="Add First Prescription"
-              onPress={() => navigation.navigate("PrescriptionUpload" as any)}
+              onPress={() => {
+                console.log('[Navigation] Navigate to PrescriptionUpload from empty state');
+                navigation.navigate("PrescriptionUpload" as any);
+              }}
             />
           </Card>
         )}
@@ -651,5 +724,23 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: "center",
     marginBottom: spacing.md,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    maxWidth: 400,
+    maxHeight: '80%',
   },
 });
