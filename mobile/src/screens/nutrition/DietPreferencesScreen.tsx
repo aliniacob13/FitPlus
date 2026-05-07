@@ -109,11 +109,15 @@ export const DietPreferencesScreen = () => {
 
       const data = await response.json();
       // Normalize goals to handle both string and array formats from backend
-      const normalizedGoals = Array.isArray(data.goals) 
-        ? data.goals 
-        : (typeof data.goals === 'string' && data.goals.trim() 
-          ? [data.goals] 
-          : []);
+      let normalizedGoals = [];
+      if (Array.isArray(data.goals)) {
+        normalizedGoals = data.goals;
+      } else if (typeof data.goals === 'string' && data.goals.trim()) {
+        // Split comma-separated goals into individual items
+        normalizedGoals = data.goals.split(',').map((goal: string) => goal.trim()).filter((goal: string) => goal.length > 0);
+      } else {
+        normalizedGoals = [];
+      }
       
       setPreferences({
         restrictions: data.restrictions || [],
@@ -156,11 +160,15 @@ export const DietPreferencesScreen = () => {
 
       const data = await response.json();
       // Normalize goals to handle both string and array formats from backend
-      const normalizedGoals = Array.isArray(data.goals) 
-        ? data.goals 
-        : (typeof data.goals === 'string' && data.goals.trim() 
-          ? [data.goals] 
-          : []);
+      let normalizedGoals = [];
+      if (Array.isArray(data.goals)) {
+        normalizedGoals = data.goals;
+      } else if (typeof data.goals === 'string' && data.goals.trim()) {
+        // Split comma-separated goals into individual items
+        normalizedGoals = data.goals.split(',').map((goal: string) => goal.trim()).filter((goal: string) => goal.length > 0);
+      } else {
+        normalizedGoals = [];
+      }
       
       setPreferences({
         restrictions: data.restrictions || [],

@@ -125,9 +125,22 @@ export const PrescriptionListScreen = () => {
           if (path.startsWith('http')) {
             return path; // Already absolute URL
           }
-          // Build absolute URL for relative paths
+          
+          // Extract filename from absolute Windows path
+          let filename = path;
+          if (path.includes('\\') || path.includes('C:')) {
+            // Extract filename from Windows absolute path
+            const pathParts = path.split('\\');
+            filename = pathParts[pathParts.length - 1];
+          } else if (path.includes('/')) {
+            // Extract filename from Unix path
+            const pathParts = path.split('/');
+            filename = pathParts[pathParts.length - 1];
+          }
+          
+          // Build URL using FastAPI static files endpoint
           const baseUrl = "http://172.20.10.4:8000";
-          return path.startsWith('/') ? `${baseUrl}${path}` : `${baseUrl}/${path}`;
+          return `${baseUrl}/tmp/${filename}`;
         };
 
         return {
@@ -438,7 +451,7 @@ export const PrescriptionListScreen = () => {
                         source={{ uri: file.uri }} 
                         style={styles.fileImage}
                         resizeMode="contain"
-                        onError={(e) => console.log('[Image] Error loading image:', e.nativeEvent.error)}
+                        onError={(e) => console.log('[Image] Error loading image:', e.nativeEvent.error, 'URI:', file.uri)}
                       />
                     ) : (
                       <View style={styles.filePlaceholder}>
