@@ -1,7 +1,7 @@
 from pathlib import Path
 from tempfile import gettempdir
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,6 +67,41 @@ async def list_user_prescriptions(
     result = await db.execute(query)
     prescriptions = result.scalars().all()
     return [PrescriptionResponse.model_validate(item) for item in prescriptions]
+
+
+@router.delete(
+    "/prescriptions/{prescription_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_prescription(
+    prescription_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    print(f"[DELETE] prescription_id: {prescription_id}, type: {type(prescription_id)}")
+    print(f"[DELETE] current_user.id: {current_user.id}, type: {type(current_user.id)}")
+    
+    query = select(Prescription).where(
+        Prescription.id == prescription_id,
+        Prescription.user_id == current_user.id,
+    )
+    result = await db.execute(query)
+    prescription = result.scalar_one_or_none()
+    
+    print(f"[DELETE] prescription found: {prescription is not None}")
+
+    if prescription is None:
+        print(f"[DELETE] Prescription not found for ID: {prescription_id}, user: {current_user.id}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescription not found")
+
+    file_path = Path(prescription.s3_url_or_path)
+    if file_path.is_absolute() and file_path.exists():
+        file_path.unlink(missing_ok=True)
+
+    await db.delete(prescription)
+    await db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/diet-preferences", response_model=DietPreferenceResponse)
