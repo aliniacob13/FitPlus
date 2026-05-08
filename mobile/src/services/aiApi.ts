@@ -42,11 +42,17 @@ export type StreamCallbacks = {
 /** Parse raw SSE text (accumulated since last '\n\n') into event + data. */
 function parseSSEBlock(block: string): { event: string; data: string } {
   let event = "message";
-  let data = "";
+  const dataLines: string[] = [];
   for (const line of block.split("\n")) {
-    if (line.startsWith("event: ")) event = line.slice(7).trim();
-    else if (line.startsWith("data: ")) data = line.slice(6);
+    if (line.startsWith("event: ")) {
+      event = line.slice(7).trim();
+    } else if (line.startsWith("data:")) {
+      const value = line.slice(5);
+      dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
+    }
   }
+  // Multiple data: lines are one logical payload joined with newlines (SSE spec).
+  const data = dataLines.join("\n");
   return { event, data };
 }
 
@@ -91,12 +97,13 @@ const streamChat = (
   xhr.setRequestHeader("Authorization", `Bearer ${token ?? ""}`);
   xhr.setRequestHeader("Accept", "text/event-stream");
   xhr.setRequestHeader("Cache-Control", "no-cache");
+  xhr.timeout = 600_000;
 
   let processedLength = 0;
   let sseBuffer = "";
 
   function processRaw(raw: string) {
-    sseBuffer += raw;
+    sseBuffer += raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const blocks = sseBuffer.split("\n\n");
     // Last element might be an incomplete block — keep it in the buffer.
     sseBuffer = blocks.pop() ?? "";
@@ -116,14 +123,28 @@ const streamChat = (
     }
   }
 
-  xhr.onprogress = () => {
-    const newText = xhr.responseText.slice(processedLength);
-    processedLength = xhr.responseText.length;
-    processRaw(newText);
+  /** Drain new bytes from responseText (cursor-based — safe if handlers fire multiple times). */
+  function pump() {
+    const full = xhr.responseText;
+    const newText = full.slice(processedLength);
+    processedLength = full.length;
+    if (newText.length > 0) processRaw(newText);
+  }
+
+  /**
+   * Many browsers / RN Web never fire incremental `onprogress` for SSE; all bytes arrive at once on completion.
+   * `readystatechange` (LOADING/DONE) + `onload` ensures we still parse `chunk` / `meta` events.
+   */
+  xhr.onprogress = pump;
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState >= XMLHttpRequest.LOADING) {
+      pump();
+    }
   };
 
   xhr.onload = () => {
-    // Flush any remaining buffer on connection close.
+    pump();
+    // Flush any trailing incomplete block once the connection closes.
     if (sseBuffer.trim()) processRaw("\n\n");
   };
 

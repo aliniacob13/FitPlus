@@ -266,6 +266,7 @@ export const ChatScreenBase = ({
         },
 
         onDone: async (convId) => {
+          setIsWaiting(false);
           setIsStreaming(false);
           streamingMsgIdRef.current = null;
           if (convId !== storeActiveId) {
