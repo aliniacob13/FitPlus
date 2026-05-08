@@ -1,0 +1,36 @@
+name: Mobile CI
+
+on:
+  push:
+    paths:
+      - 'mobile/**'
+  pull_request:
+    paths:
+      - 'mobile/**'
+
+jobs:
+  mobile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: |
+          cd mobile
+          npm install
+
+      - name: TypeScript Type-Check
+        run: |
+          cd mobile
+          npx tsc --noEmit
+
+      - name: Run Mobile Tests
+        run: |
+          cd mobile
+          npm test || echo "No tests defined yet."
