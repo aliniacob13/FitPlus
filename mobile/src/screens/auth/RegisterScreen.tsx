@@ -1,355 +1,235 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from 'react';
 import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+  View, Text, TouchableOpacity, TextInput, StyleSheet,
+  Platform, KeyboardAvoidingView, ScrollView,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { Button } from "@/components/ui/Button";
-import { ErrorState } from "@/components/ui/ErrorState";
-import { Input } from "@/components/ui/Input";
-import { Screen } from "@/components/ui/Screen";
-import { colors, radius, spacing, typography } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore";
-import { AuthStackParamList } from "@/types/navigation";
+import { useTheme } from '@/context/ThemeContext';
+import { FpIcon } from '@/components/ui/FpIcon';
+import { useAuthStore } from '@/store/authStore';
+import { AuthStackParamList } from '@/types/navigation';
 
-type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
-// ── PasswordInput ─────────────────────────────────────────────────────────────
-// Componentă locală care imită stilul Input-ului existent + buton ochi
+const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 
-type PasswordInputProps = {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder: string;
-  visible: boolean;
-  onToggleVisible: () => void;
-};
-
-const PasswordInput = ({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  visible,
-  onToggleVisible,
-}: PasswordInputProps) => (
-  <View style={pwStyles.wrapper}>
-    <Text style={pwStyles.label}>{label}</Text>
-    <View style={pwStyles.row}>
-      <TextInput
-        style={pwStyles.input}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textPalette.muted}
-        secureTextEntry={!visible}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <TouchableOpacity
-        style={pwStyles.eyeBtn}
-        onPress={onToggleVisible}
-        activeOpacity={0.7}
-        accessibilityLabel={visible ? "Hide password" : "Show password"}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons
-          name={visible ? "eye-off-outline" : "eye-outline"}
-          size={20}
-          color={colors.textPalette.muted}
-        />
-      </TouchableOpacity>
-    </View>
-  </View>
-);
-
-const pwStyles = StyleSheet.create({
-  wrapper: { gap: 6 },
-  label: {
-    fontSize: typography.size.xs,
-    fontWeight: "600",
-    color: colors.textPalette.secondary,
-    letterSpacing: typography.tracking.wide,
-    textTransform: "uppercase",
-    marginLeft: 2,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.bg.elevated,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    paddingHorizontal: spacing.md,
-  },
-  input: {
-    flex: 1,
-    height: 50,
-    fontSize: typography.size.base,
-    color: colors.textPalette.primary,
-  },
-  eyeBtn: {
-    paddingLeft: spacing[2],
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
-
-// ── RegisterScreen ────────────────────────────────────────────────────────────
+function passwordStrength(pw: string): number {
+  if (!pw) return 0;
+  if (pw.length < 8) return 1;
+  const hasNum = /\d/.test(pw);
+  const hasSym = /[^a-zA-Z0-9]/.test(pw);
+  if (pw.length >= 12 && hasNum && hasSym) return 4;
+  if (pw.length >= 8 && hasNum) return 3;
+  return 2;
+}
 
 export const RegisterScreen = ({ navigation }: Props) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const { t } = useTheme();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
 
-  // Eye toggle state
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const register = useAuthStore((s) => s.register);
+  const isSubmitting = useAuthStore((s) => s.isSubmitting);
+  const error = useAuthStore((s) => s.error);
 
-  const register = useAuthStore((state) => state.register);
-  const isSubmitting = useAuthStore((state) => state.isSubmitting);
-  const error = useAuthStore((state) => state.error);
-
-  const isFormValid = useMemo(
-    () =>
-      email.includes("@") &&
-      password.length >= 6 &&
-      confirmPassword === password,
-    [email, password, confirmPassword],
-  );
-
-  const passwordsMatch =
-    confirmPassword.length === 0 || confirmPassword === password;
+  const pwLevel = passwordStrength(password);
+  const isValid = useMemo(() => email.includes('@') && password.length >= 8, [email, password]);
 
   const handleRegister = async () => {
-    await register(email.trim(), password);
+    const success = await register(email.trim(), password);
+    if (success !== false) {
+      navigation.navigate('Onboarding');
+    }
   };
 
-  const features = [
-    { icon: "barbell-outline" as const, label: "AI Workout Coach" },
-    { icon: "nutrition-outline" as const, label: "Diet Assistant" },
-    { icon: "camera-outline" as const, label: "Plate Analysis" },
-    { icon: "map-outline" as const, label: "Gym Discovery" },
-  ];
+  const StrengthMeter = () => (
+    <View style={{ flexDirection: 'row', gap: 3 }}>
+      {[0, 1, 2, 3].map(i => (
+        <View key={i} style={{
+          width: 14, height: 4, borderRadius: 2,
+          backgroundColor: i < pwLevel
+            ? (pwLevel >= 3 ? t.good : t.warn)
+            : t.line,
+        }}/>
+      ))}
+    </View>
+  );
 
   return (
-    <Screen>
-      <View style={styles.wrapper}>
-        {/* ── Header ── */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => navigation.navigate("Login")}
-            style={styles.backBtn}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={20}
-              color={colors.textPalette.secondary}
-            />
-          </Pressable>
-          <View style={styles.logoMark}>
-            <Ionicons name="flash" size={18} color={colors.bg.base} />
+    <SafeAreaView style={[s.root, { backgroundColor: t.bg }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
+          {/* Top nav */}
+          <View style={s.topRow}>
+            <TouchableOpacity onPress={() => navigation.navigate('Welcome')} activeOpacity={0.7}>
+              <FpIcon name="left" size={22} color={t.ink}/>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} activeOpacity={0.7}>
+              <Text style={[s.topLink, { color: t.muted }]}>Sign in</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.appName}>FitPlus</Text>
-        </View>
 
-        {/* ── Title ── */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>Start your journey</Text>
-          <Text style={styles.subtitle}>
-            Create your free account and unlock your potential
-          </Text>
-        </View>
+          {/* Title */}
+          <View style={{ gap: 6, marginTop: 28 }}>
+            <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>CREATE ACCOUNT · 1 / 4</Text>
+            <Text style={[s.title, { fontFamily: SERIF, color: t.ink }]}>
+              {'Hai să-ți facem un '}
+              <Text style={{ fontStyle: 'italic', color: t.primary }}>cont.</Text>
+            </Text>
+            <Text style={[s.subtitle, { color: t.muted }]}>
+              Vom folosi datele ca să-ți personalizăm planul.
+            </Text>
+          </View>
 
-        {/* ── Feature grid ── */}
-        <View style={styles.featuresGrid}>
-          {features.map((f) => (
-            <View key={f.label} style={styles.featureItem}>
-              <Ionicons name={f.icon} size={16} color={colors.accent.base} />
-              <Text style={styles.featureLabel}>{f.label}</Text>
+          {/* Progress dots */}
+          <View style={[s.dots, { marginTop: 22 }]}>
+            {[0, 1, 2, 3].map(i => (
+              <View key={i} style={[s.dot, { backgroundColor: i === 0 ? t.primary : t.line }]}/>
+            ))}
+          </View>
+
+          {/* Fields */}
+          <View style={{ gap: 14, marginTop: 22 }}>
+            {/* Name */}
+            <View style={{ gap: 6 }}>
+              <Text style={[s.label, { color: t.muted, fontFamily: MONO }]}>NUME COMPLET</Text>
+              <View style={[s.fieldRow, { backgroundColor: t.surface, borderColor: t.line }]}>
+                <FpIcon name="user" size={16} color={t.muted}/>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="ex. Andrei Mocanu"
+                  placeholderTextColor={t.muted2}
+                  autoCapitalize="words"
+                  style={[s.fieldInput, { color: t.ink }]}
+                />
+              </View>
             </View>
-          ))}
-        </View>
 
-        {/* ── Form ── */}
-        <View style={styles.fields}>
-          <Input
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="name@example.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+            {/* Email */}
+            <View style={{ gap: 6 }}>
+              <Text style={[s.label, { color: t.muted, fontFamily: MONO }]}>EMAIL</Text>
+              <View style={[s.fieldRow, { backgroundColor: t.surface, borderColor: t.line }]}>
+                <FpIcon name="bell" size={16} color={t.muted}/>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="email@exemplu.ro"
+                  placeholderTextColor={t.muted2}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  style={[s.fieldInput, { color: t.ink }]}
+                />
+              </View>
+            </View>
 
-          <PasswordInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Min. 6 characters"
-            visible={showPassword}
-            onToggleVisible={() => setShowPassword((v) => !v)}
-          />
-
-          <View>
-            <PasswordInput
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Repeat password"
-              visible={showConfirmPassword}
-              onToggleVisible={() => setShowConfirmPassword((v) => !v)}
-            />
-            {!passwordsMatch ? (
-              <Text style={styles.fieldError}>Passwords do not match</Text>
-            ) : null}
+            {/* Password */}
+            <View style={{ gap: 6 }}>
+              <Text style={[s.label, { color: t.muted, fontFamily: MONO }]}>PAROLĂ</Text>
+              <View style={[s.fieldRow, { backgroundColor: t.surface, borderColor: t.line }]}>
+                <FpIcon name="key" size={16} color={t.muted}/>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="min. 8 caractere"
+                  placeholderTextColor={t.muted2}
+                  secureTextEntry={!showPw}
+                  autoCapitalize="none"
+                  style={[s.fieldInput, { color: t.ink }]}
+                />
+                <StrengthMeter/>
+              </View>
+            </View>
           </View>
-        </View>
 
-        {error ? <ErrorState message={error} /> : null}
+          {error ? (
+            <View style={[s.errorBox, { backgroundColor: t.bad + '18', borderColor: t.bad + '40', marginTop: 12 }]}>
+              <Text style={[s.errorText, { color: t.bad }]}>{error}</Text>
+            </View>
+          ) : null}
 
-        <Button
-          label="Create Account"
-          onPress={handleRegister}
-          disabled={!isFormValid}
-          loading={isSubmitting}
-          size="lg"
-          fullWidth
-        />
+          <TouchableOpacity
+            onPress={handleRegister}
+            disabled={!isValid || isSubmitting}
+            activeOpacity={0.85}
+            style={[s.btnPrimary, {
+              backgroundColor: t.primary,
+              opacity: (!isValid || isSubmitting) ? 0.55 : 1,
+              marginTop: 24,
+            }]}
+          >
+            <Text style={[s.btnPrimaryText, { color: t.primaryInk }]}>
+              {isSubmitting ? 'Se creează contul…' : 'Continuă'}
+            </Text>
+            {!isSubmitting && <FpIcon name="arrow" size={14} color={t.primaryInk}/>}
+          </TouchableOpacity>
 
-        <Pressable
-          onPress={() => navigation.navigate("Login")}
-          disabled={isSubmitting}
-          style={styles.loginLink}
-        >
-          <Text style={styles.loginLinkText}>
-            {"Already have an account? "}
-            <Text style={styles.loginLinkAccent}>Sign in</Text>
+          {/* Divider */}
+          <View style={[s.divider, { marginVertical: 20 }]}>
+            <View style={[s.divLine, { backgroundColor: t.lineSoft }]}/>
+            <Text style={[s.divLabel, { color: t.muted, fontFamily: MONO }]}>sau</Text>
+            <View style={[s.divLine, { backgroundColor: t.lineSoft }]}/>
+          </View>
+
+          {/* Social */}
+          <View style={s.socialRow}>
+            {[['', 'Apple'], ['G', 'Google'], ['f', 'Facebook']].map(([glyph, name]) => (
+              <TouchableOpacity key={name} activeOpacity={0.7}
+                style={[s.socialBtn, { backgroundColor: t.surface, borderColor: t.line }]}>
+                <Text style={[s.socialGlyph, { color: t.ink }]}>{glyph}</Text>
+                <Text style={[s.socialLabel, { color: t.ink2 }]}>{name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[s.terms, { color: t.muted, marginTop: 18 }]}>
+            Continuând accepți{' '}
+            <Text style={{ textDecorationLine: 'underline' }}>Termenii</Text>
+            {' '}și{' '}
+            <Text style={{ textDecorationLine: 'underline' }}>Politica de confidențialitate</Text>.
           </Text>
-        </Pressable>
-
-        <Text style={styles.terms}>
-          By creating an account you agree to our Terms of Service and Privacy
-          Policy.
-        </Text>
-      </View>
-    </Screen>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    gap: spacing.sm,
-    paddingTop: spacing[2],
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topLink: { fontSize: 12, fontWeight: '500' },
+  eyebrow: { fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', fontWeight: '500' },
+  title: { fontSize: 32, lineHeight: 36, letterSpacing: -0.7 },
+  subtitle: { fontSize: 13, marginTop: 4 },
+  dots: { flexDirection: 'row', gap: 6 },
+  dot: { flex: 1, height: 4, borderRadius: 999 },
+  label: { fontSize: 9, letterSpacing: 1.8, textTransform: 'uppercase', fontWeight: '500' },
+  fieldRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[3],
-    marginBottom: spacing[2],
+  fieldInput: { flex: 1, fontSize: 14 },
+  errorBox: { padding: 12, borderRadius: 12, borderWidth: 1 },
+  errorText: { fontSize: 13, fontWeight: '500' },
+  btnPrimary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, padding: 16, borderRadius: 999,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg.elevated,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    alignItems: "center",
-    justifyContent: "center",
+  btnPrimaryText: { fontSize: 15, fontWeight: '600' },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  divLine: { flex: 1, height: 1 },
+  divLabel: { fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase' },
+  socialRow: { flexDirection: 'row', gap: 8 },
+  socialBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, padding: 12, borderRadius: 14, borderWidth: 1,
   },
-  logoMark: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    backgroundColor: colors.accent.base,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: colors.accent.base,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  appName: {
-    fontSize: typography.size.lg,
-    fontWeight: "900",
-    color: colors.textPalette.primary,
-    letterSpacing: -0.5,
-  },
-  titleSection: {
-    gap: spacing[1],
-    marginBottom: spacing[2],
-  },
-  title: {
-    fontSize: typography.size["2xl"],
-    fontWeight: "800",
-    color: colors.textPalette.primary,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: typography.size.sm,
-    color: colors.textPalette.secondary,
-    lineHeight: 20,
-  },
-  featuresGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing[2],
-    marginBottom: spacing[2],
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: spacing[3],
-    borderRadius: radius.chip,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base + "25",
-  },
-  featureLabel: {
-    fontSize: typography.size.xs,
-    color: colors.accent.base,
-    fontWeight: "600",
-  },
-  fields: {
-    gap: spacing[2],
-  },
-  fieldError: {
-    fontSize: typography.size.xs,
-    color: colors.error,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  loginLink: {
-    alignItems: "center",
-    paddingVertical: spacing[2],
-  },
-  loginLinkText: {
-    fontSize: typography.size.sm,
-    color: colors.textPalette.secondary,
-  },
-  loginLinkAccent: {
-    color: colors.accent.base,
-    fontWeight: "700",
-  },
-  terms: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    textAlign: "center",
-    lineHeight: 16,
-    paddingBottom: spacing.xl,
-  },
+  socialGlyph: { fontSize: 16, fontWeight: '700', minWidth: 14, textAlign: 'center' },
+  socialLabel: { fontSize: 12, fontWeight: '500' },
+  terms: { fontSize: 11, textAlign: 'center', lineHeight: 16 },
 });

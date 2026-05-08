@@ -1,14 +1,15 @@
 export type AuthStackParamList = {
+  Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  Onboarding: undefined;
 };
 
 export type MainTabParamList = {
   Home: undefined;
+  Diary: undefined;
+  Chat: { agentType?: 'workout' | 'diet' } | undefined;
   Map: undefined;
-  /** Optional conversationId lets ConversationHistoryScreen pre-load a conversation */
-  Workout: { conversationId?: number } | undefined;
-  Diet: { conversationId?: number } | undefined;
   Profile: undefined;
 };
 
@@ -21,8 +22,7 @@ export type AppStackParamList = {
   LabelScan: { date: string };
   PlateCoach: { date: string };
   FavoriteGyms: undefined;
-  /** History screen – pick or delete conversations and navigate to the right chat */
-  ConversationHistory: { agentType: "workout" | "diet" };
-  /** Diet preferences – allergies, restrictions, nutritional goals */
+  ConversationHistory: { agentType: 'workout' | 'diet' };
   DietPreferences: undefined;
+  Workout: undefined;
 };

@@ -1,666 +1,243 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Ionicons } from "@expo/vector-icons";
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Platform, Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { ErrorState } from "@/components/ui/ErrorState";
-import { Input } from "@/components/ui/Input";
-import { Screen } from "@/components/ui/Screen";
-import { colors, radius, spacing, typography } from "@/constants/theme";
-import { useProfilePicture } from "@/hooks/useProfilePicture";
-import { useAuthStore } from "@/store/authStore";
-import { useUserStore } from "@/store/userStore";
-import { AppStackParamList } from "@/types/navigation";
+import { useTheme } from '@/context/ThemeContext';
+import { FpIcon, type FpIconName } from '@/components/ui/FpIcon';
+import { FpAvatar } from '@/components/ui/FpAvatar';
+import { useAuthStore } from '@/store/authStore';
+import { useUserStore } from '@/store/userStore';
+import { AppStackParamList } from '@/types/navigation';
 
-type NavProp = NativeStackNavigationProp<AppStackParamList, "MainTabs">;
+type NavProp = NativeStackNavigationProp<AppStackParamList, 'MainTabs'>;
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 
-type StatRowProps = {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: string;
-};
+const WEIGHT_DATA = [80.7, 80.4, 80.6, 80.1, 79.8, 79.9, 79.4, 79.2, 79.0, 79.1, 78.7, 78.5, 78.6, 78.4];
 
-const StatRow = ({ icon, label, value }: StatRowProps) => (
-  <View style={styles.statRow}>
-    <View style={styles.statRowLeft}>
-      <Ionicons name={icon} size={15} color={colors.textPalette.secondary} />
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-    <Text style={styles.statValue}>{value}</Text>
-  </View>
-);
-
-type NavRowProps = {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  iconColor?: string;
-  label: string;
-  description?: string;
-  badge?: string;
-  onPress: () => void;
-  danger?: boolean;
-};
-
-const NavRow = ({
-  icon,
-  iconColor,
-  label,
-  description,
-  badge,
-  onPress,
-  danger = false,
-}: NavRowProps) => (
-  <TouchableOpacity style={styles.navRow} onPress={onPress} activeOpacity={0.7}>
-    <View
-      style={[
-        styles.navRowIcon,
-        {
-          backgroundColor: danger
-            ? colors.error + "20"
-            : (iconColor ?? colors.accent.base) + "20",
-        },
-      ]}
-    >
-      <Ionicons
-        name={icon}
-        size={16}
-        color={danger ? colors.error : (iconColor ?? colors.accent.base)}
-      />
-    </View>
-    <View style={styles.navRowContent}>
-      <Text style={[styles.navRowLabel, danger && styles.navRowLabelDanger]}>
-        {label}
-      </Text>
-      {description && (
-        <Text style={styles.navRowDesc} numberOfLines={1}>
-          {description}
-        </Text>
-      )}
-    </View>
-    {badge && (
-      <View style={styles.navRowBadge}>
-        <Text style={styles.navRowBadgeText}>{badge}</Text>
-      </View>
-    )}
-    <Ionicons
-      name="chevron-forward"
-      size={16}
-      color={danger ? colors.error : colors.textPalette.muted}
-    />
-  </TouchableOpacity>
-);
-
-const NavRowDivider = () => <View style={styles.navRowDivider} />;
-const SectionTitle = ({ title }: { title: string }) => (
-  <Text style={styles.sectionLabel}>{title}</Text>
-);
-
-// ── Avatar with photo ─────────────────────────────────────────────────────────
-
-type AvatarProps = {
-  imageUri: string | null;
-  initials: string;
-  onPress: () => void;
-  onLongPress: () => void;
-};
-
-const ProfileAvatar = ({
-  imageUri,
-  initials,
-  onPress,
-  onLongPress,
-}: AvatarProps) => (
-  <TouchableOpacity
-    style={styles.avatarRing}
-    onPress={onPress}
-    onLongPress={onLongPress}
-    activeOpacity={0.85}
-    accessibilityLabel="Change profile photo"
-    accessibilityHint="Tap to change, long press to remove"
-  >
-    {imageUri ? (
-      <Image source={{ uri: imageUri }} style={styles.avatarImage} />
-    ) : (
-      <View style={styles.avatarPlaceholder}>
-        <Text style={styles.avatarText}>{initials}</Text>
-      </View>
-    )}
-
-    {/* Camera badge overlay */}
-    <View style={styles.cameraBadge}>
-      <Ionicons name="camera" size={12} color={colors.textPalette.inverse} />
-    </View>
-  </TouchableOpacity>
-);
-
-// ── ProfileScreen ─────────────────────────────────────────────────────────────
+function WeightChart({ color, lineColor }: { color: string; lineColor: string }) {
+  const data = WEIGHT_DATA;
+  const max = Math.max(...data) + 0.3;
+  const min = Math.min(...data) - 0.3;
+  const span = max - min;
+  const W = 280, H = 80;
+  const step = W / (data.length - 1);
+  const pts = data.map((v, i) => `${i * step},${H - ((v - min) / span) * H}`);
+  const path = 'M' + pts.join(' L');
+  const fill = path + ` L${W},${H} L0,${H} Z`;
+  return (
+    <Svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ marginTop: 14, display: 'flex' }}>
+      <Defs>
+        <LinearGradient id="wg" x1="0" x2="0" y1="0" y2="1">
+          <Stop offset="0%" stopColor={lineColor} stopOpacity="0.2"/>
+          <Stop offset="100%" stopColor={lineColor} stopOpacity="0"/>
+        </LinearGradient>
+      </Defs>
+      <Path d={fill} fill="url(#wg)"/>
+      <Path d={path} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  );
+}
 
 export const ProfileScreen = () => {
+  const { t } = useTheme();
   const navigation = useNavigation<NavProp>();
-
   const profile = useUserStore((s) => s.profile);
-  const loading = useUserStore((s) => s.loading);
-  const saving = useUserStore((s) => s.saving);
-  const error = useUserStore((s) => s.error);
-  const fetchMe = useUserStore((s) => s.fetchMe);
-  const updateProfile = useUserStore((s) => s.updateProfile);
   const dietPreferences = useUserStore((s) => s.dietPreferences);
   const logout = useAuthStore((s) => s.logout);
 
-  const { imageUri, pickImage, removeImage } = useProfilePicture();
+  const displayName = profile?.name || profile?.email?.split('@')[0] || 'Athlete';
+  const initials = displayName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [fitnessLevel, setFitnessLevel] = useState("");
-  const [goals, setGoals] = useState("");
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setName(profile?.name ?? "");
-    setAge(profile?.age?.toString() ?? "");
-    setWeightKg(profile?.weight_kg?.toString() ?? "");
-    setHeightCm(profile?.height_cm?.toString() ?? "");
-    setFitnessLevel(profile?.fitness_level ?? "");
-    setGoals(profile?.goals ?? "");
-  }, [profile]);
-
-  const parseOptionalNumber = (value: string): number | undefined => {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  };
-
-  const handleSave = async () => {
-    setSaveMessage(null);
-    const success = await updateProfile({
-      name: name.trim() || undefined,
-      age: parseOptionalNumber(age),
-      weight_kg: parseOptionalNumber(weightKg),
-      height_cm: parseOptionalNumber(heightCm),
-      fitness_level: fitnessLevel.trim() || undefined,
-      goals: goals.trim() || undefined,
-    });
-    if (success) setSaveMessage("Profile saved successfully.");
-  };
+  const dietRestrictionsCount = (dietPreferences?.restrictions?.length ?? 0) + (dietPreferences?.allergies?.length ?? 0);
+  const dietDesc = dietPreferences?.goals ?? (dietRestrictionsCount > 0 ? `${dietRestrictionsCount} restriction(s)` : 'No preferences set');
 
   const handleLogout = () => {
-    Alert.alert("Log out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: () => void logout(),
-      },
+    Alert.alert('Log out', 'Ești sigur că vrei să ieși?', [
+      { text: 'Anulează', style: 'cancel' },
+      { text: 'Ieși', style: 'destructive', onPress: () => void logout() },
     ]);
   };
 
-  const displayName =
-    profile?.name || profile?.email?.split("@")[0] || "Athlete";
-  const initials = displayName
-    .split(" ")
-    .map((w: string) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const Stat = ({ n, u }: { n: string; u: string }) => (
+    <View style={{ alignItems: 'center', flex: 1, gap: 2 }}>
+      <Text style={[s.statNum, { fontFamily: SERIF, color: t.ink }]}>{n}</Text>
+      <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO, fontSize: 9 }]}>{u}</Text>
+    </View>
+  );
 
-  const dietRestrictionsCount =
-    (dietPreferences?.restrictions?.length ?? 0) +
-    (dietPreferences?.allergies?.length ?? 0);
-  const dietBadge =
-    dietRestrictionsCount > 0 ? `${dietRestrictionsCount} active` : undefined;
-  const dietDesc =
-    dietPreferences?.goals ??
-    (dietRestrictionsCount > 0
-      ? `${dietRestrictionsCount} restriction(s) set`
-      : "No preferences set yet");
+  type SettingRowProps = {
+    icon: FpIconName;
+    label: string;
+    sub: string;
+    onPress: () => void;
+  };
+  const SettingRow = ({ icon, label, sub, onPress }: SettingRowProps) => (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={s.settingRow}>
+      <View style={[s.settingIcon, { backgroundColor: t.surface2 }]}>
+        <FpIcon name={icon} size={16} color={t.ink}/>
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[s.settingLabel, { color: t.ink }]}>{label}</Text>
+        <Text style={[s.settingSub, { color: t.muted }]} numberOfLines={1}>{sub}</Text>
+      </View>
+      <FpIcon name="right" size={16} color={t.muted2}/>
+    </TouchableOpacity>
+  );
 
   return (
-    <Screen scrollable={false}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Avatar hero ── */}
-        <View style={styles.avatarSection}>
-          <ProfileAvatar
-            imageUri={imageUri}
-            initials={initials}
-            onPress={pickImage}
-            onLongPress={imageUri ? removeImage : pickImage}
-          />
-
-          <Text style={styles.displayName}>{displayName}</Text>
-          <Text style={styles.email}>{profile?.email ?? "N/A"}</Text>
-
-          {/* Tap hint */}
-          <TouchableOpacity onPress={pickImage} activeOpacity={0.7}>
-            <Text style={styles.photoHint}>
-              {imageUri ? "Tap photo to change · Long press to remove" : "Tap to add a profile photo"}
-            </Text>
+    <SafeAreaView style={[s.root, { backgroundColor: t.bg }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
+        {/* Header */}
+        <View style={s.header}>
+          <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>PROFIL</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('UpdateProfile')} activeOpacity={0.7}>
+            <FpIcon name="gear" size={20} color={t.ink}/>
           </TouchableOpacity>
-
-          {profile?.fitness_level ? (
-            <View style={styles.levelBadge}>
-              <Ionicons
-                name="trophy-outline"
-                size={11}
-                color={colors.accent.base}
-              />
-              <Text style={styles.levelBadgeText}>{profile.fitness_level}</Text>
-            </View>
-          ) : null}
         </View>
 
-        {/* ── Body Stats ── */}
-        <Card variant="default" title="Body Stats" padding="md">
-          <StatRow
-            icon="scale-outline"
-            label="Age"
-            value={profile?.age ? `${profile.age} yrs` : "—"}
-          />
-          <View style={styles.divider} />
-          <StatRow
-            icon="barbell-outline"
-            label="Weight"
-            value={profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}
-          />
-          <View style={styles.divider} />
-          <StatRow
-            icon="resize-outline"
-            label="Height"
-            value={profile?.height_cm ? `${profile.height_cm} cm` : "—"}
-          />
-          {profile?.goals ? (
-            <>
-              <View style={styles.divider} />
-              <StatRow
-                icon="flag-outline"
-                label="Goals"
-                value={profile.goals}
-              />
-            </>
-          ) : null}
-        </Card>
-
-        {/* ── Edit Profile ── */}
-        <Card variant="default" title="Edit Profile" padding="md">
-          <View style={styles.fields}>
-            <Input
-              label="Name"
-              value={name}
-              onChangeText={setName}
-              placeholder="E.g. Alex"
-              autoCapitalize="words"
-            />
-            <Input
-              label="Age"
-              value={age}
-              onChangeText={setAge}
-              placeholder="E.g. 24"
-              keyboardType="numeric"
-            />
-            <Input
-              label="Weight (kg)"
-              value={weightKg}
-              onChangeText={setWeightKg}
-              placeholder="E.g. 70.5"
-              keyboardType="numeric"
-            />
-            <Input
-              label="Height (cm)"
-              value={heightCm}
-              onChangeText={setHeightCm}
-              placeholder="E.g. 175"
-              keyboardType="numeric"
-            />
-            <Input
-              label="Fitness level"
-              value={fitnessLevel}
-              onChangeText={setFitnessLevel}
-              placeholder="beginner / intermediate / advanced"
-            />
-            <Input
-              label="Goals"
-              value={goals}
-              onChangeText={setGoals}
-              placeholder="E.g. fat loss, muscle gain"
-              multiline
-            />
+        {/* Hero card */}
+        <View style={s.section}>
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <FpAvatar name={initials} size={64} tint={t.primarySoft}/>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[s.displayName, { fontFamily: SERIF, color: t.ink }]}>{displayName}</Text>
+                <Text style={[{ fontSize: 12, color: t.muted }]}>
+                  {profile?.fitness_level ?? 'Intermediate'} · obiectiv {profile?.goals ?? 'slăbit'}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                  <View style={[s.badge, { backgroundColor: t.primarySoft }]}>
+                    <Text style={[s.badgeText, { color: t.primary }]}>PRO</Text>
+                  </View>
+                  <View style={[s.badge, { backgroundColor: t.accentSoft }]}>
+                    <Text style={[s.badgeText, { color: t.accent }]}>5 zile streak</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+            {/* Body stats */}
+            <View style={[s.statsRow, { borderTopColor: t.line }]}>
+              <Stat n={profile?.weight_kg?.toString() ?? '—'} u="kg"/>
+              <View style={[s.statDivider, { backgroundColor: t.line }]}/>
+              <Stat n={profile?.height_cm?.toString() ?? '—'} u="cm"/>
+              <View style={[s.statDivider, { backgroundColor: t.line }]}/>
+              <Stat n={profile?.age?.toString() ?? '—'} u="ani"/>
+            </View>
           </View>
-        </Card>
+        </View>
 
-        {error ? <ErrorState message={error} /> : null}
-        {saveMessage ? (
-          <View style={styles.successBanner}>
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={16}
-              color={colors.success}
-            />
-            <Text style={styles.successText}>{saveMessage}</Text>
+        {/* Weight chart */}
+        <View style={[s.section, { paddingTop: 0 }]}>
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <View style={{ gap: 2 }}>
+                <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>GREUTATE · 30 ZILE</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                  <Text style={[s.weightBig, { fontFamily: SERIF, color: t.ink }]}>
+                    {profile?.weight_kg ?? '78.4'}
+                  </Text>
+                  <Text style={[{ fontSize: 12, color: t.good, fontWeight: '600' }]}>↓ 2.3 kg</Text>
+                </View>
+              </View>
+              <View style={[s.segControl, { backgroundColor: t.surface2, borderColor: t.line }]}>
+                {['7d', '30d', '90d'].map((l, i) => (
+                  <View key={l} style={[s.segBtn, i === 1 && { backgroundColor: t.ink }]}>
+                    <Text style={[s.segText, { color: i === 1 ? t.bg : t.muted }]}>{l}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <WeightChart color={t.primarySoft} lineColor={t.primary}/>
           </View>
-        ) : null}
+        </View>
 
-        <Button
-          label="Save Profile"
-          onPress={() => void handleSave()}
-          loading={saving}
-          size="lg"
-          fullWidth
-        />
-        <Button
-          label="Refresh Profile"
-          onPress={() => void fetchMe()}
-          loading={loading}
-          variant="outline"
-          fullWidth
-        />
+        {/* Settings list */}
+        <View style={[s.section, { paddingTop: 0, gap: 2 }]}>
+          <SettingRow
+            icon="leaf" label="Diet preferences" sub={dietDesc}
+            onPress={() => navigation.navigate('DietPreferences')}
+          />
+          <SettingRow
+            icon="dumbbell" label="Fitness goals" sub={`${profile?.fitness_level ?? 'Beginner'} · obiectiv`}
+            onPress={() => navigation.navigate('UpdateProfile')}
+          />
+          <SettingRow
+            icon="heart" label="Săli favorite" sub="Saved gyms and locations"
+            onPress={() => navigation.navigate('FavoriteGyms')}
+          />
+          <SettingRow
+            icon="chart" label="Calorie Calculator" sub="Calculate your TDEE"
+            onPress={() => navigation.navigate('CalorieTarget')}
+          />
+          <SettingRow
+            icon="dumbbell" label="Workout AI History" sub="Browse and continue workout chats"
+            onPress={() => navigation.navigate('ConversationHistory', { agentType: 'workout' })}
+          />
+          <SettingRow
+            icon="leaf" label="Diet AI History" sub="Browse and continue diet chats"
+            onPress={() => navigation.navigate('ConversationHistory', { agentType: 'diet' })}
+          />
+        </View>
 
-        {/* ── Nutrition & Diet ── */}
-        <SectionTitle title="Nutrition & Diet" />
-        <Card variant="default" padding="sm">
-          <NavRow
-            icon="options-outline"
-            iconColor={colors.accent.base}
-            label="Diet Preferences"
-            description={dietDesc}
-            badge={dietBadge}
-            onPress={() => navigation.navigate("DietPreferences")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="calculator-outline"
-            iconColor={colors.info}
-            label="Calorie Calculator"
-            description="Calculate your TDEE & set a daily target"
-            onPress={() => navigation.navigate("CalorieTarget")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="restaurant-outline"
-            iconColor={colors.success}
-            label="Food Diary"
-            description="Log and review your meals"
-            onPress={() => navigation.navigate("FoodDiary")}
-          />
-        </Card>
-
-        {/* ── AI Chat History ── */}
-        <SectionTitle title="AI Chat History" />
-        <Card variant="default" padding="sm">
-          <NavRow
-            icon="barbell-outline"
-            iconColor={colors.accent.base}
-            label="Workout AI History"
-            description="Browse and continue workout conversations"
-            onPress={() =>
-              navigation.navigate("ConversationHistory", {
-                agentType: "workout",
-              })
-            }
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="nutrition-outline"
-            iconColor={colors.warning}
-            label="Diet AI History"
-            description="Browse and continue diet conversations"
-            onPress={() =>
-              navigation.navigate("ConversationHistory", {
-                agentType: "diet",
-              })
-            }
-          />
-        </Card>
-
-        {/* ── Account ── */}
-        <SectionTitle title="Account" />
-        <Card variant="default" padding="sm">
-          <NavRow
-            icon="person-outline"
-            iconColor={colors.info}
-            label="Full Edit Screen"
-            description="Update all profile fields"
-            onPress={() => navigation.navigate("UpdateProfile")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="heart-outline"
-            iconColor={colors.error}
-            label="My Favourite Gyms"
-            description="Saved gyms and locations"
-            onPress={() => navigation.navigate("FavoriteGyms")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="log-out-outline"
-            label="Log out"
+        {/* Logout */}
+        <View style={[s.section, { paddingTop: 0 }]}>
+          <TouchableOpacity
             onPress={handleLogout}
-            danger
-          />
-        </Card>
+            activeOpacity={0.8}
+            style={[s.logoutBtn, { borderColor: t.bad + '40', backgroundColor: t.bad + '10' }]}
+          >
+            <Text style={[s.logoutText, { color: t.bad }]}>Log out</Text>
+          </TouchableOpacity>
+        </View>
 
-        <View style={styles.versionBadge}>
-          <Text style={styles.versionText}>FitPlus — Persoana 2 build</Text>
+        <View style={{ alignItems: 'center', marginTop: 20 }}>
+          <Text style={[s.version, { color: t.muted2 }]}>FitPlus · Wellness Daily</Text>
         </View>
       </ScrollView>
-    </Screen>
+    </SafeAreaView>
   );
 };
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const AVATAR_SIZE = 96;
-
-const styles = StyleSheet.create({
-  container: { gap: spacing.sm, paddingBottom: spacing["2xl"] },
-
-  // Avatar
-  avatarSection: {
-    alignItems: "center",
-    paddingVertical: spacing.xl,
-    gap: spacing[2],
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 22, paddingTop: 8, paddingBottom: 0,
   },
-  avatarRing: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 2,
-    borderColor: colors.accent.base,
-    shadowColor: colors.accent.base,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-    marginBottom: spacing[1],
-    // Needed so the camera badge isn't clipped
-    overflow: "visible",
+  section: { paddingHorizontal: 22, paddingTop: 14 },
+  eyebrow: { fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', fontWeight: '500' },
+  card: { borderRadius: 22, borderWidth: 1, padding: 20 },
+  displayName: { fontSize: 20, letterSpacing: -0.3 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  badgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  statsRow: {
+    flexDirection: 'row', marginTop: 16, paddingTop: 16, borderTopWidth: 1,
   },
-  avatarImage: {
-    width: AVATAR_SIZE - 4,
-    height: AVATAR_SIZE - 4,
-    borderRadius: (AVATAR_SIZE - 4) / 2,
+  statNum: { fontSize: 22, letterSpacing: -0.5, fontWeight: '700' },
+  statDivider: { width: 1, height: 36, alignSelf: 'center' },
+  weightBig: { fontSize: 28, letterSpacing: -0.5, fontWeight: '700' },
+  segControl: { flexDirection: 'row', borderRadius: 999, padding: 3, borderWidth: 1, gap: 2 },
+  segBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  segText: { fontSize: 11, fontWeight: '500' },
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14, paddingHorizontal: 4,
   },
-  avatarPlaceholder: {
-    width: AVATAR_SIZE - 4,
-    height: AVATAR_SIZE - 4,
-    borderRadius: (AVATAR_SIZE - 4) / 2,
-    backgroundColor: colors.accent.muted,
-    alignItems: "center",
-    justifyContent: "center",
+  settingIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  settingLabel: { fontSize: 14, fontWeight: '500' },
+  settingSub: { fontSize: 11 },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    padding: 14, borderRadius: 999, borderWidth: 1,
   },
-  avatarText: {
-    fontSize: typography.size["2xl"],
-    fontWeight: "800",
-    color: colors.accent.base,
-    letterSpacing: 1,
-  },
-  cameraBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.accent.base,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: colors.bg.base,
-  },
-
-  displayName: { ...typography.styles.h2 },
-  email: {
-    ...typography.styles.bodySmall,
-    color: colors.textPalette.secondary,
-  },
-  photoHint: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    marginTop: 2,
-  },
-  levelBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: spacing[1],
-    paddingHorizontal: spacing[4],
-    borderRadius: radius.chip,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base + "40",
-    marginTop: spacing[1],
-  },
-  levelBadgeText: {
-    color: colors.accent.text,
-    fontSize: typography.size.xs,
-    fontWeight: "700",
-    letterSpacing: typography.tracking.widest,
-    textTransform: "uppercase",
-  },
-
-  // Stats
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: spacing[3],
-  },
-  statRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-  },
-  statLabel: {
-    ...typography.styles.bodySmall,
-    color: colors.textPalette.secondary,
-  },
-  statValue: {
-    fontSize: typography.size.base,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
-    maxWidth: "55%",
-    textAlign: "right",
-  },
-  divider: { height: 1, backgroundColor: colors.borderPalette.muted },
-
-  // Form
-  fields: { gap: spacing[2] },
-
-  // Success
-  successBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-    padding: spacing[3],
-    borderRadius: radius.md,
-    backgroundColor: colors.success + "18",
-    borderWidth: 1,
-    borderColor: colors.success + "40",
-  },
-  successText: {
-    color: colors.success,
-    fontWeight: "600",
-    fontSize: typography.size.sm,
-  },
-
-  // Sections
-  sectionLabel: {
-    ...typography.styles.label,
-    marginTop: spacing[3],
-    marginBottom: spacing[1],
-    marginLeft: 2,
-  },
-
-  // Nav rows
-  navRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing.md,
-    gap: spacing[3],
-  },
-  navRowIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  navRowContent: { flex: 1, gap: 2 },
-  navRowLabel: {
-    fontSize: typography.size.base,
-    fontWeight: "600",
-    color: colors.textPalette.primary,
-  },
-  navRowLabelDanger: { color: colors.error },
-  navRowDesc: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-  },
-  navRowBadge: {
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-    borderRadius: radius.chip,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base,
-  },
-  navRowBadgeText: {
-    fontSize: typography.size.xs,
-    fontWeight: "700",
-    color: colors.accent.base,
-  },
-  navRowDivider: {
-    height: 1,
-    backgroundColor: colors.borderPalette.muted,
-    marginLeft: 34 + spacing.md + spacing[3],
-  },
-
-  versionBadge: {
-    alignItems: "center",
-    marginTop: spacing.xl,
-    marginBottom: spacing[3],
-  },
-  versionText: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    letterSpacing: 0.5,
-  },
+  logoutText: { fontSize: 14, fontWeight: '600' },
+  version: { fontSize: 11, letterSpacing: 0.5 },
 });

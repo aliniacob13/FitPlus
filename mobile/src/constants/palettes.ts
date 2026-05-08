@@ -1,0 +1,125 @@
+export type PaletteName = 'lime' | 'forest' | 'terracotta' | 'indigo';
+
+export interface PaletteTokens {
+  bg: string;
+  bgDeep: string;
+  surface: string;
+  surface2: string;
+  surface3: string;
+  ink: string;
+  ink2: string;
+  muted: string;
+  muted2: string;
+  line: string;
+  lineSoft: string;
+  primary: string;
+  primaryInk: string;
+  primarySoft: string;
+  accent: string;
+  accentSoft: string;
+  good: string;
+  warn: string;
+  bad: string;
+  macroProtein: string;
+  macroCarbs: string;
+  macroFat: string;
+}
+
+export const PALETTES: Record<PaletteName, PaletteTokens> = {
+  lime: {
+    bg: '#0d0d0d',
+    bgDeep: '#050505',
+    surface: '#161616',
+    surface2: '#1f1f1f',
+    surface3: '#2a2a2a',
+    ink: '#f2f2f2',
+    ink2: '#e5e5e5',
+    muted: '#9a9a9a',
+    muted2: '#6a6a6a',
+    line: '#2e2e2e',
+    lineSoft: '#1f1f1f',
+    primary: '#c5f135',
+    primaryInk: '#0d0d0d',
+    primarySoft: '#2a3209',
+    accent: '#c5f135',
+    accentSoft: '#2a3209',
+    good: '#4ade80',
+    warn: '#facc15',
+    bad: '#ff5a5a',
+    macroProtein: '#c5f135',
+    macroCarbs: '#facc15',
+    macroFat: '#ff5a5a',
+  },
+  forest: {
+    bg: '#faf6ee',
+    bgDeep: '#f3ecd9',
+    surface: '#ffffff',
+    surface2: '#f6efde',
+    surface3: '#ece2c7',
+    ink: '#1a221d',
+    ink2: '#2f352f',
+    muted: '#6e6f64',
+    muted2: '#a09f93',
+    line: '#e3dac0',
+    lineSoft: '#efe7d0',
+    primary: '#2d4a3e',
+    primaryInk: '#f7f3e9',
+    primarySoft: '#e0e7dd',
+    accent: '#d97757',
+    accentSoft: '#f3dccd',
+    good: '#5a8d6f',
+    warn: '#c98b3a',
+    bad: '#b85d4a',
+    macroProtein: '#2d4a3e',
+    macroCarbs: '#d97757',
+    macroFat: '#c98b3a',
+  },
+  terracotta: {
+    bg: '#fbf5ec',
+    bgDeep: '#f1e2cf',
+    surface: '#ffffff',
+    surface2: '#f7ecd9',
+    surface3: '#ead8b9',
+    ink: '#2a1a12',
+    ink2: '#3d2a1f',
+    muted: '#7d6a5d',
+    muted2: '#b39c84',
+    line: '#ecdcc1',
+    lineSoft: '#f4e8d0',
+    primary: '#a8533c',
+    primaryInk: '#fbf3e6',
+    primarySoft: '#f0d8c5',
+    accent: '#1f4744',
+    accentSoft: '#cee0dc',
+    good: '#5a8d6f',
+    warn: '#c98b3a',
+    bad: '#b85d4a',
+    macroProtein: '#a8533c',
+    macroCarbs: '#1f4744',
+    macroFat: '#c98b3a',
+  },
+  indigo: {
+    bg: '#f3f4fa',
+    bgDeep: '#dbdef0',
+    surface: '#ffffff',
+    surface2: '#e9ebf6',
+    surface3: '#d4d8ea',
+    ink: '#0f1428',
+    ink2: '#1f2542',
+    muted: '#6c728c',
+    muted2: '#9da3bd',
+    line: '#d8dcec',
+    lineSoft: '#e6eaf3',
+    primary: '#1f3a8a',
+    primaryInk: '#eef0fc',
+    primarySoft: '#d6deef',
+    accent: '#f59e0b',
+    accentSoft: '#fde6c3',
+    good: '#16a07c',
+    warn: '#f59e0b',
+    bad: '#ef4444',
+    macroProtein: '#1f3a8a',
+    macroCarbs: '#f59e0b',
+    macroFat: '#6c728c',
+  },
+};

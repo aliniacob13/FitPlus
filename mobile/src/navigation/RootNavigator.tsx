@@ -9,6 +9,7 @@ import { PlateCoachScreen } from "@/screens/nutrition/PlateCoachScreen";
 import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { DietPreferencesScreen } from "@/screens/profile/DietPreferencesScreen";
+import { WorkoutScreen } from "@/screens/workout/WorkoutScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -16,11 +17,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 const AuthenticatedStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="MainTabs" component={MainTabs} />
     <Stack.Screen name="UpdateProfile" component={UpdateProfileScreen} />
     <Stack.Screen name="CalorieTarget" component={CalorieTargetScreen} />
@@ -29,20 +26,14 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="LabelScan" component={LabelScanScreen} />
     <Stack.Screen name="PlateCoach" component={PlateCoachScreen} />
     <Stack.Screen name="FavoriteGyms" component={FavoriteGymsScreen} />
-    <Stack.Screen
-      name="ConversationHistory"
-      component={ConversationHistoryScreen}
-    />
-    <Stack.Screen
-      name="DietPreferences"
-      component={DietPreferencesScreen}
-    />
+    <Stack.Screen name="ConversationHistory" component={ConversationHistoryScreen} />
+    <Stack.Screen name="DietPreferences" component={DietPreferencesScreen} />
+    <Stack.Screen name="Workout" component={WorkoutScreen} />
   </Stack.Navigator>
 );
 
 export const RootNavigator = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  // Remount stacks on auth flip so web does not keep stale routes / blank views.
   return isAuthenticated ? (
     <AuthenticatedStack key="fitplus-authenticated" />
   ) : (

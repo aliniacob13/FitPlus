@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { Loader } from "@/components/ui/Loader";
 import { colors } from "@/constants/theme";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { useBootstrapApp } from "@/hooks/useBootstrapApp";
 import { RootNavigator } from "@/navigation/RootNavigator";
 
@@ -26,9 +27,11 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer theme={appTheme}>
-      <StatusBar style="light" />
-      <RootNavigator />
-    </NavigationContainer>
+    <ThemeProvider>
+      <NavigationContainer theme={appTheme}>
+        <StatusBar style="auto" />
+        <RootNavigator />
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }

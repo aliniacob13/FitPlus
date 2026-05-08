@@ -1,37 +1,27 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+  ActivityIndicator, Alert, Image, Platform, ScrollView,
+  StyleSheet, Text, TextInput, TouchableOpacity, View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Screen } from "@/components/ui/Screen";
-import { colors, radius, spacing, typography } from "@/constants/theme";
-import type {
-  ClarificationAnswer,
-  PlateAnalysisResponse,
-  PlateItem,
-} from "@/services/nutritionApi";
-import { nutritionApi } from "@/services/nutritionApi";
-import { useFoodDiaryStore } from "@/store/foodDiaryStore";
-import { AppStackParamList } from "@/types/navigation";
-import { formatApiError } from "@/utils/apiErrors";
+import { useTheme } from '@/context/ThemeContext';
+import { FpIcon } from '@/components/ui/FpIcon';
+import { MacroBar } from '@/components/ui/MacroBar';
+import type { ClarificationAnswer, PlateAnalysisResponse, PlateItem } from '@/services/nutritionApi';
+import { nutritionApi } from '@/services/nutritionApi';
+import { useFoodDiaryStore } from '@/store/foodDiaryStore';
+import { AppStackParamList } from '@/types/navigation';
+import { formatApiError } from '@/utils/apiErrors';
 
-type NavProp = NativeStackNavigationProp<AppStackParamList, "PlateCoach">;
-type RoutePropType = RouteProp<AppStackParamList, "PlateCoach">;
+type NavProp = NativeStackNavigationProp<AppStackParamList, 'PlateCoach'>;
+type RoutePropType = RouteProp<AppStackParamList, 'PlateCoach'>;
+
+const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 
 interface EditableItem extends PlateItem {
   selected: boolean;
@@ -39,23 +29,18 @@ interface EditableItem extends PlateItem {
   editedGrams: string;
 }
 
-const confidenceColor = (c: number): string => {
-  if (c >= 0.75) return colors.accent.base;
-  if (c >= 0.5) return colors.warning;
-  return colors.error;
-};
-
 const pct = (c: number) => `${Math.round(c * 100)}%`;
 
 const imagePickerOptions: ImagePicker.ImagePickerOptions = {
   mediaTypes: ImagePicker.MediaTypeOptions.Images,
   quality: 0.85,
-  ...(Platform.OS === "ios"
+  ...(Platform.OS === 'ios'
     ? { preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible }
     : {}),
 };
 
 export const PlateCoachScreen = () => {
+  const { t } = useTheme();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RoutePropType>();
   const { date } = route.params;
@@ -73,30 +58,22 @@ export const PlateCoachScreen = () => {
   const pickImage = async (useCamera: boolean) => {
     if (useCamera) {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Camera access is required.");
-        return;
-      }
+      if (status !== 'granted') { Alert.alert('Permission needed', 'Camera access is required.'); return; }
     } else {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Photo library access is required.");
-        return;
-      }
+      if (status !== 'granted') { Alert.alert('Permission needed', 'Photo library access is required.'); return; }
     }
-
     const result = useCamera
       ? await ImagePicker.launchCameraAsync(imagePickerOptions)
       : await ImagePicker.launchImageLibraryAsync(imagePickerOptions);
 
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0];
-      const uri = asset.uri;
-      setImageUri(uri);
+      setImageUri(asset.uri);
       setAnalysis(null);
       setItems([]);
       setClarifyAnswers({});
-      await runAnalysis(uri, undefined, asset.mimeType ?? undefined);
+      await runAnalysis(asset.uri, undefined, asset.mimeType ?? undefined);
     }
   };
 
@@ -106,7 +83,7 @@ export const PlateCoachScreen = () => {
       const { data } = await nutritionApi.analyzePlate(uri, existingConvId, mimeType);
       applyAnalysis(data);
     } catch (err) {
-      Alert.alert("Analysis failed", formatApiError(err));
+      Alert.alert('Analysis failed', formatApiError(err));
     } finally {
       setAnalyzing(false);
     }
@@ -114,64 +91,46 @@ export const PlateCoachScreen = () => {
 
   const applyAnalysis = (data: PlateAnalysisResponse) => {
     setAnalysis(data);
-    setItems(
-      data.items.map((it) => ({
-        ...it,
-        protein_g_estimate: it.protein_g_estimate ?? 0,
-        carbs_g_estimate: it.carbs_g_estimate ?? 0,
-        fat_g_estimate: it.fat_g_estimate ?? 0,
-        selected: true,
-        editedName: it.food_name_estimate,
-        editedGrams: String(Math.round(it.grams_estimate)),
-      }))
-    );
+    setItems(data.items.map((it) => ({
+      ...it,
+      protein_g_estimate: it.protein_g_estimate ?? 0,
+      carbs_g_estimate: it.carbs_g_estimate ?? 0,
+      fat_g_estimate: it.fat_g_estimate ?? 0,
+      selected: true,
+      editedName: it.food_name_estimate,
+      editedGrams: String(Math.round(it.grams_estimate)),
+    })));
     setClarifyAnswers({});
   };
 
   const handleClarify = async () => {
     if (!analysis) return;
     const answers: ClarificationAnswer[] = analysis.needs_clarification
-      .filter((q) => (clarifyAnswers[q.index] ?? "").trim().length > 0)
+      .filter((q) => (clarifyAnswers[q.index] ?? '').trim().length > 0)
       .map((q) => ({ index: q.index, answer: clarifyAnswers[q.index].trim() }));
-
-    if (answers.length === 0) {
-      Alert.alert("No answers", "Please fill in at least one clarification before submitting.");
-      return;
-    }
-
+    if (answers.length === 0) { Alert.alert('No answers', 'Please fill in at least one clarification.'); return; }
     setClarifying(true);
     try {
-      const { data } = await nutritionApi.clarifyPlate({
-        conversation_id: analysis.conversation_id,
-        answers,
-      });
+      const { data } = await nutritionApi.clarifyPlate({ conversation_id: analysis.conversation_id, answers });
       applyAnalysis(data);
     } catch (err) {
-      Alert.alert("Clarification failed", formatApiError(err));
+      Alert.alert('Clarification failed', formatApiError(err));
     } finally {
       setClarifying(false);
     }
   };
 
-  const updateItem = (index: number, field: "editedName" | "editedGrams", value: string) => {
-    setItems((prev) =>
-      prev.map((it) => (it.index === index ? { ...it, [field]: value } : it))
-    );
+  const updateItem = (index: number, field: 'editedName' | 'editedGrams', value: string) => {
+    setItems((prev) => prev.map((it) => (it.index === index ? { ...it, [field]: value } : it)));
   };
 
   const toggleItem = (index: number) => {
-    setItems((prev) =>
-      prev.map((it) => (it.index === index ? { ...it, selected: !it.selected } : it))
-    );
+    setItems((prev) => prev.map((it) => (it.index === index ? { ...it, selected: !it.selected } : it)));
   };
 
   const handleAddSelected = async () => {
     const selected = items.filter((it) => it.selected);
-    if (selected.length === 0) {
-      Alert.alert("Nothing selected", "Select at least one item to add.");
-      return;
-    }
-
+    if (selected.length === 0) { Alert.alert('Nothing selected', 'Select at least one item to add.'); return; }
     let allOk = true;
     for (const it of selected) {
       const g = Number(it.editedGrams);
@@ -186,16 +145,15 @@ export const PlateCoachScreen = () => {
         protein_g: Math.round((it.protein_g_estimate ?? 0) * ratio * 10) / 10,
         carbs_g: Math.round((it.carbs_g_estimate ?? 0) * ratio * 10) / 10,
         fat_g: Math.round((it.fat_g_estimate ?? 0) * ratio * 10) / 10,
-        source: "plate",
+        source: 'plate',
       });
       if (!ok) allOk = false;
     }
-
     if (allOk) {
       navigation.goBack();
     } else {
-      const detail = useFoodDiaryStore.getState().error ?? "Some items could not be saved.";
-      Alert.alert("Partial save", detail);
+      const detail = useFoodDiaryStore.getState().error ?? 'Some items could not be saved.';
+      Alert.alert('Partial save', detail);
     }
   };
 
@@ -203,10 +161,7 @@ export const PlateCoachScreen = () => {
   const hasClarifications = (analysis?.needs_clarification.length ?? 0) > 0;
 
   const plateMacroPreview = useMemo(() => {
-    let kcal = 0;
-    let p = 0;
-    let c = 0;
-    let f = 0;
+    let kcal = 0, p = 0, c = 0, f = 0;
     for (const it of items) {
       const g = Number(it.editedGrams);
       if (!g || g <= 0) continue;
@@ -221,147 +176,181 @@ export const PlateCoachScreen = () => {
   }, [items]);
 
   return (
-    <Screen scrollable={false}>
+    <SafeAreaView style={[s.root, { backgroundColor: t.bg }]}>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <FpIcon name="left" size={20} color={t.ink}/>
+        </TouchableOpacity>
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>AI VISION</Text>
+          <Text style={[s.headerTitle, { fontFamily: SERIF, color: t.ink }]}>Plate Coach</Text>
+        </View>
+        <View style={{ width: 20 }}/>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110, paddingHorizontal: 22, paddingTop: 14 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Plate Coach</Text>
-        <Text style={styles.dateLabel}>{date}</Text>
-
-        {/* Image picker */}
-        <View style={styles.pickRow}>
-          <TouchableOpacity
-            style={styles.pickBtn}
-            onPress={() => void pickImage(true)}
-            disabled={analyzing}
-          >
-            <Text style={styles.pickBtnText}>Take Photo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.pickBtn}
-            onPress={() => void pickImage(false)}
-            disabled={analyzing}
-          >
-            <Text style={styles.pickBtnText}>Choose from Library</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Preview */}
+        {/* Photo viewport */}
         {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+          <View style={[s.photoWrapper, { borderColor: t.line }]}>
+            <Image source={{ uri: imageUri }} style={s.photo} resizeMode="cover"/>
+            {analyzing && (
+              <View style={s.analyzeOverlay}>
+                <ActivityIndicator color={t.primary} size="large"/>
+                <Text style={[s.analyzeText, { color: t.ink, fontFamily: MONO }]}>Analizez farfuria…</Text>
+              </View>
+            )}
+          </View>
         ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>
-              Take or upload a photo of your plate — the AI will estimate each food item.
+          <View style={[s.placeholder, { borderColor: t.line, backgroundColor: t.surface }]}>
+            <FpIcon name="camera" size={32} color={t.muted2}/>
+            <Text style={[s.placeholderTitle, { color: t.muted, fontFamily: SERIF }]}>Fotografiază farfuria</Text>
+            <Text style={[s.placeholderSub, { color: t.muted2 }]}>
+              AI-ul va estima fiecare aliment și caloriile
             </Text>
           </View>
         )}
 
-        {analyzing && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color={colors.accent.base} />
-            <Text style={styles.loadingText}>Analysing plate…</Text>
-          </View>
-        )}
+        {/* Pick buttons */}
+        <View style={[s.pickRow, { marginTop: 14 }]}>
+          <TouchableOpacity
+            onPress={() => void pickImage(true)}
+            disabled={analyzing}
+            activeOpacity={0.8}
+            style={[s.pickBtn, { backgroundColor: t.primary, opacity: analyzing ? 0.5 : 1 }]}
+          >
+            <FpIcon name="camera" size={16} color={t.bg}/>
+            <Text style={[s.pickBtnText, { color: t.bg }]}>Cameră</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void pickImage(false)}
+            disabled={analyzing}
+            activeOpacity={0.8}
+            style={[s.pickBtn, { backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, opacity: analyzing ? 0.5 : 1 }]}
+          >
+            <FpIcon name="search" size={16} color={t.ink}/>
+            <Text style={[s.pickBtnText, { color: t.ink }]}>Galerie</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Results */}
+        {/* Analysis results */}
         {analysis != null && !analyzing && (
           <>
             {/* Summary card */}
-            <Card variant="elevated" padding="md">
-              <Text style={styles.sectionTitle}>Analysis</Text>
-              <Text style={styles.totalKcal}>
-                ~{Math.round(analysis.total_kcal_estimate)} kcal total
+            <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line, marginTop: 20 }]}>
+              <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>ESTIMARE TOTALĂ</Text>
+              <Text style={[s.bigKcal, { fontFamily: SERIF, color: t.ink }]}>
+                ~{Math.round(plateMacroPreview.kcal)} <Text style={{ fontSize: 16, color: t.muted }}>kcal</Text>
               </Text>
-              <Text style={styles.macroTotals}>
-                Macros (preview for edited grams): P {Math.round(plateMacroPreview.p)}g · C{" "}
-                {Math.round(plateMacroPreview.c)}g · F {Math.round(plateMacroPreview.f)}g
-              </Text>
+              <View style={{ marginTop: 14, gap: 8 }}>
+                <MacroBar label="Proteine" value={Math.round(plateMacroPreview.p)} target={100} color={t.macroProtein}/>
+                <MacroBar label="Carbohidrați" value={Math.round(plateMacroPreview.c)} target={250} color={t.macroCarbs}/>
+                <MacroBar label="Grăsimi" value={Math.round(plateMacroPreview.f)} target={67} color={t.macroFat}/>
+              </View>
               {analysis.assumptions.length > 0 && (
-                <Text style={styles.assumptions}>{analysis.assumptions}</Text>
+                <Text style={[s.assumptions, { color: t.muted2, marginTop: 10 }]}>{analysis.assumptions}</Text>
               )}
-            </Card>
+            </View>
 
-            {/* Item list */}
-            <Text style={styles.sectionTitle}>Detected items — edit before adding</Text>
-            {items.map((it) => (
-              <ItemCard
-                key={it.index}
-                item={it}
-                onToggle={toggleItem}
-                onNameChange={(v) => updateItem(it.index, "editedName", v)}
-                onGramsChange={(v) => updateItem(it.index, "editedGrams", v)}
-              />
-            ))}
+            {/* Detected items */}
+            <Text style={[s.sectionTitle, { color: t.ink, fontFamily: SERIF, marginTop: 22 }]}>
+              Alimente detectate
+            </Text>
+            <Text style={[s.sectionSub, { color: t.muted }]}>Editează înainte de a salva</Text>
 
-            {/* Clarification questions */}
+            <View style={{ gap: 12, marginTop: 12 }}>
+              {items.map((it) => (
+                <ItemCard
+                  key={it.index}
+                  item={it}
+                  onToggle={toggleItem}
+                  onNameChange={(v) => updateItem(it.index, 'editedName', v)}
+                  onGramsChange={(v) => updateItem(it.index, 'editedGrams', v)}
+                />
+              ))}
+            </View>
+
+            {/* Clarification */}
             {hasClarifications && (
-              <Card variant="default" padding="md">
-                <Text style={styles.clarifyTitle}>Clarification needed</Text>
-                <Text style={styles.clarifyHint}>
-                  The AI is unsure about some items. Answer below to improve estimates.
+              <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line, marginTop: 16, gap: 12 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <FpIcon name="spark" size={16} color={t.primary}/>
+                  <Text style={[s.sectionTitle, { color: t.ink }]}>AI are întrebări</Text>
+                </View>
+                <Text style={[{ fontSize: 12, color: t.muted }]}>
+                  Răspunde pentru estimări mai precise.
                 </Text>
                 {analysis.needs_clarification.map((q) => (
-                  <View key={q.index} style={styles.clarifyQuestion}>
-                    <Text style={styles.clarifyQuestionText}>
-                      Item {q.index}: {q.question}
+                  <View key={q.index} style={{ gap: 6 }}>
+                    <Text style={[{ fontSize: 13, fontWeight: '500', color: t.ink2 }]}>
+                      #{q.index}: {q.question}
                     </Text>
                     <TextInput
-                      style={styles.clarifyInput}
-                      value={clarifyAnswers[q.index] ?? ""}
-                      onChangeText={(v) =>
-                        setClarifyAnswers((prev) => ({ ...prev, [q.index]: v }))
-                      }
-                      placeholder="Your answer…"
-                      placeholderTextColor={colors.textPalette.muted}
+                      style={[s.clarifyInput, { borderColor: t.line, backgroundColor: t.surface2, color: t.ink }]}
+                      value={clarifyAnswers[q.index] ?? ''}
+                      onChangeText={(v) => setClarifyAnswers((prev) => ({ ...prev, [q.index]: v }))}
+                      placeholder="Răspunsul tău…"
+                      placeholderTextColor={t.muted2}
                     />
                   </View>
                 ))}
-                <Button
-                  label="Submit Clarifications"
+                <TouchableOpacity
                   onPress={() => void handleClarify()}
-                  loading={clarifying}
-                  fullWidth
-                />
-              </Card>
+                  disabled={clarifying}
+                  activeOpacity={0.8}
+                  style={[s.ghostBtn, { borderColor: t.primary + '60' }]}
+                >
+                  {clarifying ? <ActivityIndicator size="small" color={t.primary}/> : (
+                    <Text style={[{ fontSize: 14, fontWeight: '600', color: t.primary }]}>
+                      Trimite răspunsurile
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             )}
 
-            {/* Add to diary */}
-            <Button
-              label={
-                selectedCount > 0
-                  ? `Add ${selectedCount} Item${selectedCount !== 1 ? "s" : ""} to Diary`
-                  : "Add to Diary"
-              }
+            {/* Save to diary */}
+            <TouchableOpacity
               onPress={() => void handleAddSelected()}
-              loading={saving}
-              disabled={selectedCount === 0}
-              fullWidth
-            />
+              disabled={saving || selectedCount === 0}
+              activeOpacity={0.85}
+              style={[s.primaryBtn, { backgroundColor: t.primary, opacity: (saving || selectedCount === 0) ? 0.5 : 1, marginTop: 20 }]}
+            >
+              {saving ? <ActivityIndicator size="small" color={t.bg}/> : (
+                <>
+                  <FpIcon name="plus" size={16} color={t.bg}/>
+                  <Text style={[{ fontSize: 14, fontWeight: '600', color: t.bg }]}>
+                    {selectedCount > 0
+                      ? `Salvează ${selectedCount} ${selectedCount === 1 ? 'aliment' : 'alimente'} în jurnal`
+                      : 'Salvează în jurnal'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </>
         )}
 
-        <Text style={styles.disclaimer}>{analysis?.disclaimer ?? "Estimates only — not medical advice."}</Text>
-
-        <Button label="Cancel" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
+        <Text style={[s.disclaimer, { color: t.muted2 }]}>
+          {analysis?.disclaimer ?? 'Estimări orientative — nu reprezintă sfat medical.'}
+        </Text>
       </ScrollView>
-    </Screen>
+    </SafeAreaView>
   );
 };
 
 const ItemCard = ({
-  item,
-  onToggle,
-  onNameChange,
-  onGramsChange,
+  item, onToggle, onNameChange, onGramsChange,
 }: {
   item: EditableItem;
   onToggle: (index: number) => void;
   onNameChange: (v: string) => void;
   onGramsChange: (v: string) => void;
 }) => {
+  const { t } = useTheme();
   const g = Number(item.editedGrams);
   const baseG = item.grams_estimate > 0 ? item.grams_estimate : g > 0 ? g : 1;
   const ratio = g > 0 ? g / baseG : 1;
@@ -369,215 +358,110 @@ const ItemCard = ({
   const previewP = Math.round((item.protein_g_estimate ?? 0) * ratio);
   const previewC = Math.round((item.carbs_g_estimate ?? 0) * ratio);
   const previewF = Math.round((item.fat_g_estimate ?? 0) * ratio);
+  const confColor = item.confidence >= 0.75 ? t.good : item.confidence >= 0.5 ? t.accent : t.bad;
 
   return (
-    <Card variant={item.selected ? "elevated" : "default"} padding="md">
-      <View style={styles.itemHeader}>
+    <View style={[s.card, {
+      backgroundColor: item.selected ? t.surface : t.surface2,
+      borderColor: item.selected ? t.primary + '50' : t.line,
+    }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <TouchableOpacity
-          style={[styles.checkbox, item.selected && styles.checkboxSelected]}
           onPress={() => onToggle(item.index)}
+          activeOpacity={0.7}
+          style={[s.checkbox, {
+            borderColor: item.selected ? t.primary : t.line,
+            backgroundColor: item.selected ? t.primary : 'transparent',
+          }]}
         >
-          {item.selected && <Text style={styles.checkmark}>✓</Text>}
+          {item.selected && <FpIcon name="check" size={12} color={t.bg}/>}
         </TouchableOpacity>
-        <View style={styles.confidenceBadge}>
-          <Text style={[styles.confidenceText, { color: confidenceColor(item.confidence) }]}>
+        <View style={[s.confBadge, { backgroundColor: confColor + '20' }]}>
+          <Text style={[{ fontSize: 10, fontWeight: '700', color: confColor, fontFamily: 'monospace' }]}>
             {pct(item.confidence)}
           </Text>
         </View>
       </View>
-      <Input
-        label="Food item"
+
+      <TextInput
+        style={[s.nameInput, { borderColor: t.line, backgroundColor: t.surface2, color: t.ink }]}
         value={item.editedName}
         onChangeText={onNameChange}
         autoCapitalize="sentences"
+        placeholder="Aliment"
+        placeholderTextColor={t.muted2}
       />
-      <View style={styles.gramsRow}>
-        <View style={styles.gramsInput}>
-          <Input
-            label="Grams"
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+        <View style={{ flex: 1 }}>
+          <TextInput
+            style={[s.nameInput, { borderColor: t.line, backgroundColor: t.surface2, color: t.ink }]}
             value={item.editedGrams}
             onChangeText={onGramsChange}
             keyboardType="numeric"
+            placeholder="Grame"
+            placeholderTextColor={t.muted2}
           />
         </View>
-        <View style={styles.kcalBadge}>
-          <Text style={styles.kcalBadgeValue}>~{previewKcal} kcal</Text>
+        <View style={[s.kcalPill, { backgroundColor: t.accentSoft }]}>
+          <Text style={[{ fontSize: 12, fontWeight: '700', color: t.accent, fontFamily: 'monospace' }]}>
+            ~{previewKcal} kcal
+          </Text>
         </View>
       </View>
-      <Text style={styles.macroLine}>
+
+      <Text style={[{ fontSize: 11, color: t.muted, marginTop: 6, fontFamily: 'monospace' }]}>
         P {previewP}g · C {previewC}g · F {previewF}g
       </Text>
-    </Card>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  content: {
-    gap: spacing.md,
-    paddingBottom: spacing["2xl"],
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 22, paddingTop: 8, paddingBottom: 8,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
-    marginTop: spacing[3],
+  eyebrow: { fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', fontWeight: '500' },
+  headerTitle: { fontSize: 18, letterSpacing: -0.3 },
+  photoWrapper: { borderRadius: 22, borderWidth: 1, overflow: 'hidden', height: 260 },
+  photo: { width: '100%', height: '100%' },
+  analyzeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center', justifyContent: 'center', gap: 12,
   },
-  dateLabel: {
-    ...typography.styles.bodySmall,
-    marginTop: -spacing.sm,
-  },
-  pickRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  pickBtn: {
-    flex: 1,
-    height: 56,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accent.base,
-    backgroundColor: colors.bg.elevated,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-  },
-  pickBtnText: {
-    fontSize: typography.size.sm,
-    fontWeight: "600",
-    color: colors.accent.base,
-    textAlign: "center",
-  },
-  preview: {
-    width: "100%",
-    height: 240,
-    borderRadius: radius.md,
-  },
+  analyzeText: { fontSize: 13, letterSpacing: 1.2 },
   placeholder: {
-    width: "100%",
-    height: 120,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.muted,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.lg,
+    height: 220, borderRadius: 22, borderWidth: 1, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 32,
   },
-  placeholderText: {
-    ...typography.styles.caption,
-    textAlign: "center",
+  placeholderTitle: { fontSize: 18, letterSpacing: -0.3, marginTop: 8 },
+  placeholderSub: { fontSize: 12, textAlign: 'center' },
+  pickRow: { flexDirection: 'row', gap: 10 },
+  pickBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12, borderRadius: 16,
   },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
+  pickBtnText: { fontSize: 14, fontWeight: '600' },
+  card: { borderRadius: 22, borderWidth: 1, padding: 18 },
+  bigKcal: { fontSize: 36, fontWeight: '700', letterSpacing: -1, marginTop: 4 },
+  assumptions: { fontSize: 11 },
+  sectionTitle: { fontSize: 20, letterSpacing: -0.3, fontWeight: '600' },
+  sectionSub: { fontSize: 12, marginTop: 2 },
+  checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  confBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  nameInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14 },
+  kcalPill: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, alignSelf: 'flex-end' },
+  clarifyInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, height: 44, fontSize: 14 },
+  ghostBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 12, borderRadius: 16, borderWidth: 1,
   },
-  loadingText: {
-    ...typography.styles.bodySmall,
-    color: colors.accent.base,
+  primaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 18,
   },
-  sectionTitle: {
-    ...typography.styles.h3,
-    marginBottom: spacing.xs,
-  },
-  totalKcal: {
-    fontSize: typography.size["2xl"],
-    fontWeight: "800",
-    color: colors.accent.base,
-  },
-  macroTotals: {
-    ...typography.styles.caption,
-    marginTop: spacing.xs,
-  },
-  assumptions: {
-    ...typography.styles.caption,
-    marginTop: spacing.xs,
-  },
-  itemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.borderPalette.default,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxSelected: {
-    borderColor: colors.accent.base,
-    backgroundColor: colors.accent.base,
-  },
-  checkmark: {
-    color: colors.textPalette.inverse,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  confidenceBadge: {
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    backgroundColor: colors.bg.base,
-  },
-  confidenceText: {
-    fontSize: typography.size.sm,
-    fontWeight: "700",
-  },
-  gramsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  gramsInput: {
-    flex: 1,
-  },
-  kcalBadge: {
-    paddingTop: spacing.lg,
-  },
-  kcalBadgeValue: {
-    fontSize: typography.size.sm,
-    fontWeight: "600",
-    color: colors.textPalette.muted,
-  },
-  macroLine: {
-    ...typography.styles.caption,
-    marginTop: spacing.sm,
-  },
-  clarifyTitle: {
-    ...typography.styles.h3,
-    marginBottom: spacing.xs,
-  },
-  clarifyHint: {
-    ...typography.styles.caption,
-    marginBottom: spacing.md,
-  },
-  clarifyQuestion: {
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  clarifyQuestionText: {
-    fontSize: typography.size.sm,
-    fontWeight: "600",
-    color: colors.textPalette.primary,
-  },
-  clarifyInput: {
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    backgroundColor: colors.bg.elevated,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    color: colors.textPalette.primary,
-    fontSize: typography.size.base,
-  },
-  disclaimer: {
-    ...typography.styles.caption,
-    textAlign: "center",
-    color: colors.textPalette.muted,
-    paddingHorizontal: spacing.md,
-  },
+  disclaimer: { fontSize: 11, textAlign: 'center', paddingHorizontal: 16, marginTop: 20 },
 });
