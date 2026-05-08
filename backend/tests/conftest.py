@@ -10,6 +10,7 @@ so the outer ROLLBACK at teardown undoes everything.
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -19,7 +20,10 @@ from app.models.gym import Gym
 from app.models.user import User
 from geoalchemy2.elements import WKTElement
 
-_engine = create_async_engine(settings.DATABASE_URL, echo=False)
+# NullPool: don't pool connections across tests. pytest-asyncio creates a fresh
+# event loop per test, and asyncpg connections are bound to the loop that
+# opened them — pooling causes "attached to a different loop" errors on reuse.
+_engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
 
 
 @pytest_asyncio.fixture
