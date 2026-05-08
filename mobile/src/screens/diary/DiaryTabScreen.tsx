@@ -14,6 +14,52 @@ import { useFoodDiaryStore, todayString } from '@/store/foodDiaryStore';
 import type { FoodLogEntry } from '@/services/nutritionApi';
 import { AppStackParamList } from '@/types/navigation';
 
+const WATER_TARGET = 8;
+
+const WaterCard = ({ date }: { date: string }) => {
+  const { t } = useTheme();
+  const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
+  const logWater      = useFoodDiaryStore((s) => s.logWater);
+  const getWaterGlasses = useFoodDiaryStore((s) => s.getWaterGlasses);
+  const glasses = getWaterGlasses(date);
+  return (
+    <View style={[wt.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <FpIcon name="water" size={16} color={t.accent}/>
+          <Text style={[{ fontSize: 14, fontWeight: '600', color: t.ink }]}>Apă</Text>
+        </View>
+        <Text style={[{ fontFamily: MONO, fontSize: 12, color: t.muted }]}>{(glasses * 0.25).toFixed(2)} / 2.0 L</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+        {Array.from({ length: WATER_TARGET }).map((_, i) => (
+          <TouchableOpacity key={i} onPress={() => logWater(date, i < glasses ? -1 : 1)} activeOpacity={0.7}
+            style={[wt.glass, { backgroundColor: i < glasses ? t.accent : t.surface2, borderColor: i < glasses ? 'transparent' : t.line }]}>
+            <FpIcon name="water" size={13} color={i < glasses ? '#fff' : t.muted2}/>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity onPress={() => logWater(date, -1)} activeOpacity={0.7}
+          style={[wt.btn, { borderColor: t.line, flex: 1 }]}>
+          <Text style={[{ fontSize: 12, fontWeight: '600', color: t.ink }]}>−</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => logWater(date, 1)} activeOpacity={0.85}
+          style={[wt.btn, { backgroundColor: t.accent, borderColor: 'transparent', flex: 2 }]}>
+          <FpIcon name="plus" size={12} color="#fff"/>
+          <Text style={[{ fontSize: 12, fontWeight: '600', color: '#fff' }]}>+ pahar (250 ml)</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const wt = StyleSheet.create({
+  card: { borderRadius: 22, borderWidth: 1, padding: 18 },
+  glass: { flex: 1, height: 36, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 9, borderRadius: 12, borderWidth: 1 },
+});
+
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
@@ -207,6 +253,9 @@ export const DiaryTabScreen = () => {
               </View>
             );
           })}
+
+          {/* Water tracking */}
+          <WaterCard date={date}/>
 
           {/* Action buttons */}
           <TouchableOpacity

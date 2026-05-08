@@ -1,405 +1,313 @@
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Screen } from "@/components/ui/Screen";
-import { colors, radius, spacing, typography } from "@/constants/theme";
+import React, { useState } from 'react';
 import {
-  type ActivityLevel,
-  type Goal,
-  type NutritionTargetResponse,
-  type Sex,
+  ActivityIndicator, Platform, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { useTheme } from '@/context/ThemeContext';
+import { FpIcon } from '@/components/ui/FpIcon';
+import { MacroBar } from '@/components/ui/MacroBar';
+import {
+  type ActivityLevel, type Goal, type NutritionTargetResponse, type Sex,
   nutritionApi,
-} from "@/services/nutritionApi";
-import { useFoodDiaryStore } from "@/store/foodDiaryStore";
-import { useUserStore } from "@/store/userStore";
-import { AppStackParamList } from "@/types/navigation";
-import { formatApiError } from "@/utils/apiErrors";
+} from '@/services/nutritionApi';
+import { useFoodDiaryStore } from '@/store/foodDiaryStore';
+import { useUserStore } from '@/store/userStore';
+import { AppStackParamList } from '@/types/navigation';
+import { formatApiError } from '@/utils/apiErrors';
 
-type NavProp = NativeStackNavigationProp<AppStackParamList, "CalorieTarget">;
+type NavProp = NativeStackNavigationProp<AppStackParamList, 'CalorieTarget'>;
 
-const SEX_OPTIONS: { value: Sex; label: string }[] = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
+const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const MONO  = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
+
+const SEX_OPTIONS:      { value: Sex;           label: string }[] = [{ value: 'male', label: 'Bărbat' }, { value: 'female', label: 'Femeie' }];
+const GOAL_OPTIONS:     { value: Goal;          label: string; sub: string }[] = [
+  { value: 'lose',     label: 'Slăbire',    sub: 'Deficit caloric' },
+  { value: 'maintain', label: 'Menținere',  sub: 'Echilibru caloric' },
+  { value: 'gain',     label: 'Creștere',   sub: 'Surplus caloric' },
 ];
-
-const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; short: string }[] = [
-  { value: "sedentary", label: "Sedentary", short: "Desk job, no exercise" },
-  { value: "lightly_active", label: "Lightly Active", short: "1–3 days/week" },
-  { value: "moderately_active", label: "Moderately Active", short: "3–5 days/week" },
-  { value: "very_active", label: "Very Active", short: "6–7 days/week" },
-  { value: "extra_active", label: "Extra Active", short: "Athlete / physical job" },
+const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; sub: string }[] = [
+  { value: 'sedentary',         label: 'Sedentar',     sub: 'Fără sport' },
+  { value: 'lightly_active',    label: 'Ușor activ',   sub: '1–3 zile/săpt.' },
+  { value: 'moderately_active', label: 'Moderat activ',sub: '3–5 zile/săpt.' },
+  { value: 'very_active',       label: 'Foarte activ', sub: '6–7 zile/săpt.' },
+  { value: 'extra_active',      label: 'Extrem activ', sub: 'Atlet / muncă fizică' },
 ];
-
-const GOAL_OPTIONS: { value: Goal; label: string }[] = [
-  { value: "lose", label: "Lose Weight" },
-  { value: "maintain", label: "Maintain" },
-  { value: "gain", label: "Gain Weight" },
-];
-
-const SectionLabel = ({ text }: { text: string }) => (
-  <Text style={styles.sectionLabel}>{text}</Text>
-);
-
-const ChipGroup = <T extends string>({
-  options,
-  selected,
-  onSelect,
-  wrap = false,
-}: {
-  options: { value: T; label: string; short?: string }[];
-  selected: T | null;
-  onSelect: (v: T) => void;
-  wrap?: boolean;
-}) => (
-  <View style={[styles.chipRow, wrap && styles.chipWrap]}>
-    {options.map((opt) => (
-      <Pressable
-        key={opt.value}
-        onPress={() => onSelect(opt.value)}
-        style={[styles.chip, selected === opt.value && styles.chipActive]}
-      >
-        <Text style={[styles.chipLabel, selected === opt.value && styles.chipLabelActive]}>
-          {opt.label}
-        </Text>
-        {opt.short ? (
-          <Text style={[styles.chipSub, selected === opt.value && styles.chipSubActive]}>
-            {opt.short}
-          </Text>
-        ) : null}
-      </Pressable>
-    ))}
-  </View>
-);
-
-const Divider = () => <View style={styles.divider} />;
-
-const StatRow = ({
-  label,
-  value,
-  unit,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-}) => (
-  <View style={styles.statRow}>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statValue}>
-      {value} {unit}
-    </Text>
-  </View>
-);
-
-const MacroChip = ({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) => (
-  <View style={styles.macroItem}>
-    <Text style={[styles.macroValue, { color }]}>{value}g</Text>
-    <Text style={styles.macroLabel}>{label}</Text>
-  </View>
-);
 
 export const CalorieTargetScreen = () => {
+  const { t } = useTheme();
   const navigation = useNavigation<NavProp>();
-  const profile = useUserStore((state) => state.profile);
-  const setDailyKcalTarget = useFoodDiaryStore((state) => state.setDailyKcalTarget);
+  const profile    = useUserStore((s) => s.profile);
+  const setDailyKcalTarget = useFoodDiaryStore((s) => s.setDailyKcalTarget);
 
-  const [sex, setSex] = useState<Sex | null>(null);
-  const [age, setAge] = useState(profile?.age?.toString() ?? "");
-  const [weightKg, setWeightKg] = useState(profile?.weight_kg?.toString() ?? "");
-  const [heightCm, setHeightCm] = useState(profile?.height_cm?.toString() ?? "");
+  const [sex,           setSex]           = useState<Sex | null>(null);
+  const [age,           setAge]           = useState(profile?.age?.toString() ?? '');
+  const [weightKg,      setWeightKg]      = useState(profile?.weight_kg?.toString() ?? '');
+  const [heightCm,      setHeightCm]      = useState(profile?.height_cm?.toString() ?? '');
   const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
-  const [goal, setGoal] = useState<Goal | null>(null);
-  const [weeklyRate, setWeeklyRate] = useState("");
-  const [result, setResult] = useState<NutritionTargetResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [goal,          setGoal]          = useState<Goal | null>(null);
+  const [weeklyRate,    setWeeklyRate]    = useState('');
+  const [result,        setResult]        = useState<NutritionTargetResponse | null>(null);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
 
-  const isFormValid =
-    sex !== null &&
-    age.trim() !== "" &&
-    weightKg.trim() !== "" &&
-    heightCm.trim() !== "" &&
-    activityLevel !== null &&
-    goal !== null;
+  const isFormValid = sex !== null && age.trim() !== '' && weightKg.trim() !== '' &&
+    heightCm.trim() !== '' && activityLevel !== null && goal !== null;
 
   const handleCompute = async () => {
     if (!isFormValid || !sex || !activityLevel || !goal) return;
-    setError(null);
-    setLoading(true);
+    setError(null); setLoading(true);
     try {
       const { data } = await nutritionApi.computeTargets({
-        sex,
-        age: Number(age),
-        weight_kg: Number(weightKg),
-        height_cm: Number(heightCm),
-        activity_level: activityLevel,
-        goal,
+        sex, age: Number(age), weight_kg: Number(weightKg), height_cm: Number(heightCm),
+        activity_level: activityLevel, goal,
         weekly_rate_kg: weeklyRate.trim() ? Number(weeklyRate) : undefined,
       });
       setResult(data);
       setDailyKcalTarget(data.target_calories);
     } catch (err) {
-      setError(formatApiError(err, "Could not compute targets."));
+      setError(formatApiError(err, 'Nu am putut calcula ținta.'));
     } finally {
       setLoading(false);
     }
   };
 
-  const showWeeklyRate = goal === "lose" || goal === "gain";
-
   return (
-    <Screen scrollable={false}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Calorie Calculator</Text>
-        <Text style={styles.subtitle}>
-          Estimate your daily calorie target based on the Mifflin–St Jeor equation.
+    <View style={[s.root, { backgroundColor: t.bg }]}>
+      {/* Header */}
+      <View style={[s.header, { borderBottomColor: t.lineSoft }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={s.backBtn}>
+          <FpIcon name="left" size={20} color={t.ink}/>
+        </TouchableOpacity>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>NUTRIȚIE</Text>
+          <Text style={[s.headerTitle, { fontFamily: SERIF, color: t.ink }]}>Calculator calorii</Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <Text style={[{ fontSize: 13, color: t.muted }]}>
+          Calculează ținta zilnică de calorii bazată pe ecuația Mifflin–St Jeor și obiectivul tău.
         </Text>
 
-        <SectionLabel text="Sex" />
-        <ChipGroup options={SEX_OPTIONS} selected={sex} onSelect={setSex} />
-
-        <SectionLabel text="Body Stats" />
-        <View style={styles.fieldRow}>
-          <View style={styles.fieldFlex}>
-            <Input label="Age" value={age} onChangeText={setAge} placeholder="24" keyboardType="numeric" />
-          </View>
-          <View style={styles.fieldFlex}>
-            <Input
-              label="Weight (kg)"
-              value={weightKg}
-              onChangeText={setWeightKg}
-              placeholder="65"
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={styles.fieldFlex}>
-            <Input
-              label="Height (cm)"
-              value={heightCm}
-              onChangeText={setHeightCm}
-              placeholder="170"
-              keyboardType="numeric"
-            />
+        {/* Sex */}
+        <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+          <Text style={[s.sectionLabel, { color: t.muted, fontFamily: MONO }]}>SEX</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            {SEX_OPTIONS.map((opt) => {
+              const active = sex === opt.value;
+              return (
+                <TouchableOpacity key={opt.value} onPress={() => setSex(opt.value)} activeOpacity={0.7}
+                  style={[s.chip, { flex: 1, backgroundColor: active ? t.ink : t.surface2, borderColor: active ? 'transparent' : t.line }]}>
+                  <Text style={[{ fontSize: 13, fontWeight: '600', color: active ? t.bg : t.muted }]}>{opt.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        <SectionLabel text="Activity Level" />
-        <ChipGroup options={ACTIVITY_OPTIONS} selected={activityLevel} onSelect={setActivityLevel} wrap />
+        {/* Body stats */}
+        <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+          <Text style={[s.sectionLabel, { color: t.muted, fontFamily: MONO }]}>DATE CORPORALE</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            {[
+              { label: 'VÂRSTĂ', value: age, set: setAge, ph: '24' },
+              { label: 'GREUTATE (KG)', value: weightKg, set: setWeightKg, ph: '65' },
+              { label: 'ÎNĂLȚIME (CM)', value: heightCm, set: setHeightCm, ph: '170' },
+            ].map((f) => (
+              <View key={f.label} style={{ flex: 1, gap: 4 }}>
+                <Text style={[s.fieldLabel, { color: t.muted, fontFamily: MONO }]}>{f.label}</Text>
+                <TextInput
+                  value={f.value} onChangeText={f.set}
+                  placeholder={f.ph} keyboardType="numeric"
+                  style={[s.field, { color: t.ink, backgroundColor: t.surface2, borderColor: t.line }]}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
 
-        <SectionLabel text="Goal" />
-        <ChipGroup options={GOAL_OPTIONS} selected={goal} onSelect={setGoal} />
+        {/* Activity */}
+        <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+          <Text style={[s.sectionLabel, { color: t.muted, fontFamily: MONO }]}>NIVEL DE ACTIVITATE</Text>
+          <View style={{ gap: 8, marginTop: 10 }}>
+            {ACTIVITY_OPTIONS.map((opt) => {
+              const active = activityLevel === opt.value;
+              return (
+                <TouchableOpacity key={opt.value} onPress={() => setActivityLevel(opt.value)} activeOpacity={0.7}
+                  style={[s.activityChip, { backgroundColor: active ? t.ink : t.surface2, borderColor: active ? 'transparent' : t.line }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[{ fontSize: 13, fontWeight: '600', color: active ? t.bg : t.ink }]}>{opt.label}</Text>
+                    <Text style={[{ fontSize: 11, color: active ? t.bg + 'cc' : t.muted, marginTop: 2 }]}>{opt.sub}</Text>
+                  </View>
+                  {active && <FpIcon name="check" size={16} color={t.bg}/>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
-        {showWeeklyRate ? (
-          <>
-            <SectionLabel text="Weekly Rate (optional)" />
-            <Text style={styles.hint}>
-              {goal === "lose"
-                ? "kg to lose per week — 0.25–0.75 is sustainable"
-                : "kg to gain per week — 0.25–0.5 is sustainable"}
-            </Text>
-            <Input
-              label=""
-              value={weeklyRate}
-              onChangeText={setWeeklyRate}
-              placeholder="e.g. 0.5"
-              keyboardType="numeric"
-            />
-          </>
+        {/* Goal */}
+        <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+          <Text style={[s.sectionLabel, { color: t.muted, fontFamily: MONO }]}>OBIECTIV</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            {GOAL_OPTIONS.map((opt) => {
+              const active = goal === opt.value;
+              return (
+                <TouchableOpacity key={opt.value} onPress={() => setGoal(opt.value)} activeOpacity={0.7}
+                  style={[s.chip, { flex: 1, backgroundColor: active ? t.primary : t.surface2, borderColor: active ? 'transparent' : t.line }]}>
+                  <Text style={[{ fontSize: 12, fontWeight: '700', color: active ? t.primaryInk : t.ink }]}>{opt.label}</Text>
+                  <Text style={[{ fontSize: 10, color: active ? t.primaryInk + 'cc' : t.muted, marginTop: 2 }]}>{opt.sub}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {(goal === 'lose' || goal === 'gain') ? (
+            <View style={{ marginTop: 14, gap: 6 }}>
+              <Text style={[s.fieldLabel, { color: t.muted, fontFamily: MONO }]}>
+                {goal === 'lose' ? 'KG DE SLĂBIT/SĂPTĂMÂNĂ (OPT.)' : 'KG DE CÂȘTIGAT/SĂPTĂMÂNĂ (OPT.)'}
+              </Text>
+              <TextInput
+                value={weeklyRate} onChangeText={setWeeklyRate}
+                placeholder="ex: 0.5" keyboardType="numeric"
+                style={[s.field, { color: t.ink, backgroundColor: t.surface2, borderColor: t.line }]}
+              />
+              <Text style={[{ fontSize: 11, color: t.muted }]}>
+                {goal === 'lose' ? '0.25–0.75 kg/săpt. este sustenabil.' : '0.25–0.5 kg/săpt. este sustenabil.'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {error ? (
+          <View style={[s.errorBanner, { backgroundColor: t.bad + '18', borderColor: t.bad + '40' }]}>
+            <Text style={[{ fontSize: 13, color: t.bad }]}>{error}</Text>
+          </View>
         ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Button
-          label="Calculate"
+        <TouchableOpacity
           onPress={() => void handleCompute()}
-          loading={loading}
-          disabled={!isFormValid}
-          fullWidth
-        />
+          disabled={loading || !isFormValid}
+          activeOpacity={0.85}
+          style={[s.calcBtn, { backgroundColor: t.primary, opacity: !isFormValid || loading ? 0.5 : 1 }]}
+        >
+          {loading
+            ? <ActivityIndicator color={t.primaryInk} size="small"/>
+            : <>
+                <FpIcon name="spark" size={16} color={t.primaryInk}/>
+                <Text style={[{ fontSize: 15, fontWeight: '700', color: t.primaryInk }]}>Calculează</Text>
+              </>
+          }
+        </TouchableOpacity>
 
         {result ? (
           <>
-            <SectionLabel text="Your Results" />
+            {/* BMR / TDEE */}
+            <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+              <Text style={[s.sectionLabel, { color: t.muted, fontFamily: MONO }]}>REZULTATE</Text>
+              {[
+                { label: 'BMR (metabolism bazal)', val: result.bmr,  unit: 'kcal/zi' },
+                { label: 'TDEE (cu activitate)',   val: result.tdee, unit: 'kcal/zi' },
+              ].map((row, i) => (
+                <View key={row.label}>
+                  {i > 0 && <View style={[{ height: 1, backgroundColor: t.lineSoft, marginVertical: 10 }]}/>}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: i === 0 ? 12 : 0 }}>
+                    <Text style={[{ fontSize: 13, color: t.ink2, flex: 1 }]}>{row.label}</Text>
+                    <Text style={[{ fontSize: 15, fontWeight: '700', color: t.ink, fontFamily: MONO }]}>{row.val} {row.unit}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
 
-            <Card variant="elevated" padding="md">
-              <StatRow label="BMR (Basal Metabolic Rate)" value={result.bmr} unit="kcal/day" />
-              <Divider />
-              <StatRow label="TDEE (with activity)" value={result.tdee} unit="kcal/day" />
-            </Card>
-
-            <Card variant="accent" padding="md">
-              <Text style={styles.targetLabel}>DAILY TARGET</Text>
-              <Text style={styles.targetValue}>{result.target_calories}</Text>
-              <Text style={styles.targetUnit}>kcal / day</Text>
-            </Card>
-
-            <Card variant="default" title="Macros Suggestion" padding="md">
-              <View style={styles.macroRow}>
-                <MacroChip label="Protein" value={result.macros_suggestion.protein_g} color={colors.info} />
-                <MacroChip label="Carbs" value={result.macros_suggestion.carbs_g} color={colors.warning} />
-                <MacroChip label="Fat" value={result.macros_suggestion.fat_g} color={colors.error} />
+            {/* Target card */}
+            <View style={[s.targetCard, { backgroundColor: t.primarySoft, borderColor: t.primary + '40' }]}>
+              <Text style={[s.eyebrow, { color: t.primary, fontFamily: MONO }]}>ȚINTA TA ZILNICĂ</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+                <Text style={[{ fontSize: 52, fontWeight: '800', color: t.primary, fontFamily: SERIF, letterSpacing: -1 }]}>
+                  {result.target_calories}
+                </Text>
+                <Text style={[{ fontSize: 18, color: t.primary, fontWeight: '600' }]}>kcal/zi</Text>
               </View>
-            </Card>
+              <Text style={[{ fontSize: 12, color: t.primary, marginTop: 6, opacity: 0.75 }]}>
+                Salvat automat în jurnalul alimentar ✓
+              </Text>
+            </View>
 
-            <Text style={styles.disclaimer}>
-              These are estimates only and not medical advice. Consult a healthcare professional
-              before making significant dietary changes.
+            {/* Macros */}
+            <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+              <Text style={[s.sectionLabel, { color: t.muted, fontFamily: MONO }]}>MACRONUTRIENȚI SUGERAȚI</Text>
+              <View style={{ gap: 14, marginTop: 14 }}>
+                <MacroBar label="Proteine" value={result.macros_suggestion.protein_g} target={result.macros_suggestion.protein_g} color={t.macroProtein}/>
+                <MacroBar label="Glucide"  value={result.macros_suggestion.carbs_g}   target={result.macros_suggestion.carbs_g}   color={t.macroCarbs}/>
+                <MacroBar label="Grăsimi" value={result.macros_suggestion.fat_g}     target={result.macros_suggestion.fat_g}     color={t.macroFat}/>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 18 }}>
+                {[
+                  { label: 'Proteine', val: result.macros_suggestion.protein_g, color: t.macroProtein },
+                  { label: 'Glucide',  val: result.macros_suggestion.carbs_g,   color: t.macroCarbs },
+                  { label: 'Grăsimi', val: result.macros_suggestion.fat_g,     color: t.macroFat },
+                ].map((m) => (
+                  <View key={m.label} style={{ alignItems: 'center' }}>
+                    <Text style={[{ fontSize: 22, fontWeight: '800', color: m.color, fontFamily: MONO }]}>{m.val}g</Text>
+                    <Text style={[{ fontSize: 10, color: t.muted, marginTop: 2 }]}>{m.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <Text style={[{ fontSize: 11, color: t.muted, textAlign: 'center', lineHeight: 16, paddingHorizontal: 10 }]}>
+              Acestea sunt estimări și nu constituie sfat medical. Consultați un specialist înainte de a face modificări semnificative ale dietei.
             </Text>
-            <Button
-              label="Continue to Food Diary"
-              onPress={() => navigation.navigate("FoodDiary")}
-              variant="outline"
-              fullWidth
-            />
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('FoodDiary')}
+              activeOpacity={0.85}
+              style={[s.ghostBtn, { borderColor: t.line }]}
+            >
+              <FpIcon name="bowl" size={16} color={t.ink}/>
+              <Text style={[{ fontSize: 14, fontWeight: '600', color: t.ink }]}>Deschide jurnalul alimentar</Text>
+            </TouchableOpacity>
           </>
         ) : null}
-
-        <Button label="Back" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
       </ScrollView>
-    </Screen>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  content: {
-    gap: spacing.md,
-    paddingBottom: spacing["2xl"],
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, borderBottomWidth: 1,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
-    marginTop: spacing[3],
+  backBtn:      { padding: 4 },
+  eyebrow:      { fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', fontWeight: '500' },
+  headerTitle:  { fontSize: 26, letterSpacing: -0.5, lineHeight: 30 },
+  content:      { padding: 20, gap: 14, paddingBottom: 80 },
+  card:         { borderRadius: 20, borderWidth: 1, padding: 18 },
+  sectionLabel: { fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', fontWeight: '500' },
+  fieldLabel:   { fontSize: 9, letterSpacing: 1.6, textTransform: 'uppercase', fontWeight: '500' },
+  field: {
+    borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, outlineWidth: 0,
+  } as any,
+  chip: { paddingVertical: 12, borderRadius: 14, borderWidth: 1, alignItems: 'center', gap: 2 },
+  activityChip: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12,
+    borderRadius: 14, borderWidth: 1,
   },
-  subtitle: {
-    ...typography.styles.bodySmall,
+  calcBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 16, borderRadius: 18,
   },
-  sectionLabel: {
-    ...typography.styles.label,
-    marginTop: spacing.sm,
-    marginBottom: spacing[1],
-  },
-  fieldRow: {
-    flexDirection: "row",
-    gap: spacing[3],
-  },
-  fieldFlex: {
-    flex: 1,
-  },
-  chipRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  chipWrap: {
-    flexWrap: "wrap",
-  },
-  chip: {
-    paddingVertical: spacing[2],
-    paddingHorizontal: spacing[3],
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    backgroundColor: colors.bg.elevated,
-    alignItems: "center",
-  },
-  chipActive: {
-    borderColor: colors.accent.base,
-    backgroundColor: colors.accent.muted,
-  },
-  chipLabel: {
-    fontSize: typography.size.sm,
-    fontWeight: "600",
-    color: colors.textPalette.secondary,
-  },
-  chipLabelActive: {
-    color: colors.accent.base,
-  },
-  chipSub: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    marginTop: 2,
-    textAlign: "center",
-  },
-  chipSubActive: {
-    color: colors.accent.dim,
-  },
-  hint: {
-    ...typography.styles.caption,
-    marginTop: -spacing.sm,
-  },
-  error: {
-    color: colors.error,
-    fontWeight: "600",
-  },
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: spacing[2],
-  },
-  statLabel: {
-    ...typography.styles.bodySmall,
-    flex: 1,
-    marginRight: spacing[3],
-  },
-  statValue: {
-    fontSize: typography.size.base,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.borderPalette.muted,
-    marginVertical: spacing[1],
-  },
-  targetLabel: {
-    ...typography.styles.label,
-    textAlign: "center",
-    marginBottom: spacing[1],
-  },
-  targetValue: {
-    fontSize: typography.size["3xl"],
-    fontWeight: "800",
-    color: colors.accent.base,
-    textAlign: "center",
-    letterSpacing: -1,
-  },
-  targetUnit: {
-    ...typography.styles.bodySmall,
-    textAlign: "center",
-  },
-  macroRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  macroItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  macroValue: {
-    fontSize: typography.size.xl,
-    fontWeight: "800",
-  },
-  macroLabel: {
-    ...typography.styles.label,
-    marginTop: spacing[1],
-  },
-  disclaimer: {
-    ...typography.styles.caption,
-    textAlign: "center",
-    paddingHorizontal: spacing.md,
-    lineHeight: 16,
+  errorBanner: { borderWidth: 1, borderRadius: 12, padding: 12 },
+  targetCard: { borderRadius: 20, borderWidth: 1, padding: 22 },
+  ghostBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 18, borderWidth: 1,
   },
 });

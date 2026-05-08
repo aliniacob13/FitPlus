@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform,
+  Alert, Modal, TextInput, View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -17,6 +17,7 @@ import { nutritionApi } from '@/services/nutritionApi';
 import { todayString, useFoodDiaryStore } from '@/store/foodDiaryStore';
 import { useUserStore } from '@/store/userStore';
 import { AppStackParamList, MainTabParamList } from '@/types/navigation';
+import { useActivityStore, ActivityType, activityTypeLabel, estimateCalories } from '@/store/activityStore';
 
 type HomeNav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -43,6 +44,8 @@ function getDateLabel(): string {
   return `${dayNames[now.getDay()]} · ${now.getDate()} ${monthNames[now.getMonth()]}`;
 }
 
+const ACTIVITY_TYPES: ActivityType[] = ['walking', 'running', 'cycling', 'gym', 'swimming', 'yoga', 'other'];
+
 export const HomeScreen = () => {
   const { t } = useTheme();
   const navigation = useNavigation<HomeNav>();
@@ -52,8 +55,27 @@ export const HomeScreen = () => {
   const diaryDate = useFoodDiaryStore((s) => s.date);
   const diaryKcal = useFoodDiaryStore((s) => s.totals.kcal);
   const totals = useFoodDiaryStore((s) => s.totals);
+  const logWeight        = useFoodDiaryStore((s) => s.logWeight);
+  const getLatestWeight  = useFoodDiaryStore((s) => s.getLatestWeight);
+  const weightLog        = useFoodDiaryStore((s) => s.weightLog);
+  const addActivity      = useActivityStore((s) => s.addActivity);
+  const getEntriesForDate= useActivityStore((s) => s.getEntriesForDate);
+  const todayActivities  = getEntriesForDate(todayString());
 
   const [todayKcal, setTodayKcal] = useState(0);
+
+  // Weight modal
+  const [showWeightModal,   setShowWeightModal]   = useState(false);
+  const [weightInput,       setWeightInput]       = useState(
+    (profile?.weight_kg ?? getLatestWeight() ?? '')?.toString()
+  );
+
+  // Activity modal
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [actType,           setActType]           = useState<ActivityType>('gym');
+  const [actDuration,       setActDuration]       = useState('');
+  const [actDistance,       setActDistance]       = useState('');
+  const [actNotes,          setActNotes]          = useState('');
 
   const displayName = profile?.name?.split(' ')[0] || profile?.email?.split('@')[0] || 'Andrei';
   const initials = (profile?.name || displayName).split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || 'A';
@@ -87,6 +109,29 @@ export const HomeScreen = () => {
     if (diaryDate === todayString()) setTodayKcal(Math.round(diaryKcal));
   }, [diaryDate, diaryKcal]);
 
+  const handleLogWeight = () => {
+    const kg = parseFloat(weightInput);
+    if (!isNaN(kg) && kg > 0) { logWeight(kg); setShowWeightModal(false); }
+    else Alert.alert('Valoare invalidă', 'Introdu o greutate validă în kg.');
+  };
+
+  const handleLogActivity = () => {
+    const dur = parseInt(actDuration, 10);
+    if (!dur || dur <= 0) { Alert.alert('Durată invalidă', 'Introdu durata în minute.'); return; }
+    addActivity({
+      date: todayString(), type: actType,
+      title: activityTypeLabel(actType),
+      duration_min: dur,
+      distance_km: actDistance.trim() ? parseFloat(actDistance) : undefined,
+      calories_burned: estimateCalories(actType, dur),
+      notes: actNotes.trim() || undefined,
+    });
+    setActDuration(''); setActDistance(''); setActNotes('');
+    setShowActivityModal(false);
+  };
+
+  const latestWeight = getLatestWeight() ?? profile?.weight_kg ?? null;
+
   const suggestions = [
     {
       icon: 'bowl' as const, title: 'Plate Coach', sub: 'Foto la prânzul de azi',
@@ -94,9 +139,10 @@ export const HomeScreen = () => {
       onPress: () => navigation.navigate('PlateCoach', { date: todayString() }),
     },
     {
-      icon: 'dumbbell' as const, title: 'Antrenament Push', sub: '45 min · piept, umeri, triceps',
-      cta: 'Start', tint: t.primarySoft, iconColor: t.primary,
-      onPress: () => navigation.navigate('Workout'),
+      icon: 'dumbbell' as const, title: 'Activitate fizică',
+      sub: todayActivities.length > 0 ? `${todayActivities.length} activitate logată azi` : 'Înregistrează antrenamentul',
+      cta: 'Log', tint: t.primarySoft, iconColor: t.primary,
+      onPress: () => setShowActivityModal(true),
     },
     {
       icon: 'leaf' as const, title: 'Cere sfat — Diet AI', sub: '"Ce mănânc pre-workout?"',
@@ -204,6 +250,33 @@ export const HomeScreen = () => {
           </View>
         </View>
 
+        {/* Weight card */}
+        <View style={[s.section, { paddingTop: 0 }]}>
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <FpIcon name="chart" size={16} color={t.primary}/>
+                <Text style={[s.cardTitle, { color: t.ink }]}>Greutate</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setWeightInput(latestWeight?.toString() ?? ''); setShowWeightModal(true); }}
+                activeOpacity={0.7} style={[s.ctaChip, { backgroundColor: t.primarySoft }]}>
+                <Text style={[s.ctaChipText, { color: t.primary }]}>Log</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 10 }}>
+              <Text style={[{ fontSize: 32, fontWeight: '800', color: t.ink, fontFamily: SERIF, letterSpacing: -0.5 }]}>
+                {latestWeight != null ? latestWeight.toFixed(1) : '—'}
+              </Text>
+              <Text style={[{ fontSize: 14, color: t.muted }]}>kg</Text>
+            </View>
+            {weightLog.length > 1 && (
+              <Text style={[{ fontSize: 11, color: t.muted, marginTop: 4 }]}>
+                {weightLog.length} înregistrări · ultimul: {weightLog[weightLog.length - 1].date}
+              </Text>
+            )}
+          </View>
+        </View>
+
         {/* Today suggestions */}
         <View style={[s.section, { paddingTop: 4 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -233,9 +306,112 @@ export const HomeScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Weight modal */}
+      <Modal visible={showWeightModal} transparent animationType="fade" onRequestClose={() => setShowWeightModal(false)}>
+        <View style={m.backdrop}>
+          <View style={[m.sheet, { backgroundColor: t.surface, borderColor: t.line }]}>
+            <Text style={[m.title, { fontFamily: SERIF, color: t.ink }]}>Înregistrează greutatea</Text>
+            <Text style={[{ fontSize: 13, color: t.muted, marginBottom: 16 }]}>Greutate actuală (kg)</Text>
+            <TextInput
+              value={weightInput} onChangeText={setWeightInput}
+              keyboardType="numeric" placeholder="ex: 72.5"
+              placeholderTextColor={t.muted2}
+              style={[m.input, { backgroundColor: t.surface2, borderColor: t.line, color: t.ink }]}
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <TouchableOpacity onPress={() => setShowWeightModal(false)} activeOpacity={0.7}
+                style={[m.btn, { borderColor: t.line, borderWidth: 1 }]}>
+                <Text style={[{ fontSize: 14, fontWeight: '600', color: t.ink }]}>Anulează</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogWeight} activeOpacity={0.85}
+                style={[m.btn, { backgroundColor: t.primary, flex: 1.5 }]}>
+                <Text style={[{ fontSize: 14, fontWeight: '700', color: t.primaryInk }]}>Salvează</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Activity modal */}
+      <Modal visible={showActivityModal} transparent animationType="slide" onRequestClose={() => setShowActivityModal(false)}>
+        <View style={m.backdrop}>
+          <View style={[m.actSheet, { backgroundColor: t.surface, borderColor: t.line }]}>
+            <ScrollView contentContainerStyle={{ gap: 14 }} showsVerticalScrollIndicator={false}>
+              <Text style={[m.title, { fontFamily: SERIF, color: t.ink }]}>Activitate fizică</Text>
+
+              <Text style={[{ fontSize: 11, color: t.muted, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: MONO }]}>TIP</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {ACTIVITY_TYPES.map((type) => {
+                  const active = actType === type;
+                  return (
+                    <TouchableOpacity key={type} onPress={() => setActType(type)} activeOpacity={0.7}
+                      style={[m.typeChip, { backgroundColor: active ? t.ink : t.surface2, borderColor: active ? 'transparent' : t.line }]}>
+                      <Text style={[{ fontSize: 12, fontWeight: '600', color: active ? t.bg : t.muted }]}>{activityTypeLabel(type)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontSize: 9, color: t.muted, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: MONO }]}>DURATĂ (MINUTE)</Text>
+                <TextInput value={actDuration} onChangeText={setActDuration} keyboardType="numeric"
+                  placeholder="ex: 45" placeholderTextColor={t.muted2}
+                  style={[m.input, { backgroundColor: t.surface2, borderColor: t.line, color: t.ink }]}/>
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontSize: 9, color: t.muted, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: MONO }]}>DISTANȚĂ KM (OPȚIONAL)</Text>
+                <TextInput value={actDistance} onChangeText={setActDistance} keyboardType="numeric"
+                  placeholder="ex: 7.5" placeholderTextColor={t.muted2}
+                  style={[m.input, { backgroundColor: t.surface2, borderColor: t.line, color: t.ink }]}/>
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontSize: 9, color: t.muted, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: MONO }]}>NOTE (OPȚIONAL)</Text>
+                <TextInput value={actNotes} onChangeText={setActNotes}
+                  placeholder="ex: piept + umeri + triceps" placeholderTextColor={t.muted2}
+                  multiline numberOfLines={2}
+                  style={[m.input, { backgroundColor: t.surface2, borderColor: t.line, color: t.ink, minHeight: 60, textAlignVertical: 'top' }]}/>
+              </View>
+
+              {actDuration.trim() ? (
+                <View style={[{ backgroundColor: t.primarySoft, borderRadius: 12, padding: 12 }]}>
+                  <Text style={[{ fontSize: 12, color: t.primary }]}>
+                    ≈ {estimateCalories(actType, parseInt(actDuration, 10) || 0)} kcal arse (estimare)
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity onPress={() => setShowActivityModal(false)} activeOpacity={0.7}
+                  style={[m.btn, { borderColor: t.line, borderWidth: 1 }]}>
+                  <Text style={[{ fontSize: 14, fontWeight: '600', color: t.ink }]}>Anulează</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleLogActivity} activeOpacity={0.85}
+                  style={[m.btn, { backgroundColor: t.primary, flex: 1.5 }]}>
+                  <Text style={[{ fontSize: 14, fontWeight: '700', color: t.primaryInk }]}>Salvează activitatea</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
+
+const m = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, padding: 24, paddingBottom: 40 },
+  actSheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, padding: 24, paddingBottom: 40, maxHeight: '80%' },
+  title: { fontSize: 22, letterSpacing: -0.4, marginBottom: 6 },
+  input: {
+    borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 16, outlineWidth: 0,
+  } as any,
+  btn: { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  typeChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+});
 
 const s = StyleSheet.create({
   root: { flex: 1 },

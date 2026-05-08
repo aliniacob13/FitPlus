@@ -13,6 +13,11 @@ const toLocalDateString = (d: Date): string => {
 
 export const todayString = () => toLocalDateString(new Date());
 
+export interface WeightEntry {
+  date: string;
+  weight_kg: number;
+}
+
 interface FoodDiaryState {
   date: string;
   entries: FoodLogEntry[];
@@ -23,6 +28,12 @@ interface FoodDiaryState {
   saving: boolean;
   error: string | null;
 
+  // Water tracking (per day)
+  waterByDate: Record<string, number>;
+
+  // Local weight log
+  weightLog: WeightEntry[];
+
   setDate: (date: string) => void;
   fetchDay: (date: string) => Promise<void>;
   addEntry: (req: FoodLogCreateRequest) => Promise<boolean>;
@@ -30,6 +41,14 @@ interface FoodDiaryState {
   setDailyKcalTarget: (kcal: number) => void;
   hydrateCalorieTargetFromServer: (kcal: number | null | undefined) => void;
   clearCalorieTarget: () => void;
+
+  // Water actions
+  logWater: (date: string, delta?: number) => void;
+  getWaterGlasses: (date: string) => number;
+
+  // Weight actions
+  logWeight: (weight_kg: number) => void;
+  getLatestWeight: () => number | null;
 }
 
 const EMPTY_TOTALS: DailyTotals = { kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
@@ -43,6 +62,8 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
   loading: false,
   saving: false,
   error: null,
+  waterByDate: {},
+  weightLog: [],
 
   setDate: (date) => set({ date }),
 
@@ -62,7 +83,6 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
     set({ saving: true, error: null });
     try {
       await nutritionApi.addFoodLogEntry(req);
-      // Refresh the day after adding
       await get().fetchDay(req.date);
       set({ saving: false });
       return true;
@@ -84,10 +104,7 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
   },
 
   setDailyKcalTarget: (kcal) =>
-    set({
-      dailyKcalTarget: kcal,
-      hasCalorieTarget: true,
-    }),
+    set({ dailyKcalTarget: kcal, hasCalorieTarget: true }),
 
   hydrateCalorieTargetFromServer: (kcal) => {
     if (kcal == null) {
@@ -98,4 +115,30 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
   },
 
   clearCalorieTarget: () => set({ dailyKcalTarget: null, hasCalorieTarget: false }),
+
+  logWater: (date, delta = 1) => {
+    set((state) => {
+      const current = state.waterByDate[date] ?? 0;
+      const next = Math.max(0, Math.min(current + delta, 20));
+      return { waterByDate: { ...state.waterByDate, [date]: next } };
+    });
+  },
+
+  getWaterGlasses: (date) => {
+    return get().waterByDate[date] ?? 0;
+  },
+
+  logWeight: (weight_kg) => {
+    const date = todayString();
+    set((state) => {
+      const filtered = state.weightLog.filter((e) => e.date !== date);
+      return { weightLog: [...filtered, { date, weight_kg }].sort((a, b) => a.date.localeCompare(b.date)) };
+    });
+  },
+
+  getLatestWeight: () => {
+    const log = get().weightLog;
+    if (log.length === 0) return null;
+    return log[log.length - 1].weight_kg;
+  },
 }));

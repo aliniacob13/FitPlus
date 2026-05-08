@@ -70,6 +70,8 @@ export interface FoodSearchResultItem {
 
 export type FoodLogSource = "manual" | "search" | "barcode" | "plate" | "label_scan";
 
+export type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+
 export interface FoodLogCreateRequest {
   date: string; // YYYY-MM-DD
   name: string;
@@ -80,6 +82,7 @@ export interface FoodLogCreateRequest {
   fat_g: number;
   source: FoodLogSource;
   external_id?: string;
+  meal_type?: MealType;
 }
 
 export interface FoodLogEntry {
@@ -92,6 +95,7 @@ export interface FoodLogEntry {
   carbs_g: number;
   fat_g: number;
   source: FoodLogSource;
+  meal_type?: MealType;
   created_at: string;
 }
 
