@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest + alembic)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: fitplus
+          POSTGRES_PASSWORD: fitplus_secret
+          POSTGRES_DB: fitplus_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U fitplus -d fitplus_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_USER: fitplus
+      POSTGRES_PASSWORD: fitplus_secret
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5433
+      POSTGRES_DB: fitplus_db
+      SECRET_KEY: ci_secret_key_not_for_prod
+      LLM_PROVIDER: openai
+      LLM_MODEL: gpt-4o-mini
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies (Tesseract)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+
+      - name: Run pytest
+        run: pytest -v
+
+  mobile:
+    name: Mobile (TypeScript typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
