@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # 1. Backend — lint, type-check, pytest
+  # ──────────────────────────────────────────────────────────
+  backend:
+    name: Backend (Python 3.12)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: fitplus
+          POSTGRES_PASSWORD: fitplus_secret
+          POSTGRES_DB: fitplus_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fitplus -d fitplus_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      POSTGRES_USER: fitplus
+      POSTGRES_PASSWORD: fitplus_secret
+      POSTGRES_DB: fitplus_db
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ci-secret-key-not-used-in-prod
+      DEBUG: "true"
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      REFRESH_TOKEN_EXPIRE_MINUTES: 10080
+      LLM_PROVIDER: openai
+      LLM_MODEL: gpt-4o-mini
+      VISION_LLM_MODEL: gpt-4o
+      # Leave AI/external keys empty — tests mock them
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies (Tesseract)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr
+
+      - name: Install Python dependencies
+        run: pip install --no-cache-dir -r requirements.txt ruff
+
+      # ── Lint ──────────────────────────────────────────────
+      - name: Lint with Ruff
+        run: ruff check .
+
+      - name: Check formatting with Ruff
+        run: ruff format --check .
+
+      # ── Migrations ────────────────────────────────────────
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+
+      # ── Tests ─────────────────────────────────────────────
+      - name: Run pytest
+        run: |
+          pytest tests/ \
+            --tb=short \
+            --asyncio-mode=auto \
+            -q
+
+  # ──────────────────────────────────────────────────────────
+  # 2. Mobile — type-check + unit tests
+  # ──────────────────────────────────────────────────────────
+  mobile:
+    name: Mobile (Node / Expo)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        # Tests currently use ts-node assertions; swap for jest once ts-jest is added.
+        run: npx ts-node --project tsconfig.json src/tests/filterLogic.test.ts
+
+  # ──────────────────────────────────────────────────────────
+  # 3. Docker — verify the backend image builds cleanly
+  # ──────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    needs: [backend, mobile]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: fitplus-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
