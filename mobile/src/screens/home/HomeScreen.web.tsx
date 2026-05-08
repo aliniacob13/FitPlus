@@ -9,6 +9,7 @@ import { FpIcon } from '@/components/ui/FpIcon';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { MacroBar } from '@/components/ui/MacroBar';
 import { nutritionApi } from '@/services/nutritionApi';
+import { userApi } from '@/services/userApi';
 import { todayString, useFoodDiaryStore } from '@/store/foodDiaryStore';
 import { useUserStore } from '@/store/userStore';
 import { AppStackParamList } from '@/types/navigation';
@@ -60,16 +61,24 @@ export const HomeScreen = () => {
   const { t } = useTheme();
   const navigation = useNavigation<Nav>();
   const profile          = useUserStore((s) => s.profile);
+  const fetchMe          = useUserStore((s) => s.fetchMe);
   const dailyKcalTarget  = useFoodDiaryStore((s) => s.dailyKcalTarget);
   const hasCalorieTarget = useFoodDiaryStore((s) => s.hasCalorieTarget);
   const diaryDate        = useFoodDiaryStore((s) => s.date);
   const diaryKcal        = useFoodDiaryStore((s) => s.totals.kcal);
   const totals           = useFoodDiaryStore((s) => s.totals);
   const logWeight        = useFoodDiaryStore((s) => s.logWeight);
+  const hydrateWeightLogsFromServer = useFoodDiaryStore((s) => s.hydrateWeightLogsFromServer);
   const getLatestWeight  = useFoodDiaryStore((s) => s.getLatestWeight);
   const weightLog        = useFoodDiaryStore((s) => s.weightLog);
+  const fetchActivities  = useActivityStore((s) => s.fetchActivities);
   const addActivity      = useActivityStore((s) => s.addActivity);
   const getEntriesForDate= useActivityStore((s) => s.getEntriesForDate);
+  const burnedToday = useActivityStore((s) =>
+    s.entries
+      .filter((e) => e.date === todayString())
+      .reduce((sum, e) => sum + (e.calories_burned ?? 0), 0),
+  );
   const todayActivities  = getEntriesForDate(todayString());
 
   const [todayKcal,          setTodayKcal]          = useState(0);
@@ -83,37 +92,57 @@ export const HomeScreen = () => {
 
   const displayName     = profile?.name?.split(' ')[0] || profile?.email?.split('@')[0] || 'Andrei';
   const latestWeight    = getLatestWeight() ?? profile?.weight_kg ?? null;
+  const baseTarget      = dailyKcalTarget ?? 2000;
+  const effectiveTarget = baseTarget + burnedToday;
   const calorieProgress = useMemo(() => {
     if (!hasCalorieTarget || !dailyKcalTarget) return 0;
-    return Math.min(todayKcal / dailyKcalTarget, 1);
-  }, [hasCalorieTarget, dailyKcalTarget, todayKcal]);
-  const remaining = Math.max((dailyKcalTarget ?? 2000) - todayKcal, 0);
+    if (effectiveTarget <= 0) return 0;
+    return Math.min(todayKcal / effectiveTarget, 1);
+  }, [hasCalorieTarget, dailyKcalTarget, todayKcal, effectiveTarget]);
+  const remaining = Math.max(effectiveTarget - todayKcal, 0);
 
   useFocusEffect(useCallback(() => {
     nutritionApi.getFoodLog(todayString()).then(({ data }) => {
       setTodayKcal(Math.round(data.totals.kcal));
     }).catch(() => {});
-  }, []));
+    void fetchActivities();
+  }, [fetchActivities]));
 
   useEffect(() => {
     if (diaryDate === todayString()) setTodayKcal(Math.round(diaryKcal));
   }, [diaryDate, diaryKcal]);
 
-  const handleLogWeight = () => {
+  const handleLogWeight = async () => {
     const kg = parseFloat(weightInput);
-    if (!isNaN(kg) && kg > 0) { logWeight(kg); setShowWeightModal(false); setWeightInput(''); }
+    if (!isNaN(kg) && kg > 0) {
+      try {
+        await userApi.postWeightLog({ weight_kg: kg });
+        logWeight(kg);
+        await fetchMe();
+        await hydrateWeightLogsFromServer();
+        setShowWeightModal(false);
+        setWeightInput('');
+      } catch {
+        /* eslint-disable no-alert -- web fallback */
+        window.alert('Nu am putut salva greutatea pe server.');
+      }
+    }
   };
 
-  const handleLogActivity = () => {
+  const handleLogActivity = async () => {
     const dur = parseInt(actDuration, 10);
     if (!dur || dur <= 0) return;
-    addActivity({
+    const ok = await addActivity({
       date: todayString(), type: actType, title: activityTypeLabel(actType),
       duration_min: dur,
       distance_km: actDistance.trim() ? parseFloat(actDistance) : undefined,
       calories_burned: estimateCalories(actType, dur),
       notes: actNotes.trim() || undefined,
     });
+    if (!ok) {
+      window.alert('Nu am putut salva activitatea.');
+      return;
+    }
     setActDuration(''); setActDistance(''); setActNotes('');
     setShowActivityModal(false);
   };
@@ -121,7 +150,11 @@ export const HomeScreen = () => {
   // Build chart data from real weight log (last 14 entries) or fallback to demo
   const chartData: number[] = weightLog.length >= 2
     ? weightLog.slice(-14).map((e) => e.weight_kg)
-    : [80.7, 80.4, 80.6, 80.1, 79.8, 79.9, 79.4, 79.2, 79.0, 79.1, 78.7, 78.5, 78.6, latestWeight ?? 78.4];
+    : weightLog.length === 1
+      ? [weightLog[0].weight_kg, weightLog[0].weight_kg]
+      : latestWeight != null
+        ? [latestWeight, latestWeight]
+        : WEIGHT_DATA;
 
   const weightDelta = chartData.length >= 2
     ? (chartData[chartData.length - 1] - chartData[0]).toFixed(1)
@@ -201,6 +234,10 @@ export const HomeScreen = () => {
                 </View>
               </View>
               <View style={[{ height: 1, backgroundColor: t.line }]}/>
+              <Text style={[{ fontSize: 12, color: t.muted }]}>
+                Bază {Math.round(baseTarget)} kcal
+                {burnedToday > 0 ? ` · +${Math.round(burnedToday)} din activitate` : ''}
+              </Text>
               <View style={{ flexDirection: 'row', gap: 20 }}>
                 {[
                   { val: `${Math.round(totals.protein_g)}g`, label: 'protein', color: t.macroProtein },
@@ -348,7 +385,7 @@ export const HomeScreen = () => {
           <View style={[s.statRowW, { borderTopColor: t.lineSoft }]}>
             {[
               { val: profile?.weight_kg && profile?.height_cm ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) : '—', label: 'BMI' },
-              { val: dailyKcalTarget ? String(dailyKcalTarget) : '—', label: 'Target kcal' },
+              { val: dailyKcalTarget ? String(Math.round(effectiveTarget)) : '—', label: burnedToday > 0 ? 'Țintă azi (activ.)' : 'Target kcal' },
               { val: String(todayKcal), label: 'Consumate' },
               { val: String(remaining), label: 'Rămase', color: remaining > 0 ? t.good : t.bad },
             ].map((item) => (

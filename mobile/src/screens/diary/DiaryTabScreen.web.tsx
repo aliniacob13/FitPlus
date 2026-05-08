@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -10,6 +10,12 @@ import { MacroBar } from '@/components/ui/MacroBar';
 import { useFoodDiaryStore, todayString } from '@/store/foodDiaryStore';
 import type { FoodLogEntry } from '@/services/nutritionApi';
 import { AppStackParamList } from '@/types/navigation';
+import { useUserStore } from '@/store/userStore';
+
+const recommendedWaterMl = (weightKg: number | undefined): number => {
+  const w = weightKg ?? 70;
+  return Math.round(Math.min(Math.max(w * 35, 1800), 4000));
+};
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -50,17 +56,41 @@ export const DiaryTabScreen = () => {
   const dailyKcalTarget = useFoodDiaryStore((s) => s.dailyKcalTarget);
   const hasCalorieTarget= useFoodDiaryStore((s) => s.hasCalorieTarget);
   const fetchDay        = useFoodDiaryStore((s) => s.fetchDay);
+  const fetchWaterMl    = useFoodDiaryStore((s) => s.fetchWaterMl);
   const deleteEntry     = useFoodDiaryStore((s) => s.deleteEntry);
-  const logWater        = useFoodDiaryStore((s) => s.logWater);
-  const getWaterGlasses = useFoodDiaryStore((s) => s.getWaterGlasses);
-  const waterGlasses    = getWaterGlasses(date);
+  const getWaterMl      = useFoodDiaryStore((s) => s.getWaterMl);
+  const setWaterMl      = useFoodDiaryStore((s) => s.setWaterMl);
+  const bumpWaterMl     = useFoodDiaryStore((s) => s.bumpWaterMl);
+  const profile         = useUserStore((s) => s.profile);
+
+  const waterMl = getWaterMl(date);
+  const [waterDraft, setWaterDraft] = useState(String(waterMl));
+
+  useEffect(() => {
+    setWaterDraft(String(waterMl));
+  }, [date, waterMl]);
+
+  const applyWaterDraft = () => {
+    const n = parseInt(waterDraft.replace(/\D/g, ''), 10);
+    if (Number.isNaN(n) || n < 0) {
+      setWaterDraft(String(waterMl));
+      return;
+    }
+    void setWaterMl(date, n);
+  };
 
   const calorieProgress = hasCalorieTarget && dailyKcalTarget
     ? Math.min(totals.kcal / dailyKcalTarget, 1) : 0;
 
-  useFocusEffect(useCallback(() => { void fetchDay(date); }, [date]));
+  useFocusEffect(useCallback(() => {
+    void fetchDay(date);
+    void fetchWaterMl(date);
+  }, [date, fetchDay, fetchWaterMl]));
 
   const groups = groupByMeal(entries);
+
+  const todayIso = todayString();
+  const canGoForward = date < todayIso;
 
   const goYesterday = () => {
     const d = new Date(date + 'T00:00:00');
@@ -68,10 +98,16 @@ export const DiaryTabScreen = () => {
     setDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
   };
   const goTomorrow = () => {
+    if (!canGoForward) return;
     const d = new Date(date + 'T00:00:00');
     d.setDate(d.getDate() + 1);
     setDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
   };
+  const goToday = () => {
+    setDate(todayIso);
+  };
+
+  const recWater = recommendedWaterMl(profile?.weight_kg);
 
   return (
     <ScrollView style={[s.root, { backgroundColor: t.bg }]} contentContainerStyle={s.content}>
@@ -81,11 +117,20 @@ export const DiaryTabScreen = () => {
           <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>FOOD DIARY</Text>
           <Text style={[s.title, { fontFamily: SERIF, color: t.ink }]}>{formatDate(date)}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <TouchableOpacity onPress={goYesterday} activeOpacity={0.7}
             style={[s.ghostBtn, { borderColor: t.line }]}>
             <FpIcon name="left" size={14} color={t.ink}/>
             <Text style={[{ fontSize: 12, fontWeight: '500', color: t.ink }]}>Yesterday</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={goToday} activeOpacity={0.7}
+            style={[s.ghostBtn, { borderColor: date === todayIso ? t.primary : t.line }]}>
+            <Text style={[{ fontSize: 12, fontWeight: '600', color: date === todayIso ? t.primary : t.ink }]}>Today</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={goTomorrow} disabled={!canGoForward} activeOpacity={0.7}
+            style={[s.ghostBtn, { borderColor: t.line, opacity: canGoForward ? 1 : 0.35 }]}>
+            <Text style={[{ fontSize: 12, fontWeight: '500', color: t.ink }]}>Tomorrow</Text>
+            <FpIcon name="right" size={14} color={t.ink}/>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('AddFood', { date })} activeOpacity={0.85}
             style={[s.primaryBtn, { backgroundColor: t.primary }]}>
@@ -131,28 +176,31 @@ export const DiaryTabScreen = () => {
 
           {/* Water card */}
           <View style={[s.card, { backgroundColor: t.surface, borderColor: t.line }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>apă · azi</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>apă · ziua selectată</Text>
               <FpIcon name="water" size={14} color={t.accent}/>
             </View>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {Array.from({ length: 8 }).map((_, i) => {
-                const on = i < waterGlasses;
-                return (
-                  <TouchableOpacity key={i} onPress={() => logWater(date, on ? -1 : 1)} activeOpacity={0.7}
-                    style={[s.waterGlass, { backgroundColor: on ? t.accent : t.surface2, borderColor: on ? 'transparent' : t.line }]}>
-                    <FpIcon name="water" size={14} color={on ? '#fff' : t.muted2}/>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-              <Text style={[s.eyebrow, { color: t.ink, fontFamily: MONO, fontSize: 12, letterSpacing: 0, textTransform: 'none', fontWeight: '600' }]}>
-                {(waterGlasses * 0.25).toFixed(2)} / 2.0 L
-              </Text>
-              <TouchableOpacity onPress={() => logWater(date, 1)} activeOpacity={0.7}
-                style={[s.ghostBtn, { borderColor: t.line, paddingHorizontal: 10, paddingVertical: 6 }]}>
-                <Text style={[{ fontSize: 11, fontWeight: '500', color: t.ink }]}>+ pahar</Text>
+            <Text style={[{ fontFamily: MONO, fontSize: 12, color: t.muted, marginBottom: 6 }]}>
+              recomandat ~{recWater} ml (~{(recWater / 1000).toFixed(1)} L) · ai băut {waterMl} ml
+            </Text>
+            <TextInput
+              value={waterDraft}
+              onChangeText={setWaterDraft}
+              onBlur={applyWaterDraft}
+              onSubmitEditing={applyWaterDraft}
+              keyboardType="number-pad"
+              placeholder="Introdu total ml pentru această zi"
+              placeholderTextColor={t.muted2}
+              style={[s.waterInput, { color: t.ink, borderColor: t.line, backgroundColor: t.surface2 }]}
+            />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <TouchableOpacity onPress={() => void bumpWaterMl(date, -250)} activeOpacity={0.7}
+                style={[s.ghostBtn, { borderColor: t.line, paddingVertical: 8, flex: 1 }]}>
+                <Text style={[{ fontSize: 11, fontWeight: '600', color: t.ink }]}>−250 ml</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => void bumpWaterMl(date, 250)} activeOpacity={0.7}
+                style={[s.ghostBtn, { borderColor: t.line, paddingVertical: 8, flex: 1 }]}>
+                <Text style={[{ fontSize: 11, fontWeight: '600', color: t.ink }]}>+250 ml</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -236,7 +284,10 @@ const s = StyleSheet.create({
   columns: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   card: { borderRadius: 22, borderWidth: 1, padding: 22 },
   bigNum: { fontSize: 36, fontWeight: '700', letterSpacing: -0.8, lineHeight: 38 },
-  waterGlass: { flex: 1, height: 38, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  waterInput: {
+    borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 14, outlineWidth: 0,
+  } as Record<string, unknown>,
   mealTitle: { fontSize: 18, letterSpacing: -0.3 },
   entryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6 },
   emptyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, padding: 14, borderRadius: 14 },

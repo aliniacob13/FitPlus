@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 
@@ -13,6 +13,7 @@ import { FpIcon, type FpIconName } from '@/components/ui/FpIcon';
 import { FpAvatar } from '@/components/ui/FpAvatar';
 import { useAuthStore } from '@/store/authStore';
 import { useUserStore } from '@/store/userStore';
+import { userApi } from '@/services/userApi';
 import { AppStackParamList } from '@/types/navigation';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList, 'MainTabs'>;
@@ -22,8 +23,16 @@ const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 
 const WEIGHT_DATA = [80.7, 80.4, 80.6, 80.1, 79.8, 79.9, 79.4, 79.2, 79.0, 79.1, 78.7, 78.5, 78.6, 78.4];
 
-function WeightChart({ color, lineColor }: { color: string; lineColor: string }) {
-  const data = WEIGHT_DATA;
+function WeightChart({
+  color,
+  lineColor,
+  series,
+}: {
+  color: string;
+  lineColor: string;
+  series: number[];
+}) {
+  const data = series.length >= 2 ? series : WEIGHT_DATA;
   const max = Math.max(...data) + 0.3;
   const min = Math.min(...data) - 0.3;
   const span = max - min;
@@ -52,6 +61,40 @@ export const ProfileScreen = () => {
   const profile = useUserStore((s) => s.profile);
   const dietPreferences = useUserStore((s) => s.dietPreferences);
   const logout = useAuthStore((s) => s.logout);
+
+  const [weightSeries, setWeightSeries] = useState<number[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        try {
+          const logs = await userApi.getWeightLogs();
+          const byDay = new Map<string, number>();
+          const sorted = [...logs].sort(
+            (a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime(),
+          );
+          for (const w of sorted) {
+            const d = new Date(w.logged_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            byDay.set(key, w.weight_kg);
+          }
+          const vals = Array.from(byDay.values());
+          if (vals.length >= 2) setWeightSeries(vals.slice(-14));
+          else if (vals.length === 1) setWeightSeries([vals[0], vals[0]]);
+          else setWeightSeries([]);
+        } catch {
+          setWeightSeries([]);
+        }
+      })();
+    }, []),
+  );
+
+  const weightDeltaLabel = useMemo(() => {
+    if (weightSeries.length < 2) return null;
+    const delta = weightSeries[weightSeries.length - 1] - weightSeries[0];
+    const arrow = delta <= 0 ? '↓' : '↑';
+    return { text: `${arrow} ${Math.abs(delta).toFixed(1)} kg`, delta };
+  }, [weightSeries]);
 
   const displayName = profile?.name || profile?.email?.split('@')[0] || 'Athlete';
   const initials = displayName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -142,9 +185,17 @@ export const ProfileScreen = () => {
                 <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>GREUTATE · 30 ZILE</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
                   <Text style={[s.weightBig, { fontFamily: SERIF, color: t.ink }]}>
-                    {profile?.weight_kg ?? '78.4'}
+                    {profile?.weight_kg != null ? String(profile.weight_kg) : '—'}
                   </Text>
-                  <Text style={[{ fontSize: 12, color: t.good, fontWeight: '600' }]}>↓ 2.3 kg</Text>
+                  {weightDeltaLabel ? (
+                    <Text style={[{
+                      fontSize: 12,
+                      color: weightDeltaLabel.delta <= 0 ? t.good : t.bad,
+                      fontWeight: '600',
+                    }]}>{weightDeltaLabel.text}</Text>
+                  ) : (
+                    <Text style={[{ fontSize: 12, color: t.muted, fontWeight: '600' }]}>—</Text>
+                  )}
                 </View>
               </View>
               <View style={[s.segControl, { backgroundColor: t.surface2, borderColor: t.line }]}>
@@ -155,7 +206,7 @@ export const ProfileScreen = () => {
                 ))}
               </View>
             </View>
-            <WeightChart color={t.primarySoft} lineColor={t.primary}/>
+            <WeightChart color={t.primarySoft} lineColor={t.primary} series={weightSeries}/>
           </View>
         </View>
 

@@ -2,6 +2,8 @@ import { useEffect } from "react";
 
 import { useAuthStore } from "@/store/authStore";
 import { useChatStore } from "@/store/chatStore";
+import { useActivityStore } from "@/store/activityStore";
+import { todayString, useFoodDiaryStore } from "@/store/foodDiaryStore";
 import { useUserStore } from "@/store/userStore";
 
 /**
@@ -38,6 +40,9 @@ export const useBootstrapApp = () => {
       // Kick off both fetches in parallel; neither is blocking for the UI.
       void fetchMe();
       void fetchDietPreferences();
+      void useActivityStore.getState().fetchActivities();
+      void useFoodDiaryStore.getState().hydrateWeightLogsFromServer();
+      void useFoodDiaryStore.getState().fetchWaterMl(todayString());
     } else {
       // User is logged out — clear all cached state.
       clearProfile();

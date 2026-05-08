@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
@@ -16,6 +17,56 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 const MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 
+type LoginFieldProps = {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  secure?: boolean;
+  showPw: boolean;
+  ink: string;
+  muted: string;
+  muted2: string;
+  surface: string;
+  line: string;
+  trailing?: ReactNode;
+};
+
+/** Must stay outside LoginScreen so TextInput identity is stable (avoids keyboard closing each keystroke). */
+function LoginField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  secure,
+  showPw,
+  ink,
+  muted,
+  muted2,
+  surface,
+  line,
+  trailing,
+}: LoginFieldProps) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={[s.fieldLabel, { color: muted, fontFamily: MONO }]}>{label}</Text>
+      <View style={[s.fieldRow, { backgroundColor: surface, borderColor: line }]}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={muted2}
+          secureTextEntry={Boolean(secure && !showPw)}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={[s.fieldInput, { color: ink }]}
+        />
+        {trailing}
+      </View>
+    </View>
+  );
+}
+
 export const LoginScreen = ({ navigation }: Props) => {
   const { t } = useTheme();
   const [email, setEmail] = useState('');
@@ -28,25 +79,6 @@ export const LoginScreen = ({ navigation }: Props) => {
   const error = useAuthStore((s) => s.error);
 
   const isValid = useMemo(() => email.includes('@') && password.length >= 6, [email, password]);
-
-  const Field = ({ label, value, onChangeText, placeholder, secure, trailing }: any) => (
-    <View style={{ gap: 6 }}>
-      <Text style={[s.fieldLabel, { color: t.muted, fontFamily: MONO }]}>{label}</Text>
-      <View style={[s.fieldRow, { backgroundColor: t.surface, borderColor: t.line }]}>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={t.muted2}
-          secureTextEntry={secure && !showPw}
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={[s.fieldInput, { color: t.ink }]}
-        />
-        {trailing}
-      </View>
-    </View>
-  );
 
   return (
     <SafeAreaView style={[s.root, { backgroundColor: t.bg }]}>
@@ -75,20 +107,32 @@ export const LoginScreen = ({ navigation }: Props) => {
 
             {/* Form */}
             <View style={{ gap: 14, marginTop: 32 }}>
-              <Field
+              <LoginField
                 label="EMAIL"
                 value={email}
                 onChangeText={setEmail}
                 placeholder="email@exemplu.ro"
+                showPw={showPw}
+                ink={t.ink}
+                muted={t.muted}
+                muted2={t.muted2}
+                surface={t.surface}
+                line={t.line}
               />
-              <Field
+              <LoginField
                 label="PAROLĂ"
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"
                 secure
+                showPw={showPw}
+                ink={t.ink}
+                muted={t.muted}
+                muted2={t.muted2}
+                surface={t.surface}
+                line={t.line}
                 trailing={
-                  <TouchableOpacity onPress={() => setShowPw(v => !v)} activeOpacity={0.7} style={{ padding: 4 }}>
+                  <TouchableOpacity onPress={() => setShowPw((v) => !v)} activeOpacity={0.7} style={{ padding: 4 }}>
                     <Text style={[s.showPw, { color: t.muted, fontFamily: MONO }]}>
                       {showPw ? 'HIDE' : 'SHOW'}
                     </Text>

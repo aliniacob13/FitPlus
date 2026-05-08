@@ -128,7 +128,7 @@ export const FavoriteGymsScreen = () => {
       ) : null}
 
       {/* Gym detail modal */}
-      <Modal visible={Boolean(gymDetail)} transparent animationType="slide" onRequestClose={closeDetail}>
+      <Modal visible={Boolean(gymDetail)} transparent animationType="fade" onRequestClose={closeDetail}>
         <View style={s.modalBackdrop}>
           <View style={[s.modalSheet, { backgroundColor: t.surface, borderColor: t.line }]}>
             {gymDetail ? (
@@ -230,14 +230,24 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
-  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 24,
+  },
   modalSheet: {
-    borderTopLeftRadius: 26, borderTopRightRadius: 26,
-    borderWidth: 1, maxHeight: '80%',
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '78%',
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   modalContent: { padding: 22, gap: 14, paddingBottom: 32 },
   modalTitle:   { fontSize: 22, letterSpacing: -0.4, lineHeight: 26 },
-  heroImage:    { width: '100%', height: 180, borderRadius: 16 },
+  heroImage:    { width: '100%', height: 148, borderRadius: 16 },
   heroImagePlaceholder: { width: '100%', height: 120, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   metaCard:     { borderRadius: 16, borderWidth: 1, padding: 14 },
   heartBtn:     { padding: 4 },

@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Animated, Image, Linking, Modal, Pressable,
+  Alert, Animated, Image, Linking, Modal,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
@@ -51,11 +51,30 @@ export const MapScreen = () => {
   const [linkedDbGym,         setLinkedDbGym]         = useState<GymDetailExtended | null>(null);
   const [loadingDbGym,        setLoadingDbGym]        = useState(false);
   const [showReviewForm,      setShowReviewForm]      = useState(false);
-  const [activeFilter,        setActiveFilter]        = useState('Aproape');
+  const [showDetailModal,     setShowDetailModal]     = useState(false);
+  const [locatingMe,         setLocatingMe]         = useState(false);
 
   const favoriteDbIds    = useGymStore((s) => s.favoriteGymIds);
+  const favoritesApi     = useGymStore((s) => s.favorites);
+  const fetchFavorites   = useGymStore((s) => s.fetchFavorites);
   const toggleDbFavorite = useGymStore((s) => s.toggleFavorite);
   const initFavoriteState= useGymStore((s) => s.initFavoriteState);
+
+  useEffect(() => {
+    void fetchFavorites();
+  }, [fetchFavorites]);
+
+  const favoritedPlaceIdsFromApi = useMemo(() => {
+    const next = new Set<string>();
+    for (const f of favoritesApi) {
+      if (f.place_id) next.add(f.place_id);
+    }
+    return next;
+  }, [favoritesApi]);
+
+  const isListGymFavorited = useCallback((placeId: string) =>
+    favoritePlaceIds.has(placeId) || favoritedPlaceIdsFromApi.has(placeId),
+  [favoritePlaceIds, favoritedPlaceIdsFromApi]);
 
   const filteredGyms = useMemo(() => nearbyGyms.filter((gym) => {
     if (minRating > 0 && (gym.rating == null || gym.rating < minRating)) return false;
@@ -102,15 +121,26 @@ export const MapScreen = () => {
     return () => { cancelled = true; };
   }, [selectedGym]);
 
-  const loadNearby = async (ref?: { latitude: number; longitude: number }) => {
+  useEffect(() => {
+    setShowDetailModal(false);
+  }, [selectedGym?.place_id]);
+
+  const loadNearby = useCallback(async (ref?: { latitude: number; longitude: number }) => {
     setLoading(true); setError(null);
     try {
       const c = ref ?? coords;
       const gyms = await placesApi.searchNearbyGyms({ latitude: c.latitude, longitude: c.longitude, radius_m: CITY_RADIUS_M });
       setNearbyGyms(gyms);
-    } catch { setError('Nu am putut încărca sălile din zonă.'); }
-    finally { setLoading(false); }
-  };
+    } catch {
+      setError('Nu am putut încărca sălile din zonă.');
+    } finally {
+      setLoading(false);
+    }
+  }, [coords]);
+
+  useEffect(() => {
+    void loadNearby();
+  }, [loadNearby]);
 
   const loadGymDetail = async (placeId: string) => {
     try { setSelectedGym(await placesApi.getGymDetail(placeId)); }
@@ -126,7 +156,6 @@ export const MapScreen = () => {
       const next = { latitude: geo.latitude, longitude: geo.longitude };
       setCoords(next);
       setCityName((geo.city ?? geo.formatted_address) + ', RO');
-      await loadNearby(next);
     } catch { setError('Nu am putut geocoda locația introdusă.'); }
     finally { setLoadingManual(false); }
   };
@@ -166,14 +195,41 @@ export const MapScreen = () => {
     }
   };
 
+  const goMyLocation = async () => {
+    setLocatingMe(true);
+    setError(null);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== Location.PermissionStatus.GRANTED) {
+        Alert.alert('Locație', 'Permisiunea pentru locație este necesară pentru a te plasa pe hartă.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const next = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      setCoords(next);
+      const geo = await Location.reverseGeocodeAsync(next);
+      const city = geo[0]?.city ?? geo[0]?.subregion ?? geo[0]?.region;
+      if (city) setCityName(city + ', RO');
+    } catch {
+      setError('Nu am putut citi locația curentă.');
+    } finally {
+      setLocatingMe(false);
+    }
+  };
+
+  /** Same embed query whenever coords move — keeps gym pins visible after „Locația mea”. */
+  const mapUri = useMemo(
+    () =>
+      `https://www.google.com/maps?q=${encodeURIComponent(
+        `fitness gyms near ${coords.latitude},${coords.longitude}`,
+      )}&z=14&output=embed`,
+    [coords.latitude, coords.longitude],
+  );
+
   const refreshLinkedDbGym = () => {
     if (!linkedDbGym) return;
     gymApi.getDetailExtended(linkedDbGym.id).then((d) => setLinkedDbGym(d)).catch(() => {});
   };
-
-  const FILTERS = ['Aproape', '24/7', 'Piscină', 'Yoga', 'CrossFit', 'Sauna'];
-
-  const mapUri = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}&z=13&output=embed`;
 
   return (
     <View style={[s.root, { backgroundColor: t.bg }]}>
@@ -197,41 +253,79 @@ export const MapScreen = () => {
           />
           {loadingManual && <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO, fontSize: 9 }]}>…</Text>}
         </View>
+        <TouchableOpacity
+          onPress={() => void useManualLocation()}
+          disabled={loadingManual}
+          activeOpacity={0.85}
+          style={[s.manualLocBtn, { backgroundColor: t.surface2, borderColor: t.line }]}
+        >
+          <FpIcon name="pin" size={14} color={t.primary}/>
+          <Text style={[{ fontSize: 12, fontWeight: '600', color: t.primary }]}>
+            Folosește locația introdusă
+          </Text>
+        </TouchableOpacity>
 
-        {/* Filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexShrink: 0 }}>
-          <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 4 }}>
-            {FILTERS.map((f) => {
-              const on = activeFilter === f;
+        <TouchableOpacity
+          onPress={() => void goMyLocation()}
+          disabled={locatingMe}
+          activeOpacity={0.85}
+          style={[s.manualLocBtn, { backgroundColor: t.primarySoft, borderColor: t.primary }]}
+        >
+          <FpIcon name="pin" size={14} color={t.primary}/>
+          <Text style={[{ fontSize: 12, fontWeight: '600', color: t.primary }]}>
+            {locatingMe ? 'Se localizează…' : 'Locația mea (hartă)'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Filters: rating only */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexShrink: 0, maxHeight: 48 }}
+          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', gap: 8, paddingVertical: 4 }}
+        >
+            {RATING_OPTIONS.map((r) => {
+              const on = minRating === r && !onlyFavorites;
+              const label = r === 0 ? 'Toate' : `≥ ${r.toFixed(1)}★`;
               return (
-                <TouchableOpacity key={f} onPress={() => setActiveFilter(f)} activeOpacity={0.7}
+                <TouchableOpacity
+                  key={String(r)}
+                  onPress={() => {
+                    setMinRating(r);
+                    setOnlyFavorites(false);
+                  }}
+                  activeOpacity={0.7}
                   style={[s.filterChip, {
                     backgroundColor: on ? t.ink : t.surface2,
                     borderColor: on ? 'transparent' : t.line,
-                  }]}>
-                  <Text style={[{ fontSize: 11, fontWeight: '500', color: on ? t.bg : t.muted }]}>{f}</Text>
+                  }]}
+                >
+                  <Text style={[{ fontSize: 11, fontWeight: '500', color: on ? t.bg : t.muted }]}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity onPress={() => { setOnlyFavorites(!onlyFavorites); setActiveFilter('Favorite'); }} activeOpacity={0.7}
+            <TouchableOpacity
+              onPress={() => setOnlyFavorites((v) => !v)}
+              activeOpacity={0.7}
               style={[s.filterChip, {
                 backgroundColor: onlyFavorites ? t.ink : t.surface2,
                 borderColor: onlyFavorites ? 'transparent' : t.line,
-              }]}>
+              }]}
+            >
               <Text style={[{ fontSize: 11, fontWeight: '500', color: onlyFavorites ? t.bg : t.muted }]}>
-                {onlyFavorites ? '♥ Favs' : '♡ Favs'}
+                {onlyFavorites ? '♥ Favorite' : '♡ Favorite'}
               </Text>
             </TouchableOpacity>
-          </View>
         </ScrollView>
 
-        {/* Load button if empty */}
+        {/* Load / retry */}
         {filteredGyms.length === 0 && (
           <TouchableOpacity onPress={() => void loadNearby()} activeOpacity={0.85}
-            style={[s.loadBtn, { backgroundColor: t.primary }]}>
+            disabled={loading}
+            style={[s.loadBtn, { backgroundColor: t.primary, opacity: loading ? 0.7 : 1 }]}>
             <FpIcon name="pin" size={14} color={t.primaryInk}/>
             <Text style={[{ fontSize: 13, fontWeight: '600', color: t.primaryInk }]}>
-              {loading ? 'Se încarcă…' : 'Încarcă săli din zonă'}
+              {loading ? 'Se încarcă…' : 'Reîncarcă sălile din zonă'}
             </Text>
           </TouchableOpacity>
         )}
@@ -249,13 +343,21 @@ export const MapScreen = () => {
               <TouchableOpacity key={gym.place_id} onPress={() => void loadGymDetail(gym.place_id)}
                 activeOpacity={0.8}
                 style={[s.gymCard, { borderColor: selectedGym?.place_id === gym.place_id ? t.primary + '60' : t.line }]}>
-                <View style={[s.gymCardImg, { backgroundColor: t.surface2 }]}>
-                  <FpIcon name="dumbbell" size={20} color={t.muted2}/>
-                </View>
+                {gym.photo_url ? (
+                  <Image source={{ uri: gym.photo_url }} style={s.gymCardImg} resizeMode="cover"/>
+                ) : (
+                  <View style={[s.gymCardImg, { backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center' }]}>
+                    <FpIcon name="dumbbell" size={20} color={t.muted2}/>
+                  </View>
+                )}
                 <View style={{ flex: 1, paddingVertical: 14, paddingHorizontal: 16 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Text style={[s.gymName, { color: t.ink }]} numberOfLines={1}>{gym.name}</Text>
-                    <FpIcon name="heart" size={14} color={t.muted}/>
+                    <FpIcon
+                      name="heart"
+                      size={14}
+                      color={isListGymFavorited(gym.place_id) ? '#EF4444' : t.muted}
+                    />
                   </View>
                   {gym.address ? <Text style={[{ fontSize: 11, color: t.muted, marginTop: 2 }]} numberOfLines={1}>{gym.address}</Text> : null}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -287,22 +389,25 @@ export const MapScreen = () => {
 
         {/* Map controls */}
         <View style={{ position: 'absolute', top: 18, right: 18, gap: 8 }}>
-          {[
-            { icon: 'plus' as const, onPress: () => {} },
-            { icon: 'close' as const, onPress: () => {} },
-            { icon: 'pin' as const, onPress: () => void loadNearby() },
-          ].map((btn, i) => (
-            <TouchableOpacity key={i} onPress={btn.onPress} activeOpacity={0.7}
-              style={[s.mapCtrl, { backgroundColor: t.surface, borderColor: t.line }]}>
-              <FpIcon name={btn.icon} size={16} color={t.ink}/>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            onPress={() => void goMyLocation()}
+            disabled={locatingMe}
+            activeOpacity={0.7}
+            style={[s.mapCtrl, { backgroundColor: t.primary, borderColor: t.primary }]}>
+            <FpIcon name="pin" size={16} color={t.primaryInk}/>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void loadNearby()}
+            activeOpacity={0.7}
+            style={[s.mapCtrl, { backgroundColor: t.surface, borderColor: t.line }]}>
+            <FpIcon name="search" size={16} color={t.ink}/>
+          </TouchableOpacity>
         </View>
 
         {/* Selected gym card */}
         {selectedGym && (
           <View style={[s.gymDetailCard, { backgroundColor: t.surface, borderColor: t.line }]}>
-            {selectedGym.photo_urls[0] ? (
+            {selectedGym.photo_urls?.[0] ? (
               <Image source={{ uri: selectedGym.photo_urls[0] }} style={s.detailImg} resizeMode="cover"/>
             ) : (
               <View style={[s.detailImgPlaceholder, { backgroundColor: t.surface2 }]}>
@@ -329,7 +434,7 @@ export const MapScreen = () => {
                 </Text>
               )}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                <TouchableOpacity onPress={() => openMaps(selectedGym)} activeOpacity={0.85}
+                <TouchableOpacity onPress={() => setShowDetailModal(true)} activeOpacity={0.85}
                   style={[s.detailBtn, { backgroundColor: t.primary }]}>
                   <Text style={[{ fontSize: 11, fontWeight: '600', color: t.primaryInk }]}>Detalii</Text>
                 </TouchableOpacity>
@@ -359,6 +464,65 @@ export const MapScreen = () => {
               </View>
             </View>
           </View>
+        )}
+
+        {/* Gym detail modal */}
+        {selectedGym && (
+          <Modal visible={showDetailModal} transparent animationType="fade" onRequestClose={() => setShowDetailModal(false)}>
+            <View style={[s.modalBackdrop, { padding: 24 }]}>
+              <View style={[s.detailModalCard, { backgroundColor: t.surface, borderColor: t.line }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <Text style={[s.detailName, { fontFamily: SERIF, color: t.ink, flex: 1 }]}>{selectedGym.name}</Text>
+                  <TouchableOpacity onPress={() => setShowDetailModal(false)} hitSlop={8}>
+                    <FpIcon name="close" size={20} color={t.ink}/>
+                  </TouchableOpacity>
+                </View>
+                {selectedGym.photo_urls?.[0] ? (
+                  <Image source={{ uri: selectedGym.photo_urls[0] }} style={s.detailModalHero} resizeMode="cover"/>
+                ) : (
+                  <View style={[s.detailModalHero, { backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center' }]}>
+                    <FpIcon name="dumbbell" size={36} color={t.muted2}/>
+                  </View>
+                )}
+                <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                  {selectedGym.rating != null && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <FpIcon name="star" size={14} color={t.accent}/>
+                      <Text style={[{ fontSize: 14, fontWeight: '700', color: t.ink }]}>
+                        {selectedGym.rating.toFixed(1)}
+                        {selectedGym.review_count != null ? ` · ${selectedGym.review_count} recenzii Google` : ''}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedGym.address ? (
+                    <Text style={[{ fontSize: 13, color: t.ink2 }]}>{selectedGym.address}</Text>
+                  ) : null}
+                  {selectedGym.phone ? (
+                    <TouchableOpacity onPress={() => void Linking.openURL(`tel:${selectedGym.phone!.replace(/\s/g, '')}`)}>
+                      <Text style={[{ fontSize: 13, color: t.primary, fontWeight: '600' }]}>{selectedGym.phone}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {selectedGym.website ? (
+                    <TouchableOpacity onPress={() => void Linking.openURL(selectedGym.website!)}>
+                      <Text style={[{ fontSize: 13, color: t.primary }]} numberOfLines={2}>{selectedGym.website}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {selectedGym.opening_hours && selectedGym.opening_hours.length > 0 ? (
+                    <View style={{ gap: 4 }}>
+                      <Text style={[s.eyebrow, { color: t.muted, fontFamily: MONO }]}>PROGRAM</Text>
+                      {selectedGym.opening_hours.slice(0, 12).map((line, i) => (
+                        <Text key={i} style={[{ fontSize: 12, color: t.muted }]}>{line}</Text>
+                      ))}
+                    </View>
+                  ) : null}
+                  <TouchableOpacity onPress={() => openMaps(selectedGym)} activeOpacity={0.85}
+                    style={[s.detailBtn, { backgroundColor: t.primary, alignSelf: 'flex-start' }]}>
+                    <Text style={[{ fontSize: 12, fontWeight: '600', color: t.primaryInk }]}>Deschide în Google Maps</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
         )}
 
         {/* Reviews modal */}
@@ -396,7 +560,18 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 13, outlineWidth: 0 } as any,
-  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+  manualLocBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexShrink: 0,
+    alignSelf: 'center',
+  },
   loadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 16 },
   errorBanner: { borderWidth: 1, borderRadius: 12, padding: 12 },
   gymCard: {
@@ -422,4 +597,14 @@ const s = StyleSheet.create({
   modalCard: {
     width: '90%' as any, maxWidth: 640, borderRadius: 22, borderWidth: 1, padding: 24, maxHeight: '80%' as any,
   },
+  detailModalCard: {
+    width: '100%' as any,
+    maxWidth: 560,
+    maxHeight: '88%' as any,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    gap: 14,
+  },
+  detailModalHero: { width: '100%', height: 200, borderRadius: 16 } as const,
 });

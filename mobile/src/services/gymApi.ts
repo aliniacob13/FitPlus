@@ -48,6 +48,7 @@ export type GymReview = {
 export type FavoriteGymEntry = {
   favorite_id: number;
   gym_id: number;
+  place_id?: string | null;
   name: string;
   address: string | null;
   image_url: string | null;

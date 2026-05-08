@@ -1,7 +1,8 @@
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from tempfile import gettempdir
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,12 +10,20 @@ from app.api.v1.users import get_current_user
 from app.core.database import get_db
 from app.models.diet import DietPreference, Prescription, WeightLog
 from app.models.user import User
+from app.models.wellness import DailyWaterIntake, PhysicalActivityLog
 from app.schemas.diet import (
     DietPreferenceCreateUpdate,
     DietPreferenceResponse,
     PrescriptionResponse,
     WeightLogCreate,
     WeightLogResponse,
+)
+from app.schemas.wellness import (
+    PhysicalActivityCreate,
+    PhysicalActivityResponse,
+    WaterIntakeRead,
+    WaterIntakeResponse,
+    WaterIntakeUpsert,
 )
 
 router = APIRouter(prefix="/users/me", tags=["Health & Diet"])
@@ -170,6 +179,9 @@ async def create_weight_log(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WeightLogResponse:
+    current_user.weight_kg = payload.weight_kg
+    db.add(current_user)
+
     weight_log = WeightLog(
         user_id=current_user.id,
         weight_kg=payload.weight_kg,
@@ -194,3 +206,94 @@ async def list_weight_logs(
     result = await db.execute(query)
     weight_logs = result.scalars().all()
     return [WeightLogResponse.model_validate(item) for item in weight_logs]
+
+
+@router.post(
+    "/physical-activities",
+    response_model=PhysicalActivityResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_physical_activity(
+    payload: PhysicalActivityCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhysicalActivityResponse:
+    data = payload.model_dump()
+    activity_date = data.pop("activity_date") or date.today()
+    row = PhysicalActivityLog(
+        user_id=current_user.id,
+        activity_date=activity_date,
+        **data,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return PhysicalActivityResponse.model_validate(row)
+
+
+@router.get("/physical-activities", response_model=list[PhysicalActivityResponse])
+async def list_physical_activities(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[PhysicalActivityResponse]:
+    today = date.today()
+    end = end_date or today
+    start = start_date or (end - timedelta(days=120))
+    stmt = (
+        select(PhysicalActivityLog)
+        .where(
+            PhysicalActivityLog.user_id == current_user.id,
+            PhysicalActivityLog.activity_date >= start,
+            PhysicalActivityLog.activity_date <= end,
+        )
+        .order_by(PhysicalActivityLog.activity_date.desc(), PhysicalActivityLog.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [PhysicalActivityResponse.model_validate(r) for r in rows]
+
+
+@router.get("/water-intake", response_model=WaterIntakeRead)
+async def get_water_intake(
+    log_date: date = Query(alias="date"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WaterIntakeRead:
+    stmt = select(DailyWaterIntake).where(
+        DailyWaterIntake.user_id == current_user.id,
+        DailyWaterIntake.log_date == log_date,
+    )
+    result = await db.execute(stmt)
+    row = result.scalar_one_or_none()
+    if row is None:
+        return WaterIntakeRead(log_date=log_date, ml_total=0)
+    return WaterIntakeRead(log_date=row.log_date, ml_total=row.ml_total)
+
+
+@router.put("/water-intake", response_model=WaterIntakeResponse)
+async def upsert_water_intake(
+    payload: WaterIntakeUpsert,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WaterIntakeResponse:
+    stmt = select(DailyWaterIntake).where(
+        DailyWaterIntake.user_id == current_user.id,
+        DailyWaterIntake.log_date == payload.log_date,
+    )
+    result = await db.execute(stmt)
+    row = result.scalar_one_or_none()
+    if row is None:
+        row = DailyWaterIntake(
+            user_id=current_user.id,
+            log_date=payload.log_date,
+            ml_total=payload.ml_total,
+        )
+        db.add(row)
+    else:
+        row.ml_total = payload.ml_total
+        db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return WaterIntakeResponse.model_validate(row)

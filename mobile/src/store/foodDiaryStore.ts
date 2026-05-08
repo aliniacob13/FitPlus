@@ -1,6 +1,8 @@
 import { create } from "zustand";
 
 import { nutritionApi } from "@/services/nutritionApi";
+import { userApi } from "@/services/userApi";
+import { wellnessApi } from "@/services/wellnessApi";
 import type { DailyTotals, FoodLogCreateRequest, FoodLogEntry } from "@/services/nutritionApi";
 import { formatApiError } from "@/utils/apiErrors";
 
@@ -28,10 +30,10 @@ interface FoodDiaryState {
   saving: boolean;
   error: string | null;
 
-  // Water tracking (per day)
-  waterByDate: Record<string, number>;
+  // Water (ml per day, server-backed)
+  waterMlByDate: Record<string, number>;
 
-  // Local weight log
+  // Weight history (hydrated from weight-log API; latest may mirror profile.weight_kg)
   weightLog: WeightEntry[];
 
   setDate: (date: string) => void;
@@ -42,13 +44,15 @@ interface FoodDiaryState {
   hydrateCalorieTargetFromServer: (kcal: number | null | undefined) => void;
   clearCalorieTarget: () => void;
 
-  // Water actions
-  logWater: (date: string, delta?: number) => void;
-  getWaterGlasses: (date: string) => number;
+  fetchWaterMl: (date: string) => Promise<void>;
+  setWaterMl: (date: string, ml: number) => Promise<boolean>;
+  bumpWaterMl: (date: string, deltaMl: number) => Promise<boolean>;
+  getWaterMl: (date: string) => number;
 
-  // Weight actions
   logWeight: (weight_kg: number) => void;
   getLatestWeight: () => number | null;
+  hydrateWeightLogsFromServer: () => Promise<void>;
+  resetWellnessLocal: () => void;
 }
 
 const EMPTY_TOTALS: DailyTotals = { kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
@@ -62,7 +66,7 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
   loading: false,
   saving: false,
   error: null,
-  waterByDate: {},
+  waterMlByDate: {},
   weightLog: [],
 
   setDate: (date) => set({ date }),
@@ -116,23 +120,45 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
 
   clearCalorieTarget: () => set({ dailyKcalTarget: null, hasCalorieTarget: false }),
 
-  logWater: (date, delta = 1) => {
-    set((state) => {
-      const current = state.waterByDate[date] ?? 0;
-      const next = Math.max(0, Math.min(current + delta, 20));
-      return { waterByDate: { ...state.waterByDate, [date]: next } };
-    });
+  fetchWaterMl: async (date) => {
+    try {
+      const { ml_total } = await wellnessApi.getWaterIntake(date);
+      set((state) => ({
+        waterMlByDate: { ...state.waterMlByDate, [date]: ml_total },
+      }));
+    } catch {
+      /* offline / stale cache */
+    }
   },
 
-  getWaterGlasses: (date) => {
-    return get().waterByDate[date] ?? 0;
+  setWaterMl: async (date, ml) => {
+    const clamped = Math.max(0, Math.min(Math.round(ml), 20000));
+    try {
+      await wellnessApi.putWaterIntake({ log_date: date, ml_total: clamped });
+      set((state) => ({
+        waterMlByDate: { ...state.waterMlByDate, [date]: clamped },
+      }));
+      return true;
+    } catch {
+      set({ error: "Nu am putut salva apa." });
+      return false;
+    }
   },
+
+  bumpWaterMl: async (date, deltaMl) => {
+    const cur = get().getWaterMl(date);
+    return get().setWaterMl(date, cur + deltaMl);
+  },
+
+  getWaterMl: (date) => get().waterMlByDate[date] ?? 0,
 
   logWeight: (weight_kg) => {
     const date = todayString();
     set((state) => {
       const filtered = state.weightLog.filter((e) => e.date !== date);
-      return { weightLog: [...filtered, { date, weight_kg }].sort((a, b) => a.date.localeCompare(b.date)) };
+      return {
+        weightLog: [...filtered, { date, weight_kg }].sort((a, b) => a.date.localeCompare(b.date)),
+      };
     });
   },
 
@@ -141,4 +167,31 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
     if (log.length === 0) return null;
     return log[log.length - 1].weight_kg;
   },
+
+  hydrateWeightLogsFromServer: async () => {
+    try {
+      const logs = await userApi.getWeightLogs();
+      const byDay = new Map<string, number>();
+      const sorted = [...logs].sort(
+        (a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime(),
+      );
+      for (const w of sorted) {
+        const d = new Date(w.logged_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        byDay.set(key, w.weight_kg);
+      }
+      const weightLog = Array.from(byDay.entries())
+        .map(([dateStr, w]) => ({ date: dateStr, weight_kg: w }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      set({ weightLog });
+    } catch {
+      /* ignore */
+    }
+  },
+
+  resetWellnessLocal: () =>
+    set({
+      waterMlByDate: {},
+      weightLog: [],
+    }),
 }));

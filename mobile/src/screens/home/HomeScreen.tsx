@@ -14,6 +14,7 @@ import { FpAvatar } from '@/components/ui/FpAvatar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { TripleRing } from '@/components/ui/TripleRing';
 import { nutritionApi } from '@/services/nutritionApi';
+import { userApi } from '@/services/userApi';
 import { todayString, useFoodDiaryStore } from '@/store/foodDiaryStore';
 import { useUserStore } from '@/store/userStore';
 import { AppStackParamList, MainTabParamList } from '@/types/navigation';
@@ -50,27 +51,33 @@ export const HomeScreen = () => {
   const { t } = useTheme();
   const navigation = useNavigation<HomeNav>();
   const profile = useUserStore((s) => s.profile);
+  const fetchMe = useUserStore((s) => s.fetchMe);
   const dailyKcalTarget = useFoodDiaryStore((s) => s.dailyKcalTarget);
   const hasCalorieTarget = useFoodDiaryStore((s) => s.hasCalorieTarget);
   const diaryDate = useFoodDiaryStore((s) => s.date);
   const diaryKcal = useFoodDiaryStore((s) => s.totals.kcal);
   const totals = useFoodDiaryStore((s) => s.totals);
   const logWeight        = useFoodDiaryStore((s) => s.logWeight);
+  const hydrateWeightLogsFromServer = useFoodDiaryStore((s) => s.hydrateWeightLogsFromServer);
   const getLatestWeight  = useFoodDiaryStore((s) => s.getLatestWeight);
   const weightLog        = useFoodDiaryStore((s) => s.weightLog);
+  const fetchActivities  = useActivityStore((s) => s.fetchActivities);
   const addActivity      = useActivityStore((s) => s.addActivity);
   const getEntriesForDate= useActivityStore((s) => s.getEntriesForDate);
+  const burnedToday = useActivityStore((s) =>
+    s.entries
+      .filter((e) => e.date === todayString())
+      .reduce((sum, e) => sum + (e.calories_burned ?? 0), 0),
+  );
   const todayActivities  = getEntriesForDate(todayString());
 
   const [todayKcal, setTodayKcal] = useState(0);
 
-  // Weight modal
   const [showWeightModal,   setShowWeightModal]   = useState(false);
   const [weightInput,       setWeightInput]       = useState(
-    (profile?.weight_kg ?? getLatestWeight() ?? '')?.toString()
+    (profile?.weight_kg ?? getLatestWeight() ?? '')?.toString(),
   );
 
-  // Activity modal
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [actType,           setActType]           = useState<ActivityType>('gym');
   const [actDuration,       setActDuration]       = useState('');
@@ -80,12 +87,16 @@ export const HomeScreen = () => {
   const displayName = profile?.name?.split(' ')[0] || profile?.email?.split('@')[0] || 'Andrei';
   const initials = (profile?.name || displayName).split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || 'A';
 
+  const baseTarget = dailyKcalTarget ?? 2000;
+  const effectiveTarget = baseTarget + burnedToday;
+
   const calorieProgress = useMemo(() => {
     if (!hasCalorieTarget || !dailyKcalTarget) return 0;
-    return Math.min(todayKcal / dailyKcalTarget, 1);
-  }, [hasCalorieTarget, dailyKcalTarget, todayKcal]);
+    if (effectiveTarget <= 0) return 0;
+    return Math.min(todayKcal / effectiveTarget, 1);
+  }, [hasCalorieTarget, dailyKcalTarget, todayKcal, effectiveTarget]);
 
-  const remaining = Math.max((dailyKcalTarget ?? 0) - todayKcal, 0);
+  const remaining = Math.max(effectiveTarget - todayKcal, 0);
 
   const proteinTarget = Math.round((profile?.weight_kg ?? 70) * 1.6);
   const carbsTarget = 250;
@@ -103,22 +114,34 @@ export const HomeScreen = () => {
     nutritionApi.getFoodLog(todayString()).then(({ data }) => {
       setTodayKcal(Math.round(data.totals.kcal));
     }).catch(() => {});
-  }, []));
+    void fetchActivities();
+  }, [fetchActivities]));
 
   useEffect(() => {
     if (diaryDate === todayString()) setTodayKcal(Math.round(diaryKcal));
   }, [diaryDate, diaryKcal]);
 
-  const handleLogWeight = () => {
+  const handleLogWeight = async () => {
     const kg = parseFloat(weightInput);
-    if (!isNaN(kg) && kg > 0) { logWeight(kg); setShowWeightModal(false); }
-    else Alert.alert('Valoare invalidă', 'Introdu o greutate validă în kg.');
+    if (isNaN(kg) || kg <= 0) {
+      Alert.alert('Valoare invalidă', 'Introdu o greutate validă în kg.');
+      return;
+    }
+    try {
+      await userApi.postWeightLog({ weight_kg: kg });
+      logWeight(kg);
+      await fetchMe();
+      await hydrateWeightLogsFromServer();
+      setShowWeightModal(false);
+    } catch {
+      Alert.alert('Eroare', 'Nu am putut salva greutatea pe server.');
+    }
   };
 
-  const handleLogActivity = () => {
+  const handleLogActivity = async () => {
     const dur = parseInt(actDuration, 10);
     if (!dur || dur <= 0) { Alert.alert('Durată invalidă', 'Introdu durata în minute.'); return; }
-    addActivity({
+    const ok = await addActivity({
       date: todayString(), type: actType,
       title: activityTypeLabel(actType),
       duration_min: dur,
@@ -126,6 +149,10 @@ export const HomeScreen = () => {
       calories_burned: estimateCalories(actType, dur),
       notes: actNotes.trim() || undefined,
     });
+    if (!ok) {
+      Alert.alert('Eroare', 'Nu am putut salva activitatea.');
+      return;
+    }
     setActDuration(''); setActDistance(''); setActNotes('');
     setShowActivityModal(false);
   };
@@ -191,7 +218,8 @@ export const HomeScreen = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <FpIcon name="flame" size={14} color={t.accent}/>
                   <Text style={[{ fontSize: 12, color: t.ink2 }]}>
-                    Goal · {dailyKcalTarget ?? 2000} kcal
+                    Țintă bază · {Math.round(baseTarget)} kcal
+                    {burnedToday > 0 ? ` · +${Math.round(burnedToday)} din activitate` : ''}
                   </Text>
                 </View>
               </View>

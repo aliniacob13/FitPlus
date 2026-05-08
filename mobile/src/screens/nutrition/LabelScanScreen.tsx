@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
+import { useTheme } from "@/context/ThemeContext";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import type { LabelScanResult } from "@/services/nutritionApi";
 import { nutritionApi } from "@/services/nutritionApi";
@@ -51,6 +52,7 @@ export const LabelScanScreen = () => {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RoutePropType>();
   const { date } = route.params;
+  const { t } = useTheme();
 
   const saving = useFoodDiaryStore((s) => s.saving);
   const addEntry = useFoodDiaryStore((s) => s.addEntry);
@@ -136,56 +138,77 @@ export const LabelScanScreen = () => {
 
   const confidenceColor =
     scanResult == null
-      ? colors.textPalette.muted
+      ? t.muted
       : scanResult.confidence >= 0.75
-      ? colors.accent.base
+      ? t.good
       : scanResult.confidence >= 0.5
       ? colors.warning
-      : colors.error;
+      : t.bad;
 
   const canAdd = edited.name.trim().length > 0 && Number(edited.grams) > 0;
 
   return (
     <Screen scrollable={false}>
       <ScrollView
+        style={{ flex: 1, backgroundColor: t.bg }}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Scan Label</Text>
-        <Text style={styles.dateLabel}>{date}</Text>
+        <View
+          style={{
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: t.line,
+            padding: spacing.md,
+            backgroundColor: t.surface,
+            gap: spacing.sm,
+          }}
+        >
+          <Text style={{ fontSize: 10, letterSpacing: 2, fontWeight: "600", color: t.muted }}>
+            ADD FOOD
+          </Text>
+          <Text style={[styles.title, { color: t.ink }]}>Scan label</Text>
+          <Text style={[styles.dateLabel, { color: t.muted }]}>{date}</Text>
+        </View>
 
         {/* Pick image row */}
         <View style={styles.pickRow}>
           <TouchableOpacity
-            style={styles.pickBtn}
+            style={[styles.pickBtn, { borderColor: t.primary, backgroundColor: t.primarySoft }]}
             onPress={() => void pickImage(true)}
             disabled={scanning}
           >
-            <Text style={styles.pickBtnText}>Take Photo</Text>
+            <Text style={[styles.pickBtnText, { color: t.primary }]}>Take photo</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.pickBtn}
+            style={[styles.pickBtn, { borderColor: t.line, backgroundColor: t.surface }]}
             onPress={() => void pickImage(false)}
             disabled={scanning}
           >
-            <Text style={styles.pickBtnText}>Choose from Library</Text>
+            <Text style={[styles.pickBtnText, { color: t.ink }]}>Library</Text>
           </TouchableOpacity>
         </View>
 
         {/* Preview */}
         {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
+          <Image
+            source={{ uri: imageUri }}
+            style={[styles.preview, { borderColor: t.line, borderWidth: 1, backgroundColor: t.surface2 }]}
+            resizeMode="contain"
+          />
         ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>No image selected — take a photo or choose from library</Text>
+          <View style={[styles.placeholder, { borderColor: t.lineSoft, backgroundColor: t.surface2 }]}>
+            <Text style={[styles.placeholderText, { color: t.muted }]}>
+              No image yet — use camera or library to capture the nutrition label.
+            </Text>
           </View>
         )}
 
         {scanning && (
           <View style={styles.scanningRow}>
-            <ActivityIndicator color={colors.accent.base} />
-            <Text style={styles.scanningText}>Reading label…</Text>
+            <ActivityIndicator color={t.primary} />
+            <Text style={[styles.scanningText, { color: t.primary }]}>Reading label…</Text>
           </View>
         )}
 
@@ -264,7 +287,7 @@ export const LabelScanScreen = () => {
           </Card>
         )}
 
-        <Text style={styles.disclaimer}>
+        <Text style={[styles.disclaimer, { color: t.muted }]}>
           Estimates only — not medical advice. Always verify values from the original label.
         </Text>
 
@@ -282,12 +305,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "700",
-    color: colors.textPalette.primary,
-    marginTop: spacing[3],
+    letterSpacing: -0.3,
   },
   dateLabel: {
     ...typography.styles.bodySmall,
-    marginTop: -spacing.sm,
+    marginTop: -spacing.xs,
   },
   pickRow: {
     flexDirection: "row",
@@ -295,11 +317,9 @@ const styles = StyleSheet.create({
   },
   pickBtn: {
     flex: 1,
-    height: 56,
-    borderRadius: radius.md,
+    height: 52,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.accent.base,
-    backgroundColor: colors.bg.elevated,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
@@ -307,21 +327,18 @@ const styles = StyleSheet.create({
   pickBtnText: {
     fontSize: typography.size.sm,
     fontWeight: "600",
-    color: colors.accent.base,
     textAlign: "center",
   },
   preview: {
     width: "100%",
-    height: 220,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg.elevated,
+    height: 240,
+    borderRadius: radius.lg,
   },
   placeholder: {
     width: "100%",
-    height: 120,
-    borderRadius: radius.md,
+    height: 140,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.borderPalette.muted,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
@@ -338,7 +355,6 @@ const styles = StyleSheet.create({
   },
   scanningText: {
     ...typography.styles.bodySmall,
-    color: colors.accent.base,
   },
   confidenceRow: {
     flexDirection: "row",

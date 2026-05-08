@@ -41,6 +41,13 @@ export type DietPreferencesPayload = {
   goals: string | null;
 };
 
+export type WeightLogEntryDto = {
+  id: number;
+  user_id: number;
+  weight_kg: number;
+  logged_at: string;
+};
+
 // ── API ───────────────────────────────────────────────────────────────────────
 
 export const userApi = {
@@ -66,6 +73,16 @@ export const userApi = {
       "/users/me/diet-preferences",
       payload,
     );
+    return data;
+  },
+
+  getWeightLogs: async (): Promise<WeightLogEntryDto[]> => {
+    const { data } = await api.get<WeightLogEntryDto[]>("/users/me/weight-log");
+    return data;
+  },
+
+  postWeightLog: async (payload: { weight_kg: number }): Promise<WeightLogEntryDto> => {
+    const { data } = await api.post<WeightLogEntryDto>("/users/me/weight-log", payload);
     return data;
   },
 };
