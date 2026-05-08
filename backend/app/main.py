@@ -23,8 +23,9 @@ app.add_middleware(
 
 app.include_router(v1_router, prefix="/api/v1")
 
-# Mount static files for prescription images
+# Mount static files for prescription images (mkdir required — e.g. fresh Docker container /tmp is empty)
 temp_prescriptions_dir = Path(gettempdir()) / "fitplus_prescriptions"
+temp_prescriptions_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(temp_prescriptions_dir)), name="prescriptions")
 
 @app.get("/")
