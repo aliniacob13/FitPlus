@@ -1,0 +1,32 @@
+name: System Integration
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docker-compose-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Env Files
+        run: |
+          # The containers won't start without .env files
+          cp .env.example .env
+          cp backend/.env.example backend/.env
+          cp mobile/.env.example mobile/.env
+
+      - name: Validate Compose
+        run: docker-compose config
+
+      - name: Spin up Services
+        run: docker-compose up --build -d
+
+      - name: Check Container Status
+        run: |
+          sleep 10
+          docker-compose ps
