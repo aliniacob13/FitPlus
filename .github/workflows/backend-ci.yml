@@ -1,0 +1,40 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest
+        run: |
+          cd backend
+          # We use the example env for testing if real ones aren't present
+          cp .env.example .env || true
+          pytest tests/
+
+      - name: Build Backend Image
+        run: |
+          cd backend
+          docker build -t fitplus-backend:latest .
