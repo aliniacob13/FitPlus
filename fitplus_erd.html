@@ -1,0 +1,135 @@
+
+<div id="erd" style="padding:4px 0"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+const { svg } = await mermaid.render('erd-svg', `erDiagram
+  users {
+    int id PK
+    string email
+    string name
+    int age
+    float weight_kg
+    float height_cm
+    string fitness_level
+    text goals
+    float daily_calorie_target
+  }
+  gyms {
+    int id PK
+    string place_id
+    string name
+    string address
+    float rating
+    geometry location
+    json opening_hours
+    json equipment
+    json pricing_plans
+  }
+  conversations {
+    int id PK
+    int user_id FK
+    string agent_type
+    string title
+    datetime created_at
+  }
+  messages {
+    int id PK
+    int conversation_id FK
+    string role
+    text content
+    datetime created_at
+  }
+  food_log_entries {
+    int id PK
+    int user_id FK
+    date date
+    string name
+    float grams
+    float kcal
+    float protein_g
+    string source
+  }
+  diet_preferences {
+    int id PK
+    int user_id FK
+    json restrictions
+    json allergies
+    text goals
+  }
+  prescriptions {
+    int id PK
+    int user_id FK
+    string filename
+    string s3_url_or_path
+    text notes
+    datetime uploaded_at
+  }
+  weight_logs {
+    int id PK
+    int user_id FK
+    float weight_kg
+    datetime logged_at
+  }
+  gym_reviews {
+    int id PK
+    int user_id FK
+    int gym_id FK
+    int rating
+    text comment
+    datetime created_at
+  }
+  favorite_gyms {
+    int id PK
+    int user_id FK
+    int gym_id FK
+    datetime created_at
+  }
+  users ||--o{ conversations : has
+  conversations ||--o{ messages : contains
+  users ||--o{ food_log_entries : logs
+  users ||--o| diet_preferences : has
+  users ||--o{ prescriptions : uploads
+  users ||--o{ weight_logs : tracks
+  users ||--o{ gym_reviews : writes
+  users ||--o{ favorite_gyms : saves
+  gyms ||--o{ gym_reviews : receives
+  gyms ||--o{ favorite_gyms : saved_in
+`);
+document.getElementById('erd').innerHTML = svg;
+document.querySelectorAll('#erd svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+document.querySelectorAll('#erd svg .row-rect-odd path, #erd svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>
