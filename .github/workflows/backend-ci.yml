@@ -2,6 +2,8 @@ name: Backend CI
 
 on:
   push:
+    branches:
+      - '**'
     paths:
       - 'backend/**'
       - 'docker-compose.yml'
