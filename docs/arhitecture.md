@@ -270,80 +270,103 @@ graph TB
 ## Directory Structure
 
 ```
-fitplus/
+# 📁 Project Structure
+
+```text
+FitPlus-main/
+├── .env.example
+├── .gitignore
+├── CLAUDE.md
 ├── README.md
 ├── docker-compose.yml
-├── .github/
-│   └── workflows/
-│       ├── backend-ci.yml
-│       └── frontend-ci.yml
 │
 ├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   ├── routers/
-│   │   │   ├── auth.py
-│   │   │   ├── users.py
-│   │   │   ├── gyms.py
-│   │   │   ├── payments.py
-│   │   │   └── ai.py
-│   │   ├── services/
-│   │   │   ├── auth_service.py
-│   │   │   ├── gym_service.py
-│   │   │   ├── payment_service.py
-│   │   │   ├── llm_service.py
-│   │   │   ├── workout_agent.py
-│   │   │   └── diet_agent.py
-│   │   ├── models/
-│   │   │   ├── user.py
-│   │   │   ├── gym.py
-│   │   │   ├── subscription.py
-│   │   │   ├── conversation.py
-│   │   │   └── diet.py
-│   │   └── schemas/
-│   │       ├── user.py
-│   │       ├── gym.py
-│   │       └── ai.py
+│   ├── .env.example
+│   ├── Dockerfile
+│   ├── alembic.ini
+│   │
 │   ├── alembic/
+│   │   ├── env.py
+│   │   ├── script.py.mako
+│   │   └── versions/
+│   │
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   │
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── data/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   └── services/
+│   │
+│   ├── scripts/
+│   │   └── seed_gyms.py
+│   │
 │   ├── tests/
-│   ├── requirements.txt
-│   └── Dockerfile
+│   │   ├── conftest.py
+│   │   ├── test_ai_core_helpers.py
+│   │   ├── test_label_parser.py
+│   │   ├── test_nutrition.py
+│   │   └── test_reviews_favorites.py
+│   │
+│   ├── fix_db.py
+│   ├── pytest.ini
+│   └── requirements.txt
 │
-├── frontend/
+├── mobile/
+│   ├── .env.example
+│   ├── .gitignore
 │   ├── App.tsx
 │   ├── app.json
-│   ├── src/
-│   │   ├── screens/
-│   │   │   ├── auth/
-│   │   │   ├── home/
-│   │   │   ├── map/
-│   │   │   ├── gym/
-│   │   │   ├── payments/
-│   │   │   ├── chat/
-│   │   │   └── profile/
-│   │   ├── components/
-│   │   │   ├── ui/
-│   │   │   ├── chat/
-│   │   │   └── gym/
-│   │   ├── navigation/
-│   │   ├── store/
-│   │   ├── services/
-│   │   ├── hooks/
-│   │   └── types/
+│   ├── babel.config.js
+│   ├── index.ts
 │   ├── package.json
-│   └── tsconfig.json
+│   ├── package-lock.json
+│   ├── tsconfig.json
+│   │
+│   ├── assets/
+│   │   ├── adaptive-icon.png
+│   │   ├── favicon.png
+│   │   ├── icon.png
+│   │   └── splash-icon.png
+│   │
+│   └── src/
+│       ├── components/
+│       ├── constants/
+│       ├── hooks/
+│       ├── navigation/
+│       ├── screens/
+│       ├── services/
+│       ├── store/
+│       ├── tests/
+│       ├── types/
+│       └── utils/
 │
 └── docs/
-    ├── BACKLOG.md
-    ├── ARCHITECTURE.md
-    ├── TASK_DISTRIBUTION.md
-    ├── CONTRIBUTING.md
-    ├── AI_TOOLS_REPORT.md
+    ├── ai_tools_report.md
+    ├── arhitecture.md
+    ├── backlog.md
+    ├── contributing.md
+    ├── pgadmin_docker_setup.md
+    ├── run_project_guide.md
+    ├── task_distribution.md
+    │
     └── tasks/
-        ├── MEMBER_1.md
-        ├── MEMBER_2.md
-        ├── MEMBER_3.md
-        ├── MEMBER_4.md
-        └── MEMBER_5.md
+        ├── member1.md
+        ├── member2.md
+        ├── member3.md
+        ├── member4.md
+        └── member5.md
+```
+
+## 🏗️ Architecture Overview
+
+- **Backend:** FastAPI + SQLAlchemy + Alembic
+- **Mobile:** React Native (Expo) + TypeScript
+- **Database:** PostgreSQL with Alembic migrations
+- **Containerization:** Docker + Docker Compose
+- **Testing:** Pytest + Mobile test suite
+- **Documentation:** Stored inside `/docs`
 ```
