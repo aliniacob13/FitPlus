@@ -30,3 +30,6 @@ class User(Base):
 
     reviews: Mapped[list[GymReview]] = relationship("GymReview", back_populates="user", cascade="all, delete-orphan")
     favorites: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="user", cascade="all, delete-orphan")
+
+    conversations: Mapped[list["Conversation"]] = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")

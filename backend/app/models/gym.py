@@ -40,5 +40,7 @@ class Gym(Base):
     reviews: Mapped[list[GymReview]] = relationship("GymReview", back_populates="gym", cascade="all, delete-orphan")
     favorited_by: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="gym", cascade="all, delete-orphan")
 
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="gym", cascade="all, delete-orphan")
+
     def __repr__(self) -> str:
         return f"<Gym id={self.id} name={self.name!r}>"
