@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4o-mini"
     # Vision model used for plate coach (Phase 4). Must support image input.
     # OpenAI: gpt-4o or gpt-4o-mini  |  Anthropic: claude-3-5-sonnet-20241022
+    OLLAMA_BASE_URL: str = "http://localhost:11434/api/chat" # NEW
     VISION_LLM_MODEL: str = "gpt-4o"
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
