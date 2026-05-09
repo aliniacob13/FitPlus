@@ -313,6 +313,14 @@ export const ChatScreenBase = ({
     inputRef.current?.focus();
   }, [agentType, resetSlice]);
 
+  const handleStop = useCallback(() => {
+    abortStreamRef.current?.();
+    abortStreamRef.current = null;
+    setIsStreaming(false);
+    setIsWaiting(false);
+    streamingMsgIdRef.current = null;
+  }, []);
+
   const handleSelectConversation = useCallback(
     async (conv: Conversation) => {
       abortStreamRef.current?.();
@@ -448,6 +456,7 @@ export const ChatScreenBase = ({
               color={colors.accent.base}
               style={{ transform: [{ scale: 0.75 }] }}
             />
+
             <Text style={styles.streamingText}>AI is responding…</Text>
           </View>
         )}
@@ -469,20 +478,35 @@ export const ChatScreenBase = ({
             onSubmitEditing={() => {
               if (Platform.OS !== "web") void handleSend();
             }}
+            onKeyPress={(e: any) => {
+              if (Platform.OS === "web") {
+                const { key, shiftKey } = e.nativeEvent as KeyboardEvent;
+                if (key === "Enter" && !shiftKey) {
+                  // Prevent the newline from being inserted, then send
+                  e.nativeEvent.preventDefault?.();
+                  void handleSend();
+                }
+                // Shift+Enter: do nothing here → browser inserts newline naturally
+              }
+            }}
           />
-          <TouchableOpacity
-            style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
-            onPress={() => void handleSend()}
-            disabled={!canSend}
-            activeOpacity={0.8}
-            accessibilityLabel="Send message"
-          >
-            {isBusy ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.textPalette.inverse}
-              />
-            ) : (
+          {isBusy ? (
+            <TouchableOpacity
+              style={styles.stopBtn}
+              onPress={handleStop}
+              activeOpacity={0.8}
+              accessibilityLabel="Stop generating"
+            >
+              <View style={styles.stopIcon} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+              onPress={() => void handleSend()}
+              disabled={!canSend}
+              activeOpacity={0.8}
+              accessibilityLabel="Send message"
+            >
               <Ionicons
                 name="arrow-up"
                 size={20}
@@ -492,8 +516,8 @@ export const ChatScreenBase = ({
                     : colors.textPalette.muted
                 }
               />
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
 
@@ -645,5 +669,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.elevated,
     shadowOpacity: 0,
     elevation: 0,
+  },
+  stopBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.bg.elevated,
+    borderWidth: 2,
+    borderColor: colors.textPalette.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  stopIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 2,
+    backgroundColor: colors.textPalette.secondary,
   },
 });
