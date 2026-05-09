@@ -23,6 +23,8 @@ class LLMService:
             return await self._generate_openai(system_prompt, messages)
         if self.provider == "anthropic":
             return await self._generate_anthropic(system_prompt, messages)
+        if self.provider == "ollama":
+            return await self._generate_ollama(system_prompt, messages)
         return self._fallback_response(messages)
 
     async def generate_stream(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
@@ -33,6 +35,11 @@ class LLMService:
 
         if self.provider == "anthropic":
             async for chunk in self._stream_anthropic(system_prompt, messages):
+                yield chunk
+            return
+        
+        if self.provider == "ollama":
+            async for chunk in self._stream_ollama(system_prompt, messages):
                 yield chunk
             return
 
@@ -204,6 +211,52 @@ class LLMService:
         response = self._fallback_response(messages)
         for token in response.split(" "):
             yield f"{token} "
+
+    async def _generate_ollama(self, system_prompt: str, messages: list[dict[str, str]]) -> str:
+        if not settings.OLLAMA_BASE_URL:
+            return self._fallback_response(messages)
+
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system_prompt}, *messages],
+            "stream": False,
+        }
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                response = await client.post(settings.OLLAMA_BASE_URL, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                return data.get("message", {}).get("content", "").strip()
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"Ollama request failed: {exc}") from exc
+
+    async def _stream_ollama(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+        if not settings.OLLAMA_BASE_URL:
+            async for chunk in self._stream_fallback(messages):
+                yield chunk
+            return
+
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system_prompt}, *messages],
+            "stream": True,
+        }
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                async with client.stream("POST", settings.OLLAMA_BASE_URL, json=payload) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                            content = data.get("message", {}).get("content")
+                            if content:
+                                yield content
+                        except json.JSONDecodeError:
+                            continue
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"Ollama stream request failed: {exc}") from exc
 
     @staticmethod
     def _fallback_response(messages: list[dict[str, str]]) -> str:
