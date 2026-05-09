@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
+from app.api.payments import router as payments_router
 
 app = FastAPI(
     title="FitPlus API",
@@ -22,6 +23,8 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix="/api/v1")
+
+app.include_router(payments_router)
 
 # Mount static files for prescription images (mkdir required — e.g. fresh Docker container /tmp is empty)
 temp_prescriptions_dir = Path(gettempdir()) / "fitplus_prescriptions"
