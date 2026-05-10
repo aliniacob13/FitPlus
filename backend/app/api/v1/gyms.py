@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -35,6 +36,8 @@ from app.services.gym_pricing_import import (
 )
 from app.services.llm_service import LLMProviderError
 from app.services.pricing_plans import effective_pricing_plans
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/gyms", tags=["Gyms"])
 
@@ -263,6 +266,7 @@ async def import_gym_pricing_from_url(
     try:
         normalized, storage_rows = await import_plans_from_url(source)
     except GymPricingImportError as exc:
+        logger.warning("Gym %s pricing import failed: %s", gym_id, exc)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),

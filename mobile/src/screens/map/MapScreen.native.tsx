@@ -16,6 +16,7 @@ import { GymDetailExtended, gymApi } from "@/services/gymApi";
 import { GeocodeResult, RealGymDetail, RealGymSummary, placesApi } from "@/services/placesApi";
 import { useGymStore } from "@/store/gymStore";
 import type { AppStackParamList } from "@/types/navigation";
+import { formatApiError } from "@/utils/apiErrors";
 
 const BUCHAREST = {
   latitude: 44.4268,
@@ -155,7 +156,6 @@ export const MapScreen = () => {
       latitude: number;
       longitude: number;
       rating: number | null;
-      website: string | null;
       image_url: string | null;
     },
   ) => {
@@ -168,13 +168,20 @@ export const MapScreen = () => {
         rating: payload.rating,
         image_url: payload.image_url,
       });
-      navigation.navigate("SubscriptionPlans", {
-        gymId: detail.id,
-        gymName: detail.name,
-        website: payload.website,
-      });
-    } catch {
-      Alert.alert("Abonamente", "Nu am putut pregati sala pentru planuri. Incearca din nou.");
+      const params = { gymId: detail.id, gymName: detail.name };
+      const parentNav = navigation.getParent();
+      if (parentNav?.navigate) {
+        parentNav.navigate("SubscriptionPlans", params);
+      } else {
+        navigation.navigate("SubscriptionPlans", params);
+      }
+    } catch (e) {
+      const msg = formatApiError(e, "Nu am putut pregati sala pentru planuri.");
+      const looksNetwork = /network|timeout|refused|ECONNREFUSED|ENOTFOUND|ENETUNREACH|socket/i.test(msg);
+      const netHint = looksNetwork
+        ? "\n\nPe telefon: seteaza EXPO_PUBLIC_API_BASE_URL la IP-ul PC-ului din LAN (ex. http://192.168.1.10:8000/api/v1), nu localhost. Wi-Fi comun cu PC-ul."
+        : "";
+      Alert.alert("Abonamente", `${msg}${netHint}`);
     }
   };
 
@@ -412,7 +419,6 @@ export const MapScreen = () => {
                     latitude: gym.latitude,
                     longitude: gym.longitude,
                     rating: gym.rating,
-                    website: gym.website,
                     image_url: gym.photo_url,
                   })
                 }
@@ -466,7 +472,6 @@ export const MapScreen = () => {
                         latitude: selectedGym.latitude,
                         longitude: selectedGym.longitude,
                         rating: selectedGym.rating,
-                        website: selectedGym.website,
                         image_url: selectedGym.photo_urls[0] ?? null,
                       })
                     }

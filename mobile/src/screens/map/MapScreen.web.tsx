@@ -15,6 +15,7 @@ import { GymDetailExtended, gymApi } from "@/services/gymApi";
 import { GeocodeResult, RealGymDetail, RealGymSummary, placesApi } from "@/services/placesApi";
 import { useGymStore } from "@/store/gymStore";
 import type { AppStackParamList } from "@/types/navigation";
+import { formatApiError } from "@/utils/apiErrors";
 
 const BUCHAREST = { latitude: 44.4268, longitude: 26.1025 };
 const CITY_RADIUS_M = 25_000;
@@ -182,7 +183,6 @@ export const MapScreen = () => {
       latitude: number;
       longitude: number;
       rating: number | null;
-      website: string | null;
       image_url: string | null;
     },
   ) => {
@@ -195,13 +195,15 @@ export const MapScreen = () => {
         rating: payload.rating,
         image_url: payload.image_url,
       });
-      navigation.navigate("SubscriptionPlans", {
-        gymId: detail.id,
-        gymName: detail.name,
-        website: payload.website,
-      });
-    } catch {
-      Alert.alert("Abonamente", "Nu am putut pregati sala pentru planuri. Incearca din nou.");
+      const params = { gymId: detail.id, gymName: detail.name };
+      const parentNav = navigation.getParent();
+      if (parentNav?.navigate) {
+        parentNav.navigate("SubscriptionPlans", params);
+      } else {
+        navigation.navigate("SubscriptionPlans", params);
+      }
+    } catch (e) {
+      Alert.alert("Abonamente", formatApiError(e, "Nu am putut pregati sala pentru planuri."));
     }
   };
 
@@ -347,7 +349,6 @@ export const MapScreen = () => {
                         latitude: gym.latitude,
                         longitude: gym.longitude,
                         rating: gym.rating,
-                        website: gym.website,
                         image_url: gym.photo_url,
                       })
                     }
@@ -415,7 +416,6 @@ export const MapScreen = () => {
                         latitude: selectedGym.latitude,
                         longitude: selectedGym.longitude,
                         rating: selectedGym.rating,
-                        website: selectedGym.website,
                         image_url: selectedGym.photo_urls[0] ?? null,
                       })
                     }

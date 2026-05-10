@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 # Used when gym.pricing_plans is null/empty and fallback is enabled (DEBUG or SUBSCRIPTION_FALLBACK_PRICING).
@@ -23,13 +24,35 @@ _DEFAULT_DEMO_RAW_PLANS: list[dict[str, Any]] = [
 
 def _period_to_days(period: str) -> int:
     p = period.lower().strip()
-    if p in ("year", "annual", "yearly"):
+    if p in ("year", "annual", "yearly", "anual", "an"):
         return 365
-    if p in ("week", "weekly"):
+    if p in ("week", "weekly", "saptamana", "săptămână"):
         return 7
-    if p in ("day", "daily"):
+    if p in ("day", "daily", "zi"):
         return 1
+    if p in ("month", "monthly", "lunar", "luna", "lună"):
+        return 30
     return 30
+
+
+def _parse_price_ron_value(val: Any) -> float | None:
+    """Accept numbers or strings like '199 lei', '199,50 RON'."""
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, (int, float)):
+        x = float(val)
+        return x if x > 0 else None
+    s = str(val).strip().replace("\u00a0", " ")
+    s = re.sub(r"(?i)\s*(ron|lei|eur|€|euro|\$|usd)\s*", " ", s)
+    s = s.replace(",", ".")
+    m = re.search(r"\d+(?:\.\d+)?", s.replace(" ", ""))
+    if not m:
+        return None
+    try:
+        x = float(m.group(0))
+        return x if x > 0 else None
+    except ValueError:
+        return None
 
 
 def normalize_pricing_plans(raw: Any) -> list[dict[str, Any]]:
@@ -64,10 +87,8 @@ def normalize_pricing_plans(raw: Any) -> list[dict[str, Any]]:
             except (TypeError, ValueError):
                 cents = None
         elif p.get("price_ron") is not None:
-            try:
-                cents = int(round(float(p["price_ron"]) * 100))
-            except (TypeError, ValueError):
-                cents = None
+            parsed = _parse_price_ron_value(p.get("price_ron"))
+            cents = int(round(parsed * 100)) if parsed is not None else None
         if cents is None or cents <= 0:
             continue
 

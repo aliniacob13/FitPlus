@@ -84,7 +84,7 @@ class LLMService:
 
         payload = {
             "model": self.model,
-            "max_tokens": 900,
+            "max_tokens": 2048,
             "system": system_prompt,
             "messages": messages,
         }

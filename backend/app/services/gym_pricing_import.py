@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -12,6 +13,8 @@ from bs4 import BeautifulSoup
 from app.core.config import settings
 from app.services.llm_service import LLMService
 from app.services.pricing_plans import normalize_pricing_plans
+
+logger = logging.getLogger(__name__)
 
 
 class GymPricingImportError(Exception):
@@ -21,6 +24,47 @@ class GymPricingImportError(Exception):
 def _http_url_ok(url: str) -> bool:
     p = urlparse(url.strip())
     return p.scheme in ("http", "https") and bool(p.netloc)
+
+
+def _candidate_pricing_urls(seed: str) -> list[str]:
+    """
+    Gym websites from Google often point at a branch landing page without prices.
+    Try the same origin + common Romanian / fitness paths.
+    """
+    seed = seed.strip()
+    parsed = urlparse(seed)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return [seed]
+
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    extra_paths = (
+        "/",
+        "/abonamente",
+        "/tarife",
+        "/preturi",
+        "/pret",
+        "/membership",
+        "/pricing",
+        "/oferta",
+        "/club/abonamente",
+        "/inscrieri",
+        "/planuri",
+    )
+
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add(u: str) -> None:
+        u = u.strip()
+        if not u or u in seen:
+            return
+        seen.add(u)
+        out.append(u)
+
+    add(seed)
+    for path in extra_paths:
+        add(urljoin(origin + "/", path.lstrip("/")))
+    return out
 
 
 def llm_usable_for_import() -> bool:
@@ -34,16 +78,31 @@ def llm_usable_for_import() -> bool:
     return False
 
 
+def _looks_like_html(raw: bytes) -> bool:
+    sample = raw[:4000].lstrip().lower()
+    if sample.startswith(b"<!doctype html") or sample.startswith(b"<html"):
+        return True
+    head = sample[:3500]
+    return (
+        b"<body" in head
+        or b"<main" in head
+        or b"<article" in head
+        or b"<section" in head
+        or (b"<div" in head and len(sample) > 200)
+    )
+
+
 async def fetch_page_plain_text(url: str) -> str:
     """Download HTML and reduce to plain text (bounded size)."""
     max_bytes = settings.GYM_PRICING_IMPORT_MAX_BYTES
     max_chars = settings.GYM_PRICING_IMPORT_MAX_TEXT_CHARS
     headers = {
+        # Many gym sites block non-browser clients; keep import identifiable but browser-like.
         "User-Agent": (
-            "FitPlusPricingImport/1.0 (+https://github.com/) "
-            "backend-only extraction for displayed membership info"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 FitPlusPricingImport/1.0"
         ),
-        "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "ro-RO,ro;q=0.9,en;q=0.8",
     }
     async with httpx.AsyncClient(follow_redirects=True, timeout=25.0) as client:
@@ -57,17 +116,30 @@ async def fetch_page_plain_text(url: str) -> str:
 
         raw = response.content[:max_bytes]
         ctype = response.headers.get("content-type", "").lower()
-        if "html" not in ctype and "text/" not in ctype and ctype:
-            raise GymPricingImportError("URL did not return HTML/text content.")
+        looks_html = _looks_like_html(raw)
+        if (
+            ctype
+            and "html" not in ctype
+            and "text/plain" not in ctype
+            and "xml" not in ctype
+            and not looks_html
+        ):
+            raise GymPricingImportError(
+                f"Raspunsul nu pare HTML (Content-Type: {ctype or 'lipsa'}). "
+                "Foloseste un URL https care intoarce pagina de tarife, nu un fisier PDF/API."
+            )
 
-    html = raw.decode(response.encoding or "utf-8", errors="replace")
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "noscript", "svg"]):
-        tag.decompose()
-    text = soup.get_text(separator="\n")
-    lines = (ln.strip() for ln in text.splitlines())
-    collapsed = "\n".join(ln for ln in lines if ln)
-    return collapsed[:max_chars]
+        encoding = response.encoding or "utf-8"
+        html = raw.decode(encoding, errors="replace")
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "noscript", "svg"]):
+            tag.decompose()
+        raw_text = soup.get_text(separator="\n")
+        lines = (ln.strip() for ln in raw_text.splitlines())
+        collapsed = "\n".join(ln for ln in lines if ln)
+        out = collapsed[:max_chars]
+        logger.debug("gym pricing import: fetched %s chars plain text from %s", len(out), url)
+        return out
 
 
 def _strip_markdown_fence(text: str) -> str:
@@ -124,23 +196,81 @@ def normalized_plans_to_storage_rows(normalized: list[dict[str, Any]]) -> list[d
     return rows
 
 
-_SYSTEM_PROMPT = """You extract gym membership pricing from plain text scraped from a webpage.
+_SYSTEM_PROMPT = """You extract gym membership pricing from plain text scraped from one or more webpages (possibly Romanian).
 Rules:
 - Output ONLY a JSON array (no markdown fences, no commentary).
-- Each element is an object with keys: "name" (string), "price_ron" (number in Romanian lei),
+- Each element is an object with keys: "name" (string), "price_ron" (number only — Romanian lei per billing period),
   "period" (one of: "month", "year", "week", "day"), "features" (array of short strings).
+- price_ron must be a JSON number like 199 or 249.5, never a string.
+- Look for wording like: abonament, membru, membership, pret, tarif, lei, RON, lunar, anual, intrare, pachet.
+- One object per distinct paid tier (e.g. Basic vs Premium). Merge duplicate lines.
 - Include only plans clearly stated in the text. Never invent prices.
-- If prices are only in EUR, convert approximately to RON using a reasonable rate and mention "(approx EUR→RON)" in a feature string.
+- If prices are only in EUR, convert approximately to RON and add "(approx EUR→RON)" in a feature string.
 - If there are no membership prices in the text, output [].
 """
+
+
+async def _collect_merged_page_text(seed_url: str) -> tuple[str, list[str]]:
+    """Fetch seed URL plus common paths; merge longest excerpts for the LLM."""
+    budget = settings.GYM_PRICING_IMPORT_MAX_TEXT_CHARS
+    chunks: list[tuple[str, str]] = []
+    last_errors: list[str] = []
+
+    for u in _candidate_pricing_urls(seed_url):
+        try:
+            text = await fetch_page_plain_text(u)
+            n = len(text.strip())
+            if n >= 35:
+                chunks.append((u, text))
+                logger.info("gym pricing import: %s chars from %s", n, u)
+        except GymPricingImportError as exc:
+            last_errors.append(f"{u}: {exc}")
+
+    if not chunks:
+        tail = " | ".join(last_errors[:4]) if last_errors else "nicio pagina nu a putut fi citita"
+        raise GymPricingImportError(
+            "Nu s-a putut descarca continut HTML util de pe site sau din paginile uzuale "
+            "(/abonamente, /tarife, /preturi). "
+            f"Detalii: {tail}"
+        )
+
+    chunks.sort(key=lambda c: len(c[1]), reverse=True)
+    merged_parts: list[str] = []
+    total = 0
+    used_urls: list[str] = []
+    for u, text in chunks[:5]:
+        header = f"\n\n=== SURSA: {u} ===\n\n"
+        block = header + text
+        room = budget - total
+        if room <= 0:
+            break
+        if len(block) > room:
+            block = block[:room]
+        merged_parts.append(block)
+        used_urls.append(u)
+        total += len(block)
+        if total >= budget:
+            break
+
+    merged = "".join(merged_parts).strip()
+    return merged, used_urls
 
 
 async def suggest_plans_from_page_text(*, page_text: str, source_url: str) -> list[dict[str, Any]]:
     llm = LLMService()
     user_content = f"Source URL: {source_url}\n\n--- PAGE TEXT ---\n{page_text}"
     reply = await llm.generate(_SYSTEM_PROMPT, [{"role": "user", "content": user_content}])
-    parsed = parse_llm_json_plans(reply)
+    try:
+        parsed = parse_llm_json_plans(reply)
+    except GymPricingImportError:
+        logger.warning("gym pricing import: LLM JSON parse failed; preview=%r", reply[:600])
+        raise
     normalized = normalize_pricing_plans(parsed)
+    if parsed and not normalized:
+        logger.warning(
+            "gym pricing import: LLM returned %s row(s) but none normalized to valid RON prices",
+            len(parsed),
+        )
     return normalized
 
 
@@ -152,13 +282,28 @@ async def import_plans_from_url(url: str) -> tuple[list[dict[str, Any]], list[di
     if not _http_url_ok(url):
         raise GymPricingImportError("Invalid URL (only http/https allowed).")
 
-    page_text = await fetch_page_plain_text(url)
-    if len(page_text.strip()) < 80:
-        raise GymPricingImportError("Page text too short — page may be empty or JavaScript-only.")
+    page_text, used_urls = await _collect_merged_page_text(url)
+    stripped = page_text.strip()
+    if len(stripped) < 70:
+        raise GymPricingImportError(
+            f"Dupa mai multe incercari pe site, textul extras ramane prea scurt ({len(stripped)} caractere). "
+            "Probabil tarifele sunt doar in imagini sau incarcate cu JavaScript. "
+            "Deschide in aplicatie un URL catre pagina unde preturile sunt text selectabil, sau completeaza manual in DB."
+        )
 
-    normalized = await suggest_plans_from_page_text(page_text=page_text, source_url=url)
+    source_hint = url if url in used_urls else url
+    pages_hint = ", ".join(used_urls[:6])
+    normalized = await suggest_plans_from_page_text(
+        page_text=page_text,
+        source_url=f"{source_hint} | pagini folosite: {pages_hint}",
+    )
     if not normalized:
-        raise GymPricingImportError("No valid membership plans could be extracted.")
+        raise GymPricingImportError(
+            "Nu s-au gasit planuri cu pret RON valid in textul extras. "
+            "Continutul nu mentioneaza tarife clare (sau sunt doar in imagini). "
+            f"Pagini incercate: {pages_hint}. "
+            "Poti trimite in API corpul JSON {\"url\": \"https://...pagina-tarife...\"} catre o pagina concreta."
+        )
 
     storage = normalized_plans_to_storage_rows(normalized)
     return normalized, storage

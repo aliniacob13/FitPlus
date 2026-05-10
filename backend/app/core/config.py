@@ -53,7 +53,7 @@ class Settings(BaseSettings):
 
     # POST /gyms/{id}/pricing/import-from-url — HTML fetch limits (bytes before decode, chars sent to LLM).
     GYM_PRICING_IMPORT_MAX_BYTES: int = 1_500_000
-    GYM_PRICING_IMPORT_MAX_TEXT_CHARS: int = 14_000
+    GYM_PRICING_IMPORT_MAX_TEXT_CHARS: int = 18_000
 
     # Maps / Places
     GOOGLE_MAPS_API_KEY: str = ""
