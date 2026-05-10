@@ -59,7 +59,7 @@ async def client(db: AsyncSession):
 @pytest_asyncio.fixture
 async def test_user(db: AsyncSession) -> User:
     user = User(
-        email="test_reviews_favorites@fitplus.test",
+        email="test_reviews_favorites@example.com",
         password_hash=hash_password("TestPass123!"),
         name="Test User",
     )
@@ -90,7 +90,7 @@ async def test_gym(db: AsyncSession) -> Gym:
 async def second_user(db: AsyncSession) -> User:
     """A second authenticated user for multi-user scenarios."""
     user = User(
-        email="test_second_user@fitplus.test",
+        email="test_second_user@example.com",
         password_hash=hash_password("TestPass123!"),
         name="Second User",
     )

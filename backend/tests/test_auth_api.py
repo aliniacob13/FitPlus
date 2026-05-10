@@ -11,7 +11,7 @@ from httpx import AsyncClient
 
 class TestAuthRegister:
     async def test_register_returns_tokens(self, client: AsyncClient) -> None:
-        email = f"register_{uuid.uuid4().hex[:12]}@fitplus.test"
+        email = f"register_{uuid.uuid4().hex[:12]}@example.com"
         response = await client.post(
             "/api/v1/auth/register",
             json={"email": email, "password": "SecurePass123!"},
