@@ -14,7 +14,8 @@ pydantic-settings==2.6.1
 email-validator==2.2.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.2.1
+# bcrypt 4.1+ dropped __about__; passlib 1.7.4 still expects it (noisy errors verifying hashes).
+bcrypt==4.0.1
 
 # Multipart / file upload
 python-multipart==0.0.20

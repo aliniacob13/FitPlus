@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -18,6 +19,30 @@ AsyncSessionLocal = async_sessionmaker(
 
 class Base(DeclarativeBase):
     pass
+
+
+async def ensure_conversations_updated_at_column() -> None:
+    """If DB predates Alembic 0015 (e.g. image never rebuilt), add missing ORM column."""
+    stmt = text(
+        """
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'conversations'
+              AND column_name = 'updated_at'
+          ) THEN
+            ALTER TABLE conversations
+              ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+            UPDATE conversations SET updated_at = created_at;
+          END IF;
+        END $$;
+        """
+    )
+    async with engine.begin() as conn:
+        await conn.execute(stmt)
 
 
 async def get_db() -> AsyncSession:  # type: ignore[return]

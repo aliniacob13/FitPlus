@@ -1,17 +1,28 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+from tempfile import gettempdir
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from tempfile import gettempdir
-from pathlib import Path
 
+from app.api.payments import router as payments_router
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
-from app.api.payments import router as payments_router
+from app.core.database import ensure_conversations_updated_at_column
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001 — FastAPI signature
+    await ensure_conversations_updated_at_column()
+    yield
+
 
 app = FastAPI(
     title="FitPlus API",
     version="0.1.0",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
