@@ -207,7 +207,7 @@ export const MapScreen = () => {
     }
   };
 
-  const useManualLocation = async () => {
+  const applyManualLocation = async () => {
     const query = manualLocation.trim();
     if (!query) { setError("Introdu un oras sau o adresa."); return; }
     setLoadingManualLocation(true);
@@ -288,7 +288,7 @@ export const MapScreen = () => {
             onChangeText={setManualLocation}
             placeholder="Ex: Iasi, Romania"
           />
-          <Button label="Foloseste locatia introdusa" onPress={() => void useManualLocation()} loading={loadingManualLocation} />
+          <Button label="Foloseste locatia introdusa" onPress={() => void applyManualLocation()} loading={loadingManualLocation} />
           <Button label="Incarca sali reale din zona" onPress={() => void loadNearby()} loading={loading} />
           {error ? <ErrorState message={error} /> : null}
 

@@ -190,7 +190,7 @@ export const MapScreen = () => {
     centerMap(userLocation.latitude, userLocation.longitude);
   };
 
-  const useManualLocation = async () => {
+  const applyManualLocation = async () => {
     const query = manualLocation.trim();
     if (!query) { setError("Introdu un oras sau o adresa."); return; }
     setLoadingManualLocation(true);
@@ -332,7 +332,7 @@ export const MapScreen = () => {
         />
         <View style={styles.actions}>
           <Button label="Locatia mea" onPress={() => void loadLocation()} loading={loadingLocation} />
-          <Button label="Foloseste locatia introdusa" onPress={() => void useManualLocation()} loading={loadingManualLocation} />
+          <Button label="Foloseste locatia introdusa" onPress={() => void applyManualLocation()} loading={loadingManualLocation} />
           <Button label="Recenter" onPress={recenterOnUser} />
           <Button label="Sali in zona hartii" onPress={() => void loadNearby()} loading={loadingNearby} />
         </View>
