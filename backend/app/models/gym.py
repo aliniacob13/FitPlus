@@ -20,7 +20,7 @@ class Gym(Base):
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     opening_hours: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     equipment: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     pricing_plans: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
@@ -41,6 +41,7 @@ class Gym(Base):
     favorited_by: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="gym", cascade="all, delete-orphan")
 
     subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="gym", cascade="all, delete-orphan")
+    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="gym", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Gym id={self.id} name={self.name!r}>"

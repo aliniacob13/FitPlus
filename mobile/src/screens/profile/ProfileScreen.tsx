@@ -23,7 +23,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useUserStore } from "@/store/userStore";
 import { AppStackParamList } from "@/types/navigation";
 
-type NavProp = NativeStackNavigationProp<AppStackParamList, "MainTabs">;
+type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -437,6 +437,14 @@ export const ProfileScreen = () => {
             label="Full Edit Screen"
             description="Update all profile fields"
             onPress={() => navigation.navigate("UpdateProfile")}
+          />
+          <NavRowDivider />
+          <NavRow
+            icon="card-outline"
+            iconColor={colors.success}
+            label="My subscriptions"
+            description="Gym memberships via Stripe"
+            onPress={() => navigation.navigate("MySubscriptions")}
           />
           <NavRowDivider />
           <NavRow

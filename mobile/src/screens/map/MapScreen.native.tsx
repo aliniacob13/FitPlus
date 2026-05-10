@@ -2,6 +2,8 @@ import * as Location from "expo-location";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -13,6 +15,8 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { GymDetailExtended, gymApi } from "@/services/gymApi";
 import { GeocodeResult, RealGymDetail, RealGymSummary, placesApi } from "@/services/placesApi";
 import { useGymStore } from "@/store/gymStore";
+import type { AppStackParamList } from "@/types/navigation";
+import { formatApiError } from "@/utils/apiErrors";
 
 const BUCHAREST = {
   latitude: 44.4268,
@@ -23,7 +27,10 @@ const BUCHAREST = {
 const CITY_RADIUS_M = 25_000;
 const RATING_OPTIONS = [0, 3.0, 3.5, 4.0, 4.5] as const;
 
+type StackNav = NativeStackNavigationProp<AppStackParamList>;
+
 export const MapScreen = () => {
+  const navigation = useNavigation<StackNav>();
   const mapRef = useRef<MapView | null>(null);
   const heartScale = useRef(new Animated.Value(1)).current;
 
@@ -138,6 +145,43 @@ export const MapScreen = () => {
       setError("Nu am putut incarca detaliile salii.");
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const openSubscriptionPlansForPlace = async (
+    placeId: string,
+    payload: {
+      name: string;
+      address: string | null;
+      latitude: number;
+      longitude: number;
+      rating: number | null;
+      image_url: string | null;
+    },
+  ) => {
+    try {
+      const detail = await gymApi.resolvePlaceToDbGym(placeId, {
+        name: payload.name,
+        address: payload.address,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        rating: payload.rating,
+        image_url: payload.image_url,
+      });
+      const params = { gymId: detail.id, gymName: detail.name };
+      const parentNav = navigation.getParent();
+      if (parentNav?.navigate) {
+        parentNav.navigate("SubscriptionPlans", params);
+      } else {
+        navigation.navigate("SubscriptionPlans", params);
+      }
+    } catch (e) {
+      const msg = formatApiError(e, "Nu am putut pregati sala pentru planuri.");
+      const looksNetwork = /network|timeout|refused|ECONNREFUSED|ENOTFOUND|ENETUNREACH|socket/i.test(msg);
+      const netHint = looksNetwork
+        ? "\n\nPe telefon: seteaza EXPO_PUBLIC_API_BASE_URL la IP-ul PC-ului din LAN (ex. http://192.168.1.10:8000/api/v1), nu localhost. Wi-Fi comun cu PC-ul."
+        : "";
+      Alert.alert("Abonamente", `${msg}${netHint}`);
     }
   };
 
@@ -356,13 +400,32 @@ export const MapScreen = () => {
         <Text style={styles.nearestTitle}>Cele mai apropiate sali</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {nearestGyms.map((gym) => (
-            <Pressable key={gym.place_id} style={styles.nearestCard} onPress={() => void openDetail(gym)}>
-              <Text style={styles.nearestName} numberOfLines={1}>{gym.name}</Text>
-              <Text style={styles.nearestMeta}>
-                {gym.distance_m ? `${(gym.distance_m / 1000).toFixed(2)} km` : "N/A"}{" "}
-                {gym.rating ? `| ${gym.rating.toFixed(1)}★` : ""}
-              </Text>
-            </Pressable>
+            <View key={gym.place_id} style={styles.nearestCard}>
+              <Pressable style={styles.nearestCardMain} onPress={() => void openDetail(gym)}>
+                <Text style={styles.nearestName} numberOfLines={1}>
+                  {gym.name}
+                </Text>
+                <Text style={styles.nearestMeta}>
+                  {gym.distance_m ? `${(gym.distance_m / 1000).toFixed(2)} km` : "N/A"}{" "}
+                  {gym.rating ? `| ${gym.rating.toFixed(1)}★` : ""}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.nearestPlansBtn}
+                onPress={() =>
+                  void openSubscriptionPlansForPlace(gym.place_id, {
+                    name: gym.name,
+                    address: gym.address,
+                    latitude: gym.latitude,
+                    longitude: gym.longitude,
+                    rating: gym.rating,
+                    image_url: gym.photo_url,
+                  })
+                }
+              >
+                <Text style={styles.nearestPlansLabel}>Abonamente</Text>
+              </Pressable>
+            </View>
           ))}
         </ScrollView>
       </View>
@@ -401,6 +464,21 @@ export const MapScreen = () => {
                       <Text style={styles.website}>Website oficial</Text>
                     </Pressable>
                   ) : null}
+                  <Pressable
+                    onPress={() =>
+                      void openSubscriptionPlansForPlace(selectedGym.place_id, {
+                        name: selectedGym.name,
+                        address: selectedGym.address,
+                        latitude: selectedGym.latitude,
+                        longitude: selectedGym.longitude,
+                        rating: selectedGym.rating,
+                        image_url: selectedGym.photo_urls[0] ?? null,
+                      })
+                    }
+                    style={styles.subscriptionPlansLink}
+                  >
+                    <Text style={styles.subscriptionPlansLinkText}>Planuri / abonamente</Text>
+                  </Pressable>
                   <View style={styles.directionRow}>
                     <Button label="Cum ajung (pe jos)" onPress={() => openDirections("walking")} />
                     <Button label="Cum ajung (auto)" onPress={() => openDirections("driving")} />
@@ -533,11 +611,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    borderRadius: 999,
+    borderRadius: radius.card,
+    marginRight: spacing.sm,
+    minWidth: 188,
+    overflow: "hidden",
+  },
+  nearestCardMain: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginRight: spacing.sm,
-    minWidth: 180,
+  },
+  nearestPlansBtn: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+    backgroundColor: colors.accent.muted,
+  },
+  nearestPlansLabel: {
+    color: colors.accent.base,
+    fontWeight: "700",
+    fontSize: 13,
   },
   nearestName: {
     color: colors.text,
@@ -556,6 +649,15 @@ const styles = StyleSheet.create({
   website: {
     color: colors.primary,
     fontWeight: "700",
+  },
+  subscriptionPlansLink: {
+    alignSelf: "flex-start",
+    paddingVertical: spacing.xs,
+  },
+  subscriptionPlansLinkText: {
+    color: colors.accent.base,
+    fontWeight: "700",
+    fontSize: 15,
   },
   directionRow: {
     gap: spacing.sm,
