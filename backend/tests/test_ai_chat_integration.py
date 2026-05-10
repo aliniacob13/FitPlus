@@ -5,12 +5,11 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select
-
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
+from httpx import AsyncClient
+from sqlalchemy import select
 
 
 class TestWorkoutChatJson:
@@ -121,7 +120,10 @@ class TestConversationGuards:
             json={"message": "Salut", "conversation_id": conv.id},
         )
         assert response.status_code == 400
-        assert "workout" in response.json()["detail"].lower() or "agent" in response.json()["detail"].lower()
+        assert (
+            "workout" in response.json()["detail"].lower()
+            or "agent" in response.json()["detail"].lower()
+        )
 
     async def test_messages_for_other_users_conversation_returns_404(
         self,
@@ -158,9 +160,7 @@ class TestWorkoutChatStream:
         ) as response:
             assert response.status_code == 200
             async for line in response.aiter_lines():
-                if line.startswith("event:"):
-                    collected.append(line.split(":", 1)[1].strip())
-                elif line.startswith("data:"):
+                if line.startswith("event:") or line.startswith("data:"):
                     collected.append(line.split(":", 1)[1].strip())
 
         assert "chunk" in collected

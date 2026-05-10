@@ -2,7 +2,6 @@ import json
 from collections.abc import AsyncIterator
 
 import httpx
-
 from app.core.config import settings
 
 
@@ -27,7 +26,9 @@ class LLMService:
             return await self._generate_ollama(system_prompt, messages)
         return self._fallback_response(messages)
 
-    async def generate_stream(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    async def generate_stream(
+        self, system_prompt: str, messages: list[dict[str, str]]
+    ) -> AsyncIterator[str]:
         if self.provider == "openai":
             async for chunk in self._stream_openai(system_prompt, messages):
                 yield chunk
@@ -37,7 +38,7 @@ class LLMService:
             async for chunk in self._stream_anthropic(system_prompt, messages):
                 yield chunk
             return
-        
+
         if self.provider == "ollama":
             async for chunk in self._stream_ollama(system_prompt, messages):
                 yield chunk
@@ -112,7 +113,9 @@ class LLMService:
             data = response.json()
             return "".join(block.get("text", "") for block in data.get("content", [])).strip()
 
-    async def _stream_openai(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    async def _stream_openai(
+        self, system_prompt: str, messages: list[dict[str, str]]
+    ) -> AsyncIterator[str]:
         if not settings.OPENAI_API_KEY:
             async for chunk in self._stream_fallback(messages):
                 yield chunk
@@ -159,7 +162,9 @@ class LLMService:
             except httpx.HTTPError as exc:
                 raise LLMProviderError(f"OpenAI stream request failed: {exc}") from exc
 
-    async def _stream_anthropic(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    async def _stream_anthropic(
+        self, system_prompt: str, messages: list[dict[str, str]]
+    ) -> AsyncIterator[str]:
         if not settings.ANTHROPIC_API_KEY:
             async for chunk in self._stream_fallback(messages):
                 yield chunk
@@ -230,7 +235,9 @@ class LLMService:
             except httpx.HTTPError as exc:
                 raise LLMProviderError(f"Ollama request failed: {exc}") from exc
 
-    async def _stream_ollama(self, system_prompt: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    async def _stream_ollama(
+        self, system_prompt: str, messages: list[dict[str, str]]
+    ) -> AsyncIterator[str]:
         if not settings.OLLAMA_BASE_URL:
             async for chunk in self._stream_fallback(messages):
                 yield chunk
@@ -243,7 +250,9 @@ class LLMService:
         }
         async with httpx.AsyncClient(timeout=60) as client:
             try:
-                async with client.stream("POST", settings.OLLAMA_BASE_URL, json=payload) as response:
+                async with client.stream(
+                    "POST", settings.OLLAMA_BASE_URL, json=payload
+                ) as response:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if not line:
@@ -265,8 +274,7 @@ class LLMService:
             "",
         )
         return (
-            "LLM provider is not configured yet. "
-            f"Received your message: {latest_user_message}"
+            "LLM provider is not configured yet. " f"Received your message: {latest_user_message}"
         )
 
     @staticmethod

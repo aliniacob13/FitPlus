@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field, field_validator
 class NearbyQueryParams(BaseModel):
     latitude: float = Field(..., ge=-90.0, le=90.0, description="Latitudine (grade zecimale)")
     longitude: float = Field(..., ge=-180.0, le=180.0, description="Longitudine (grade zecimale)")
-    radius_m: float = Field(5000.0, gt=0, le=50_000, description="Rază de căutare în metri (max 50 km)")
+    radius_m: float = Field(
+        5000.0, gt=0, le=50_000, description="Rază de căutare în metri (max 50 km)"
+    )
 
     @field_validator("radius_m")
     @classmethod
@@ -36,6 +38,7 @@ class GymResponse(BaseModel):
 
 # ── Review schemas ────────────────────────────────────────────────────────────
 
+
 class GymReviewCreate(BaseModel):
     rating: int = Field(..., ge=1, le=5, description="Rating from 1 (worst) to 5 (best)")
     comment: str | None = Field(default=None, max_length=2000)
@@ -54,6 +57,7 @@ class GymReviewResponse(BaseModel):
 
 # ── Favorite schemas ──────────────────────────────────────────────────────────
 
+
 class FavoriteGymResponse(BaseModel):
     favorite_id: int
     gym_id: int
@@ -70,6 +74,7 @@ class FavoriteGymResponse(BaseModel):
 
 # ── Resolve payload (fallback gym data sent from mobile) ─────────────────────
 
+
 class GymResolvePayload(BaseModel):
     name: str = Field(..., min_length=1, max_length=500)
     address: str | None = None
@@ -80,6 +85,7 @@ class GymResolvePayload(BaseModel):
 
 
 # ── Gym detail (enriched with reviews + favorite state) ──────────────────────
+
 
 class GymDetailResponse(BaseModel):
     id: int

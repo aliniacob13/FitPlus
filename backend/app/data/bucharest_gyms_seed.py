@@ -20,8 +20,18 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         },
         "equipment": ["squat_rack", "bench", "dumbbells", "treadmills", "cables", "sauna"],
         "pricing_plans": [
-            {"name": "Basic", "price_ron": 149, "period": "month", "features": ["acces sali", "locker"]},
-            {"name": "Pro", "price_ron": 219, "period": "month", "features": ["acces sali", "grup mic", "proteina 1x/luna"]},
+            {
+                "name": "Basic",
+                "price_ron": 149,
+                "period": "month",
+                "features": ["acces sali", "locker"],
+            },
+            {
+                "name": "Pro",
+                "price_ron": 219,
+                "period": "month",
+                "features": ["acces sali", "grup mic", "proteina 1x/luna"],
+            },
         ],
         "review_count": 128,
     },
@@ -35,11 +45,35 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4522,
         "longitude": 26.0859,
-        "opening_hours": {"mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00", "thu": "07:00-22:00", "fri": "07:00-21:00", "sat": "09:00-18:00", "sun": "10:00-16:00"},
-        "equipment": ["power_rack", "deadlift_platform", "calibrated_plates", "ghd", "assault_bike"],
+        "opening_hours": {
+            "mon": "07:00-22:00",
+            "tue": "07:00-22:00",
+            "wed": "07:00-22:00",
+            "thu": "07:00-22:00",
+            "fri": "07:00-21:00",
+            "sat": "09:00-18:00",
+            "sun": "10:00-16:00",
+        },
+        "equipment": [
+            "power_rack",
+            "deadlift_platform",
+            "calibrated_plates",
+            "ghd",
+            "assault_bike",
+        ],
         "pricing_plans": [
-            {"name": "Open Gym", "price_ron": 179, "period": "month", "features": ["acces nelimitat"]},
-            {"name": "Coaching", "price_ron": 399, "period": "month", "features": ["4 sedinte", "program personalizat"]},
+            {
+                "name": "Open Gym",
+                "price_ron": 179,
+                "period": "month",
+                "features": ["acces nelimitat"],
+            },
+            {
+                "name": "Coaching",
+                "price_ron": 399,
+                "period": "month",
+                "features": ["4 sedinte", "program personalizat"],
+            },
         ],
         "review_count": 86,
     },
@@ -53,11 +87,29 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4780,
         "longitude": 26.0880,
-        "opening_hours": {"mon": "06:30-22:30", "tue": "06:30-22:30", "wed": "06:30-22:30", "thu": "06:30-22:30", "fri": "06:30-21:30", "sat": "08:00-18:00", "sun": "09:00-16:00"},
+        "opening_hours": {
+            "mon": "06:30-22:30",
+            "tue": "06:30-22:30",
+            "wed": "06:30-22:30",
+            "thu": "06:30-22:30",
+            "fri": "06:30-21:30",
+            "sat": "08:00-18:00",
+            "sun": "09:00-16:00",
+        },
         "equipment": ["rowers", "skierg", "kettlebells", "trx", "assault_runner", "yoga_mats"],
         "pricing_plans": [
-            {"name": "Class Pack 10", "price_ron": 220, "period": "one_time", "features": ["10 clase"]},
-            {"name": "Unlimited", "price_ron": 259, "period": "month", "features": ["clase nelimitate"]},
+            {
+                "name": "Class Pack 10",
+                "price_ron": 220,
+                "period": "one_time",
+                "features": ["10 clase"],
+            },
+            {
+                "name": "Unlimited",
+                "price_ron": 259,
+                "period": "month",
+                "features": ["clase nelimitate"],
+            },
         ],
         "review_count": 204,
     },
@@ -71,9 +123,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4115,
         "longitude": 26.1035,
-        "opening_hours": {"mon": "06:00-23:30", "tue": "06:00-23:30", "wed": "06:00-23:30", "thu": "06:00-23:30", "fri": "06:00-23:00", "sat": "08:00-20:00", "sun": "08:00-20:00"},
+        "opening_hours": {
+            "mon": "06:00-23:30",
+            "tue": "06:00-23:30",
+            "wed": "06:00-23:30",
+            "thu": "06:00-23:30",
+            "fri": "06:00-23:00",
+            "sat": "08:00-20:00",
+            "sun": "08:00-20:00",
+        },
         "equipment": ["treadmills", "ellipticals", "bikes", "machines", "free_weights"],
-        "pricing_plans": [{"name": "Student", "price_ron": 99, "period": "month", "features": ["acces off-peak"]}],
+        "pricing_plans": [
+            {"name": "Student", "price_ron": 99, "period": "month", "features": ["acces off-peak"]}
+        ],
         "review_count": 54,
     },
     {
@@ -86,9 +148,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4150,
         "longitude": 26.0320,
-        "opening_hours": {"mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00", "thu": "07:00-22:00", "fri": "07:00-21:00", "sat": "09:00-17:00", "sun": "closed"},
+        "opening_hours": {
+            "mon": "07:00-22:00",
+            "tue": "07:00-22:00",
+            "wed": "07:00-22:00",
+            "thu": "07:00-22:00",
+            "fri": "07:00-21:00",
+            "sat": "09:00-17:00",
+            "sun": "closed",
+        },
         "equipment": ["smith_machine", "cables", "dumbbells", "leg_press"],
-        "pricing_plans": [{"name": "Standard", "price_ron": 129, "period": "month", "features": ["acces sali"]}],
+        "pricing_plans": [
+            {"name": "Standard", "price_ron": 129, "period": "month", "features": ["acces sali"]}
+        ],
         "review_count": 33,
     },
     {
@@ -101,9 +173,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.5080,
         "longitude": 26.1260,
-        "opening_hours": {"mon": "06:00-22:00", "tue": "06:00-22:00", "wed": "06:00-22:00", "thu": "06:00-22:00", "fri": "06:00-21:00", "sat": "09:00-15:00", "sun": "closed"},
+        "opening_hours": {
+            "mon": "06:00-22:00",
+            "tue": "06:00-22:00",
+            "wed": "06:00-22:00",
+            "thu": "06:00-22:00",
+            "fri": "06:00-21:00",
+            "sat": "09:00-15:00",
+            "sun": "closed",
+        },
         "equipment": ["assault_bike", "rowers", "sled", "battle_ropes", "kettlebells"],
-        "pricing_plans": [{"name": "Corporate", "price_ron": 199, "period": "month", "features": ["acces", "1 consultatie"]}],
+        "pricing_plans": [
+            {
+                "name": "Corporate",
+                "price_ron": 199,
+                "period": "month",
+                "features": ["acces", "1 consultatie"],
+            }
+        ],
         "review_count": 71,
     },
     {
@@ -116,9 +203,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1593079831268-3381b0db4a77?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.5165,
         "longitude": 26.0840,
-        "opening_hours": {"mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00", "thu": "07:00-22:00", "fri": "07:00-21:00", "sat": "08:00-16:00", "sun": "10:00-14:00"},
+        "opening_hours": {
+            "mon": "07:00-22:00",
+            "tue": "07:00-22:00",
+            "wed": "07:00-22:00",
+            "thu": "07:00-22:00",
+            "fri": "07:00-21:00",
+            "sat": "08:00-16:00",
+            "sun": "10:00-14:00",
+        },
         "equipment": ["squat_rack", "pullup_rig", "dumbbells", "turf_track"],
-        "pricing_plans": [{"name": "Open", "price_ron": 169, "period": "month", "features": ["acces"]}],
+        "pricing_plans": [
+            {"name": "Open", "price_ron": 169, "period": "month", "features": ["acces"]}
+        ],
         "review_count": 44,
     },
     {
@@ -131,9 +228,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4195,
         "longitude": 26.1435,
-        "opening_hours": {"mon": "06:30-23:00", "tue": "06:30-23:00", "wed": "06:30-23:00", "thu": "06:30-23:00", "fri": "06:30-22:00", "sat": "08:00-18:00", "sun": "09:00-16:00"},
+        "opening_hours": {
+            "mon": "06:30-23:00",
+            "tue": "06:30-23:00",
+            "wed": "06:30-23:00",
+            "thu": "06:30-23:00",
+            "fri": "06:30-22:00",
+            "sat": "08:00-18:00",
+            "sun": "09:00-16:00",
+        },
         "equipment": ["machines", "dumbbells", "treadmills"],
-        "pricing_plans": [{"name": "Basic", "price_ron": 89, "period": "month", "features": ["acces"]}],
+        "pricing_plans": [
+            {"name": "Basic", "price_ron": 89, "period": "month", "features": ["acces"]}
+        ],
         "review_count": 19,
     },
     {
@@ -146,9 +253,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4010,
         "longitude": 26.0955,
-        "opening_hours": {"mon": "08:00-22:00", "tue": "08:00-22:00", "wed": "08:00-22:00", "thu": "08:00-22:00", "fri": "08:00-21:00", "sat": "10:00-16:00", "sun": "closed"},
+        "opening_hours": {
+            "mon": "08:00-22:00",
+            "tue": "08:00-22:00",
+            "wed": "08:00-22:00",
+            "thu": "08:00-22:00",
+            "fri": "08:00-21:00",
+            "sat": "10:00-16:00",
+            "sun": "closed",
+        },
         "equipment": ["squat_rack", "bench", "chains", "bands", "strongman_log"],
-        "pricing_plans": [{"name": "Open", "price_ron": 139, "period": "month", "features": ["acces"]}],
+        "pricing_plans": [
+            {"name": "Open", "price_ron": 139, "period": "month", "features": ["acces"]}
+        ],
         "review_count": 61,
     },
     {
@@ -161,9 +278,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4375,
         "longitude": 26.0535,
-        "opening_hours": {"mon": "06:00-23:00", "tue": "06:00-23:00", "wed": "06:00-23:00", "thu": "06:00-23:00", "fri": "06:00-22:00", "sat": "08:00-20:00", "sun": "09:00-18:00"},
+        "opening_hours": {
+            "mon": "06:00-23:00",
+            "tue": "06:00-23:00",
+            "wed": "06:00-23:00",
+            "thu": "06:00-23:00",
+            "fri": "06:00-22:00",
+            "sat": "08:00-20:00",
+            "sun": "09:00-18:00",
+        },
         "equipment": ["pool", "sauna", "steam", "cables", "treadmills", "pilates_reformers"],
-        "pricing_plans": [{"name": "Elite", "price_ron": 329, "period": "month", "features": ["acces premium", "spa"]}],
+        "pricing_plans": [
+            {
+                "name": "Elite",
+                "price_ron": 329,
+                "period": "month",
+                "features": ["acces premium", "spa"],
+            }
+        ],
         "review_count": 312,
     },
     {
@@ -176,9 +308,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1517649763962-0c62306601b7?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4788,
         "longitude": 26.1220,
-        "opening_hours": {"mon": "06:00-21:00", "tue": "06:00-21:00", "wed": "06:00-21:00", "thu": "06:00-21:00", "fri": "06:00-20:00", "sat": "09:00-13:00", "sun": "closed"},
+        "opening_hours": {
+            "mon": "06:00-21:00",
+            "tue": "06:00-21:00",
+            "wed": "06:00-21:00",
+            "thu": "06:00-21:00",
+            "fri": "06:00-20:00",
+            "sat": "09:00-13:00",
+            "sun": "closed",
+        },
         "equipment": ["rig", "rings", "rowers", "barbells", "bumper_plates"],
-        "pricing_plans": [{"name": "Membership", "price_ron": 249, "period": "month", "features": [" clase + open gym"]}],
+        "pricing_plans": [
+            {
+                "name": "Membership",
+                "price_ron": 249,
+                "period": "month",
+                "features": [" clase + open gym"],
+            }
+        ],
         "review_count": 97,
     },
     {
@@ -191,9 +338,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4485,
         "longitude": 26.1255,
-        "opening_hours": {"mon": "08:00-22:00", "tue": "08:00-22:00", "wed": "08:00-22:00", "thu": "08:00-22:00", "fri": "08:00-21:00", "sat": "10:00-16:00", "sun": "10:00-14:00"},
+        "opening_hours": {
+            "mon": "08:00-22:00",
+            "tue": "08:00-22:00",
+            "wed": "08:00-22:00",
+            "thu": "08:00-22:00",
+            "fri": "08:00-21:00",
+            "sat": "10:00-16:00",
+            "sun": "10:00-14:00",
+        },
         "equipment": ["machines", "preacher_curl", "leg_extension", "hack_squat"],
-        "pricing_plans": [{"name": "Open", "price_ron": 119, "period": "month", "features": ["acces"]}],
+        "pricing_plans": [
+            {"name": "Open", "price_ron": 119, "period": "month", "features": ["acces"]}
+        ],
         "review_count": 41,
     },
     {
@@ -206,9 +363,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4855,
         "longitude": 26.1120,
-        "opening_hours": {"mon": "06:00-23:00", "tue": "06:00-23:00", "wed": "06:00-23:00", "thu": "06:00-23:00", "fri": "06:00-22:00", "sat": "08:00-20:00", "sun": "09:00-18:00"},
+        "opening_hours": {
+            "mon": "06:00-23:00",
+            "tue": "06:00-23:00",
+            "wed": "06:00-23:00",
+            "thu": "06:00-23:00",
+            "fri": "06:00-22:00",
+            "sat": "08:00-20:00",
+            "sun": "09:00-18:00",
+        },
         "equipment": ["cryo_chamber", "normatec", "sauna", "cables", "dumbbells"],
-        "pricing_plans": [{"name": "Plus", "price_ron": 289, "period": "month", "features": ["acces", "recovery"]}],
+        "pricing_plans": [
+            {"name": "Plus", "price_ron": 289, "period": "month", "features": ["acces", "recovery"]}
+        ],
         "review_count": 156,
     },
     {
@@ -221,9 +388,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1517963879433-6ad2b056d712?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4448,
         "longitude": 26.1138,
-        "opening_hours": {"mon": "10:00-23:00", "tue": "10:00-23:00", "wed": "10:00-23:00", "thu": "10:00-23:00", "fri": "10:00-22:00", "sat": "12:00-20:00", "sun": "12:00-18:00"},
+        "opening_hours": {
+            "mon": "10:00-23:00",
+            "tue": "10:00-23:00",
+            "wed": "10:00-23:00",
+            "thu": "10:00-23:00",
+            "fri": "10:00-22:00",
+            "sat": "12:00-20:00",
+            "sun": "12:00-18:00",
+        },
         "equipment": ["mono_lift", "combo_rack", "chains", "bands"],
-        "pricing_plans": [{"name": "Night Owl", "price_ron": 159, "period": "month", "features": ["acces dupa 18:00"]}],
+        "pricing_plans": [
+            {
+                "name": "Night Owl",
+                "price_ron": 159,
+                "period": "month",
+                "features": ["acces dupa 18:00"],
+            }
+        ],
         "review_count": 58,
     },
     {
@@ -236,9 +418,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1505751172876-fa1923c3c1e?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4920,
         "longitude": 26.0825,
-        "opening_hours": {"mon": "06:00-22:00", "tue": "06:00-22:00", "wed": "06:00-22:00", "thu": "06:00-22:00", "fri": "06:00-21:00", "sat": "08:00-16:00", "sun": "09:00-14:00"},
+        "opening_hours": {
+            "mon": "06:00-22:00",
+            "tue": "06:00-22:00",
+            "wed": "06:00-22:00",
+            "thu": "06:00-22:00",
+            "fri": "06:00-21:00",
+            "sat": "08:00-16:00",
+            "sun": "09:00-14:00",
+        },
         "equipment": ["treadmills", "skillmill", "rowers", "assault_runner"],
-        "pricing_plans": [{"name": "Run Club", "price_ron": 189, "period": "month", "features": ["antrenamente grup"]}],
+        "pricing_plans": [
+            {
+                "name": "Run Club",
+                "price_ron": 189,
+                "period": "month",
+                "features": ["antrenamente grup"],
+            }
+        ],
         "review_count": 73,
     },
     {
@@ -251,9 +448,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4371,
         "longitude": 26.1525,
-        "opening_hours": {"mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00", "thu": "07:00-22:00", "fri": "07:00-21:00", "sat": "09:00-15:00", "sun": "closed"},
+        "opening_hours": {
+            "mon": "07:00-22:00",
+            "tue": "07:00-22:00",
+            "wed": "07:00-22:00",
+            "thu": "07:00-22:00",
+            "fri": "07:00-21:00",
+            "sat": "09:00-15:00",
+            "sun": "closed",
+        },
         "equipment": ["sled", "turf", "kettlebells", "plyo_boxes"],
-        "pricing_plans": [{"name": "Athlete", "price_ron": 209, "period": "month", "features": ["acces", "program"]}],
+        "pricing_plans": [
+            {
+                "name": "Athlete",
+                "price_ron": 209,
+                "period": "month",
+                "features": ["acces", "program"],
+            }
+        ],
         "review_count": 64,
     },
     {
@@ -266,9 +478,24 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4545,
         "longitude": 26.0975,
-        "opening_hours": {"mon": "07:00-22:00", "tue": "07:00-22:00", "wed": "07:00-22:00", "thu": "07:00-22:00", "fri": "07:00-21:00", "sat": "09:00-17:00", "sun": "10:00-16:00"},
+        "opening_hours": {
+            "mon": "07:00-22:00",
+            "tue": "07:00-22:00",
+            "wed": "07:00-22:00",
+            "thu": "07:00-22:00",
+            "fri": "07:00-21:00",
+            "sat": "09:00-17:00",
+            "sun": "10:00-16:00",
+        },
         "equipment": ["pilates", "reformers", "cables", "treadmills"],
-        "pricing_plans": [{"name": "Glow", "price_ron": 199, "period": "month", "features": ["acces", "1 consultatie"]}],
+        "pricing_plans": [
+            {
+                "name": "Glow",
+                "price_ron": 199,
+                "period": "month",
+                "features": ["acces", "1 consultatie"],
+            }
+        ],
         "review_count": 88,
     },
     {
@@ -281,9 +508,19 @@ BUCHAREST_GYMS_SEED: list[dict] = [
         "image_url": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
         "latitude": 44.4650,
         "longitude": 26.1280,
-        "opening_hours": {"mon": "06:30-22:00", "tue": "06:30-22:00", "wed": "06:30-22:00", "thu": "06:30-22:00", "fri": "06:30-21:00", "sat": "08:00-18:00", "sun": "09:00-16:00"},
+        "opening_hours": {
+            "mon": "06:30-22:00",
+            "tue": "06:30-22:00",
+            "wed": "06:30-22:00",
+            "thu": "06:30-22:00",
+            "fri": "06:30-21:00",
+            "sat": "08:00-18:00",
+            "sun": "09:00-16:00",
+        },
         "equipment": ["yoga_studio", "mats", "rowers", "treadmills"],
-        "pricing_plans": [{"name": "Wellness", "price_ron": 179, "period": "month", "features": ["yoga + gym"]}],
+        "pricing_plans": [
+            {"name": "Wellness", "price_ron": 179, "period": "month", "features": ["yoga + gym"]}
+        ],
         "review_count": 47,
     },
 ]

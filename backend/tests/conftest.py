@@ -7,11 +7,8 @@ rolled back at the end, so the real DB is never permanently modified.
 session.commit() (which releases a savepoint) without issuing a real COMMIT,
 so the outer ROLLBACK at teardown undoes everything.
 """
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.pool import NullPool
 
+import pytest_asyncio
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, hash_password
@@ -19,6 +16,9 @@ from app.main import app
 from app.models.gym import Gym
 from app.models.user import User
 from geoalchemy2.elements import WKTElement
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
 # NullPool: don't pool connections across tests. pytest-asyncio creates a fresh
 # event loop per test, and asyncpg connections are bound to the loop that
@@ -46,6 +46,7 @@ async def db():
 @pytest_asyncio.fixture
 async def client(db: AsyncSession):
     """ASGI test client with the DB dependency overridden to the test session."""
+
     async def _override_get_db():
         yield db
 

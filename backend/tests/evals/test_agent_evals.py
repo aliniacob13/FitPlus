@@ -14,10 +14,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 import yaml
+from app.models.conversation import Conversation
 from httpx import AsyncClient
 from sqlalchemy import select
-
-from app.models.conversation import Conversation
 
 _GOLDEN_PATH = Path(__file__).resolve().parent / "golden_cases.yaml"
 

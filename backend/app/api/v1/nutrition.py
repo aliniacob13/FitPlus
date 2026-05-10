@@ -1,4 +1,5 @@
-from datetime import UTC, date as DateType, datetime
+from datetime import UTC, datetime
+from datetime import date as DateType
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
@@ -21,7 +22,12 @@ from app.schemas.nutrition import (
     NutritionTargetRequest,
     NutritionTargetResponse,
 )
-from app.services.nutrition import compute_bmr, compute_macros, compute_target_calories, compute_tdee
+from app.services.nutrition import (
+    compute_bmr,
+    compute_macros,
+    compute_target_calories,
+    compute_tdee,
+)
 from app.services.ocr import extract_text, parse_nutrition_label
 from app.services.usda import USDAServiceError, search_foods
 

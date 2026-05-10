@@ -12,9 +12,10 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.v1.users import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
-from app.api.v1.users import get_current_user
 from app.models.gym import Gym
 from app.models.payment import Payment
 from app.models.subscription import Subscription
@@ -166,7 +167,9 @@ async def create_checkout_session(
     url = session.url
     sid = session.id
     if not url or not sid:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe returned no checkout URL.")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe returned no checkout URL."
+        )
 
     return CheckoutSessionResponse(checkout_url=url, session_id=sid)
 
@@ -191,7 +194,9 @@ async def confirm_checkout_session(
         sess = await asyncio.to_thread(stripe.checkout.Session.retrieve, body.session_id)
     except stripe.error.InvalidRequestError as e:
         logger.info("confirm-session: session not found: %s", e)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout session not found.") from e
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Checkout session not found."
+        ) from e
     except stripe.error.StripeError as e:
         logger.warning("confirm-session: Stripe error: %s", e)
         raise HTTPException(
@@ -236,11 +241,15 @@ async def stripe_webhook(
     stripe_signature: str | None = Header(None, alias="stripe-signature"),
 ) -> dict[str, str]:
     if not settings.STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Webhook secret not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Webhook secret not configured."
+        )
 
     payload = await request.body()
     if not stripe_signature:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing Stripe-Signature header.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Missing Stripe-Signature header."
+        )
 
     try:
         event = stripe.Webhook.construct_event(
@@ -249,9 +258,13 @@ async def stripe_webhook(
             secret=settings.STRIPE_WEBHOOK_SECRET,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload.") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload."
+        ) from e
     except stripe.error.SignatureVerificationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature.") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid signature."
+        ) from e
 
     etype = event["type"]
 
@@ -269,7 +282,9 @@ async def stripe_webhook(
     except Exception:
         await db.rollback()
         logger.exception("Stripe webhook handler failed")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Webhook processing failed.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Webhook processing failed."
+        )
 
     return {"status": "ok"}
 
@@ -342,7 +357,9 @@ async def _handle_subscription_updated(db: AsyncSession, sub: dict) -> None:
     stripe_sub_id = sub.get("id")
     if not stripe_sub_id:
         return
-    row = await db.scalar(select(Subscription).where(Subscription.stripe_subscription_id == str(stripe_sub_id)))
+    row = await db.scalar(
+        select(Subscription).where(Subscription.stripe_subscription_id == str(stripe_sub_id))
+    )
     if not row:
         return
 
@@ -358,6 +375,8 @@ async def _handle_subscription_deleted(db: AsyncSession, sub: dict) -> None:
     stripe_sub_id = sub.get("id")
     if not stripe_sub_id:
         return
-    row = await db.scalar(select(Subscription).where(Subscription.stripe_subscription_id == str(stripe_sub_id)))
+    row = await db.scalar(
+        select(Subscription).where(Subscription.stripe_subscription_id == str(stripe_sub_id))
+    )
     if row:
         row.status = "canceled"

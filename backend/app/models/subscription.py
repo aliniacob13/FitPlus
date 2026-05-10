@@ -27,8 +27,12 @@ class Subscription(Base):
 
     plan_name: Mapped[str] = mapped_column(String(120), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
-    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
-    stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True
+    )
+    stripe_checkout_session_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True
+    )
 
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -39,9 +43,9 @@ class Subscription(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="subscriptions")
-    gym: Mapped["Gym"] = relationship("Gym", back_populates="subscriptions")
-    payments: Mapped[list["Payment"]] = relationship(
+    user: Mapped[User] = relationship("User", back_populates="subscriptions")
+    gym: Mapped[Gym] = relationship("Gym", back_populates="subscriptions")
+    payments: Mapped[list[Payment]] = relationship(
         "Payment",
         back_populates="subscription",
         cascade="all, delete-orphan",

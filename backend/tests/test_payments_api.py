@@ -6,17 +6,17 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from httpx import AsyncClient
-
-from sqlalchemy import select
-
 from app.models.gym import Gym
 from app.models.subscription import Subscription
 from app.models.user import User
+from httpx import AsyncClient
+from sqlalchemy import select
 
 
 class TestPaymentsUnavailable:
-    async def test_checkout_without_stripe_key_returns_503(self, client: AsyncClient, auth_headers: dict) -> None:
+    async def test_checkout_without_stripe_key_returns_503(
+        self, client: AsyncClient, auth_headers: dict
+    ) -> None:
         response = await client.post(
             "/api/v1/payments/checkout",
             headers=auth_headers,
@@ -25,7 +25,9 @@ class TestPaymentsUnavailable:
         assert response.status_code == 503
         assert "stripe" in response.json()["detail"].lower()
 
-    async def test_confirm_without_stripe_key_returns_503(self, client: AsyncClient, auth_headers: dict) -> None:
+    async def test_confirm_without_stripe_key_returns_503(
+        self, client: AsyncClient, auth_headers: dict
+    ) -> None:
         response = await client.post(
             "/api/v1/payments/checkout/confirm-session",
             headers=auth_headers,

@@ -1,11 +1,10 @@
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.diet import DietPreference, Prescription, WeightLog
 from app.models.user import User
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @dataclass(slots=True)
@@ -50,45 +49,47 @@ async def get_user_health_context_for_ai(user_id: int, db: AsyncSession) -> User
 
     raw_allergies = (diet_preferences.allergies if diet_preferences else None) or []
     raw_preferences = (diet_preferences.restrictions if diet_preferences else None) or []
-    
+
     # Debug logging
     print(f"DEBUG: diet_preferences.allergies = {raw_allergies}")
     print(f"DEBUG: diet_preferences.restrictions = {raw_preferences}")
     # Backward compatibility for environments that used "preferences" naming.
-    legacy_preferences = getattr(diet_preferences, "preferences", None) if diet_preferences else None
+    legacy_preferences = (
+        getattr(diet_preferences, "preferences", None) if diet_preferences else None
+    )
     if not raw_preferences and legacy_preferences:
         raw_preferences = legacy_preferences
-    goals_text = (diet_preferences.goals if diet_preferences else None) or (user.goals if user else None) or ""
+    goals_text = (
+        (diet_preferences.goals if diet_preferences else None)
+        or (user.goals if user else None)
+        or ""
+    )
 
-    if isinstance(raw_allergies, str):
-        allergies_items = [raw_allergies]
-    else:
-        allergies_items = raw_allergies
+    allergies_items = [raw_allergies] if isinstance(raw_allergies, str) else raw_allergies
+    preferences_items = [raw_preferences] if isinstance(raw_preferences, str) else raw_preferences
 
-    if isinstance(raw_preferences, str):
-        preferences_items = [raw_preferences]
-    else:
-        preferences_items = raw_preferences
-
-    
     # Debug logging
     print(f"DEBUG: allergies_items = {allergies_items}")
     print(f"DEBUG: preferences_items = {preferences_items}")
-    
-    allergies_string = ", ".join(str(item).strip() for item in allergies_items if str(item).strip()) or "nespecificate"
-    preferences_string = ", ".join(str(item).strip() for item in preferences_items if str(item).strip()) or "nespecificate"
-    
+
+    allergies_string = (
+        ", ".join(str(item).strip() for item in allergies_items if str(item).strip())
+        or "nespecificate"
+    )
+    preferences_string = (
+        ", ".join(str(item).strip() for item in preferences_items if str(item).strip())
+        or "nespecificate"
+    )
+
     print(f"DEBUG: Final allergies_string = {allergies_string}")
     print(f"DEBUG: Final preferences_string = {preferences_string}")
-    
+
     return UserHealthContext(
         allergies=allergies_string,
         preferences=preferences_string,
         goals=goals_text.strip() or "nespecificate",
         current_weight=str(latest_weight.weight_kg) if latest_weight else "",
-        target_weight=_extract_target_weight(
-            goals_text
-        ),
+        target_weight=_extract_target_weight(goals_text),
         prescription_references=(
             f"{prescriptions_count} prescription(s) uploaded."
             if prescriptions_count

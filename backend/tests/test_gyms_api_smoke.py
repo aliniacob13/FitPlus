@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from httpx import AsyncClient
-
 from app.models.gym import Gym
+from httpx import AsyncClient
 
 
 class TestGymDetailAndPricing:

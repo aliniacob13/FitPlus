@@ -14,13 +14,10 @@ from app.models.favorite import FavoriteGym
 from app.models.gym import Gym
 from app.models.review import GymReview
 from app.models.user import User
-from app.schemas.places import PlaceGymDetail
-from app.services.google_places import google_places_service
 from app.schemas.gym import (
-    FavoriteGymResponse,
     GymDetailResponse,
-    GymResponse,
     GymResolvePayload,
+    GymResponse,
     GymReviewCreate,
     GymReviewResponse,
 )
@@ -29,6 +26,8 @@ from app.schemas.payments import (
     GymPricingImportResponse,
     GymPricingPlanResponse,
 )
+from app.schemas.places import PlaceGymDetail
+from app.services.google_places import google_places_service
 from app.services.gym_pricing_import import (
     GymPricingImportError,
     import_plans_from_url,
@@ -70,11 +69,15 @@ async def _require_current_user(
 ) -> User:
     decoded = decode_token(token)
     if not decoded or decoded.get("type") != ACCESS_TOKEN_TYPE:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token."
+        )
     try:
         user_id = int(decoded["sub"])
     except (KeyError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload."
+        )
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
@@ -165,11 +168,14 @@ async def _upsert_gym_from_payload(
 
 # ── Nearby gyms ───────────────────────────────────────────────────────────────
 
+
 @router.get("/nearby", response_model=list[GymResponse])
 async def get_nearby_gyms(
     latitude: Annotated[float, Query(ge=-90.0, le=90.0, description="Latitudine GPS")],
     longitude: Annotated[float, Query(ge=-180.0, le=180.0, description="Longitudine GPS")],
-    radius_m: Annotated[float, Query(gt=0, le=50_000, description="Rază în metri (max 50 km)")] = 5000.0,
+    radius_m: Annotated[
+        float, Query(gt=0, le=50_000, description="Rază în metri (max 50 km)")
+    ] = 5000.0,
     db: AsyncSession = Depends(get_db),
 ) -> list[GymResponse]:
     """
@@ -216,6 +222,7 @@ async def get_nearby_gyms(
 
 
 # ── Gym pricing (subscriptions) ───────────────────────────────────────────────
+
 
 @router.get("/{gym_id}/pricing", response_model=list[GymPricingPlanResponse])
 async def get_gym_pricing_plans(
@@ -300,31 +307,30 @@ async def import_gym_pricing_from_url(
 
 # ── Gym detail ────────────────────────────────────────────────────────────────
 
+
 @router.get("/{gym_id}", response_model=GymDetailResponse)
 async def get_gym_detail(
     gym_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(_get_current_user_optional),
 ) -> GymDetailResponse:
-    stmt = (
-        select(
-            Gym.id,
-            Gym.place_id,
-            Gym.name,
-            Gym.address,
-            Gym.phone,
-            Gym.website,
-            Gym.rating,
-            Gym.description,
-            Gym.image_url,
-            Gym.opening_hours,
-            Gym.equipment,
-            Gym.pricing_plans,
-            Gym.review_count,
-            func.ST_Y(Gym.location).label("latitude"),
-            func.ST_X(Gym.location).label("longitude"),
-        ).where(Gym.id == gym_id)
-    )
+    stmt = select(
+        Gym.id,
+        Gym.place_id,
+        Gym.name,
+        Gym.address,
+        Gym.phone,
+        Gym.website,
+        Gym.rating,
+        Gym.description,
+        Gym.image_url,
+        Gym.opening_hours,
+        Gym.equipment,
+        Gym.pricing_plans,
+        Gym.review_count,
+        func.ST_Y(Gym.location).label("latitude"),
+        func.ST_X(Gym.location).label("longitude"),
+    ).where(Gym.id == gym_id)
     row = (await db.execute(stmt)).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
@@ -399,25 +405,23 @@ async def resolve_place_to_db_gym(
             detail="Gym not found and no fallback data provided.",
         )
 
-    stmt = (
-        select(
-            Gym.id,
-            Gym.place_id,
-            Gym.name,
-            Gym.address,
-            Gym.phone,
-            Gym.website,
-            Gym.rating,
-            Gym.description,
-            Gym.image_url,
-            Gym.opening_hours,
-            Gym.equipment,
-            Gym.pricing_plans,
-            Gym.review_count,
-            func.ST_Y(Gym.location).label("latitude"),
-            func.ST_X(Gym.location).label("longitude"),
-        ).where(Gym.id == gym.id)
-    )
+    stmt = select(
+        Gym.id,
+        Gym.place_id,
+        Gym.name,
+        Gym.address,
+        Gym.phone,
+        Gym.website,
+        Gym.rating,
+        Gym.description,
+        Gym.image_url,
+        Gym.opening_hours,
+        Gym.equipment,
+        Gym.pricing_plans,
+        Gym.review_count,
+        func.ST_Y(Gym.location).label("latitude"),
+        func.ST_X(Gym.location).label("longitude"),
+    ).where(Gym.id == gym.id)
     row = (await db.execute(stmt)).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
@@ -455,7 +459,10 @@ async def resolve_place_to_db_gym(
 
 # ── Reviews ───────────────────────────────────────────────────────────────────
 
-@router.post("/{gym_id}/reviews", response_model=GymReviewResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/{gym_id}/reviews", response_model=GymReviewResponse, status_code=status.HTTP_201_CREATED
+)
 async def add_review(
     gym_id: int,
     payload: GymReviewCreate,
@@ -514,6 +521,7 @@ async def get_reviews(
 
 
 # ── Favorites ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/{gym_id}/favorite", response_model=dict)
 async def toggle_favorite(

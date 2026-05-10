@@ -5,9 +5,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from httpx import AsyncClient
-
 from app.models.user import User
+from httpx import AsyncClient
 
 
 class TestAuthRegister:
@@ -22,7 +21,9 @@ class TestAuthRegister:
         assert "access_token" in body and "refresh_token" in body
         assert len(body["access_token"]) > 20
 
-    async def test_register_duplicate_email_returns_409(self, client: AsyncClient, test_user: User) -> None:
+    async def test_register_duplicate_email_returns_409(
+        self, client: AsyncClient, test_user: User
+    ) -> None:
         response = await client.post(
             "/api/v1/auth/register",
             json={"email": test_user.email, "password": "AnotherPass123!"},
@@ -40,7 +41,9 @@ class TestAuthLogin:
         assert response.status_code == 200
         assert response.json()["access_token"]
 
-    async def test_login_wrong_password_returns_401(self, client: AsyncClient, test_user: User) -> None:
+    async def test_login_wrong_password_returns_401(
+        self, client: AsyncClient, test_user: User
+    ) -> None:
         response = await client.post(
             "/api/v1/auth/login",
             json={"email": test_user.email, "password": "WrongPassword!!!"},
@@ -49,7 +52,9 @@ class TestAuthLogin:
 
 
 class TestAuthRefresh:
-    async def test_refresh_returns_new_access_token(self, client: AsyncClient, test_user: User) -> None:
+    async def test_refresh_returns_new_access_token(
+        self, client: AsyncClient, test_user: User
+    ) -> None:
         login = await client.post(
             "/api/v1/auth/login",
             json={"email": test_user.email, "password": "TestPass123!"},

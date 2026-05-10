@@ -14,7 +14,9 @@ def _assert_seed_allowed(x_seed_token: str | None) -> None:
 
     if settings.SEED_TOKEN:
         if not x_seed_token or x_seed_token != settings.SEED_TOKEN:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid seed token.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid seed token."
+            )
         return
 
     if not settings.DEBUG:

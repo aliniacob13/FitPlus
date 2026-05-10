@@ -13,10 +13,16 @@ select = [
 ]
 ignore = [
     "B008",
+    # Line length: enforced loosely via `ruff format`; long strings/URLs stay readable.
+    "E501",
+    # Prefer explicit chaining later; legacy handlers use bare `raise HTTPException`.
+    "B904",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "alembic/env.py" = ["E402"]
+# SQLAlchemy relationships use forward refs; names resolve at mapper configure time.
+"app/models/*.py" = ["F821"]
 
 [tool.coverage.run]
 branch = true

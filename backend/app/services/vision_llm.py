@@ -3,11 +3,11 @@
 Separate from llm_service.py because the message format differs: content is a
 list of image + text blocks rather than a plain string.
 """
+
 import base64
 import json
 
 import httpx
-
 from app.core.config import settings
 from app.services.llm_service import LLMService
 
@@ -73,7 +73,9 @@ async def _call_openai(
 
     async with httpx.AsyncClient(timeout=60) as client:
         try:
-            resp = await client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+            resp = await client.post(
+                "https://api.openai.com/v1/chat/completions", json=payload, headers=headers
+            )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise VisionLLMError(f"OpenAI vision error {exc.response.status_code}") from exc
@@ -119,7 +121,9 @@ async def _call_anthropic(
 
     async with httpx.AsyncClient(timeout=60) as client:
         try:
-            resp = await client.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers)
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages", json=payload, headers=headers
+            )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             detail = (

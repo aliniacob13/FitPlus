@@ -39,7 +39,7 @@ def _parse_price_ron_value(val: Any) -> float | None:
     """Accept numbers or strings like '199 lei', '199,50 RON'."""
     if val is None or isinstance(val, bool):
         return None
-    if isinstance(val, (int, float)):
+    if isinstance(val, int | float):
         x = float(val)
         return x if x > 0 else None
     s = str(val).strip().replace("\u00a0", " ")
