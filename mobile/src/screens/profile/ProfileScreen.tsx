@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -199,12 +200,19 @@ export const ProfileScreen = () => {
   };
 
   const handleLogout = () => {
+    const runLogout = () => void logout();
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Are you sure you want to log out?")) {
+        runLogout();
+      }
+      return;
+    }
     Alert.alert("Log out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Log out",
         style: "destructive",
-        onPress: () => void logout(),
+        onPress: runLogout,
       },
     ]);
   };
