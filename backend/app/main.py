@@ -39,6 +39,7 @@ temp_prescriptions_dir = Path(gettempdir()) / "fitplus_prescriptions"
 temp_prescriptions_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(temp_prescriptions_dir)), name="prescriptions")
 
+
 @app.get("/")
 async def root() -> dict[str, str]:
     return {"message": "FitPlus API is running"}

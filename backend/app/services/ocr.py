@@ -39,31 +39,46 @@ def parse_nutrition_label(text: str) -> LabelParseResult:
     """Parse OCR text into structured macronutrient values using regex heuristics."""
     t = text.lower()
 
-    kcal = _first(t, [
-        r"(?:calories?|energy|kcal)\s*[:\s]+(\d+(?:\.\d+)?)",
-        r"(\d+(?:\.\d+)?)\s*kcal",
-        r"(\d+(?:\.\d+)?)\s*cal\b",
-    ])
-    fat_g = _first(t, [
-        r"(?:total\s+)?fat\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-        r"lipid(?:es?)?\s*[:\s]+(\d+(?:\.\d+)?)",
-        r"(?:total\s+)?fat\s+(\d+(?:\.\d+)?)\s*g",
-    ])
-    carbs_g = _first(t, [
-        r"(?:total\s+)?carbohydrate(?:s)?\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-        r"carbs?\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-        r"glucid(?:es?)?\s*[:\s]+(\d+(?:\.\d+)?)",
-        r"(?:total\s+)?carbohydrate(?:s)?\s+(\d+(?:\.\d+)?)\s*g",
-    ])
-    protein_g = _first(t, [
-        r"protein(?:e|s)?\s*[:\s]+(\d+(?:\.\d+)?)\s*g?",
-        r"protein(?:e|s)?\s+(\d+(?:\.\d+)?)",
-    ])
-    serving_size_g = _first(t, [
-        r"serving\s+size\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-        r"portion\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-        r"per\s+serving\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-    ])
+    kcal = _first(
+        t,
+        [
+            r"(?:calories?|energy|kcal)\s*[:\s]+(\d+(?:\.\d+)?)",
+            r"(\d+(?:\.\d+)?)\s*kcal",
+            r"(\d+(?:\.\d+)?)\s*cal\b",
+        ],
+    )
+    fat_g = _first(
+        t,
+        [
+            r"(?:total\s+)?fat\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
+            r"lipid(?:es?)?\s*[:\s]+(\d+(?:\.\d+)?)",
+            r"(?:total\s+)?fat\s+(\d+(?:\.\d+)?)\s*g",
+        ],
+    )
+    carbs_g = _first(
+        t,
+        [
+            r"(?:total\s+)?carbohydrate(?:s)?\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
+            r"carbs?\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
+            r"glucid(?:es?)?\s*[:\s]+(\d+(?:\.\d+)?)",
+            r"(?:total\s+)?carbohydrate(?:s)?\s+(\d+(?:\.\d+)?)\s*g",
+        ],
+    )
+    protein_g = _first(
+        t,
+        [
+            r"protein(?:e|s)?\s*[:\s]+(\d+(?:\.\d+)?)\s*g?",
+            r"protein(?:e|s)?\s+(\d+(?:\.\d+)?)",
+        ],
+    )
+    serving_size_g = _first(
+        t,
+        [
+            r"serving\s+size\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
+            r"portion\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
+            r"per\s+serving\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
+        ],
+    )
 
     per_100g = bool(re.search(r"per\s*100\s*g|/\s*100\s*g|100\s*g\b", t))
 

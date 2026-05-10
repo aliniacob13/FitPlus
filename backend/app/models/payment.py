@@ -33,8 +33,12 @@ class Payment(Base):
 
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="ron")
-    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
-    stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True
+    )
+    stripe_checkout_session_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
 
     created_at: Mapped[datetime] = mapped_column(
@@ -43,9 +47,11 @@ class Payment(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="payments")
-    gym: Mapped["Gym"] = relationship("Gym", back_populates="payments")
-    subscription: Mapped["Subscription | None"] = relationship("Subscription", back_populates="payments")
+    user: Mapped[User] = relationship("User", back_populates="payments")
+    gym: Mapped[Gym] = relationship("Gym", back_populates="payments")
+    subscription: Mapped[Subscription | None] = relationship(
+        "Subscription", back_populates="payments"
+    )
 
     def __repr__(self) -> str:
         return f"<Payment id={self.id} status={self.status!r} amount={self.amount}>"

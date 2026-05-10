@@ -8,11 +8,10 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from bs4 import BeautifulSoup
-
 from app.core.config import settings
 from app.services.llm_service import LLMService
 from app.services.pricing_plans import normalize_pricing_plans
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +301,7 @@ async def import_plans_from_url(url: str) -> tuple[list[dict[str, Any]], list[di
             "Nu s-au gasit planuri cu pret RON valid in textul extras. "
             "Continutul nu mentioneaza tarife clare (sau sunt doar in imagini). "
             f"Pagini incercate: {pages_hint}. "
-            "Poti trimite in API corpul JSON {\"url\": \"https://...pagina-tarife...\"} catre o pagina concreta."
+            'Poti trimite in API corpul JSON {"url": "https://...pagina-tarife..."} catre o pagina concreta.'
         )
 
     storage = normalized_plans_to_storage_rows(normalized)

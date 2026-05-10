@@ -12,7 +12,9 @@ class Gym(Base):
     __tablename__ = "gyms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    place_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True, index=True)
+    place_id: Mapped[str | None] = mapped_column(
+        String(128), unique=True, nullable=True, index=True
+    )
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="seed")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -37,11 +39,19 @@ class Gym(Base):
         Index("ix_gyms_location_gist", "location", postgresql_using="gist"),
     )
 
-    reviews: Mapped[list[GymReview]] = relationship("GymReview", back_populates="gym", cascade="all, delete-orphan")
-    favorited_by: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="gym", cascade="all, delete-orphan")
+    reviews: Mapped[list[GymReview]] = relationship(
+        "GymReview", back_populates="gym", cascade="all, delete-orphan"
+    )
+    favorited_by: Mapped[list[FavoriteGym]] = relationship(
+        "FavoriteGym", back_populates="gym", cascade="all, delete-orphan"
+    )
 
-    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="gym", cascade="all, delete-orphan")
-    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="gym", cascade="all, delete-orphan")
+    subscriptions: Mapped[list[Subscription]] = relationship(
+        "Subscription", back_populates="gym", cascade="all, delete-orphan"
+    )
+    payments: Mapped[list[Payment]] = relationship(
+        "Payment", back_populates="gym", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Gym id={self.id} name={self.name!r}>"

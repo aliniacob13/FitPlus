@@ -1,0 +1,4 @@
+# Lint / coverage — install alongside requirements.txt in CI and dev.
+ruff==0.8.4
+pytest-cov==6.0.0
+PyYAML==6.0.2

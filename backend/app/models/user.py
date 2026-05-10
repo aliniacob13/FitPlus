@@ -26,11 +26,23 @@ class User(Base):
 
     # Last computed daily calorie target (from nutrition calculator). Null = not set.
     daily_calorie_target: Mapped[float | None] = mapped_column(Float, nullable=True)
-    nutrition_target_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    nutrition_target_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    reviews: Mapped[list[GymReview]] = relationship("GymReview", back_populates="user", cascade="all, delete-orphan")
-    favorites: Mapped[list[FavoriteGym]] = relationship("FavoriteGym", back_populates="user", cascade="all, delete-orphan")
+    reviews: Mapped[list[GymReview]] = relationship(
+        "GymReview", back_populates="user", cascade="all, delete-orphan"
+    )
+    favorites: Mapped[list[FavoriteGym]] = relationship(
+        "FavoriteGym", back_populates="user", cascade="all, delete-orphan"
+    )
 
-    conversations: Mapped[list["Conversation"]] = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
-    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
-    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
+    conversations: Mapped[list[Conversation]] = relationship(
+        "Conversation", back_populates="user", cascade="all, delete-orphan"
+    )
+    subscriptions: Mapped[list[Subscription]] = relationship(
+        "Subscription", back_populates="user", cascade="all, delete-orphan"
+    )
+    payments: Mapped[list[Payment]] = relationship(
+        "Payment", back_populates="user", cascade="all, delete-orphan"
+    )

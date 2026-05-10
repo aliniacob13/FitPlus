@@ -1,8 +1,7 @@
-from geoalchemy2.elements import WKTElement
-from sqlalchemy import delete
-
 from app.data.bucharest_gyms_seed import BUCHAREST_GYMS_SEED
 from app.models.gym import Gym
+from geoalchemy2.elements import WKTElement
+from sqlalchemy import delete
 
 
 async def seed_bucharest_gyms(db) -> int:

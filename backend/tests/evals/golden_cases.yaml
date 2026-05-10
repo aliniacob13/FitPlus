@@ -1,0 +1,31 @@
+# Declarative "golden" cases for AI chat routes (LLM mocked in tests).
+# Extend this file when adding new behavioral contracts without touching Python.
+
+version: 1
+cases:
+  - id: workout_structured_plan_keywords
+    agent: workout
+    user_message: "Vreau un plan full-body pentru începători, 3 zile pe săptămână."
+    mock_assistant_reply: |
+      Plan începători (3 zile): ziua 1 — împins (piept + umeri); ziua 2 — tras (spate + biceps);
+      ziua 3 — picioare + core. Pauză între sesiuni.
+    response_must_contain: "începători"
+    assistant_must_contain:
+      - "Plan"
+      - "ziua"
+
+  - id: diet_macro_guidance
+    agent: diet
+    user_message: "Cum îmi împart proteinele pe parcursul zilei?"
+    mock_assistant_reply: |
+      Împarte proteinele în 3–4 mesele principale (~25–35g fiecare), plus o gustare cu proteină dacă ai nevoie.
+    response_must_contain: "proteine"
+    assistant_must_contain:
+      - "mesele"
+
+  - id: conversation_title_aligns_with_first_message
+    agent: workout
+    user_message: "Salut, caut exerciții pentru mobilitate la umeri."
+    mock_assistant_reply: "Mobilitate umeri: band pull-aparts, wall slides, external rotations ușoare."
+    response_must_contain: "umeri"
+    list_conversations_title_contains: "mobilitate"

@@ -257,9 +257,7 @@ export const ChatScreenBase = ({
             // Append chunk to the streaming message
             patchInStore(agentType, streamingId, {
               content:
-                (useChatStore
-                  .getState()
-                  [agentType].messages.find((m) => m.id === streamingId)
+                (useChatStore.getState()[agentType].messages.find((m) => m.id === streamingId)
                   ?.content ?? "") + chunk,
             });
           }

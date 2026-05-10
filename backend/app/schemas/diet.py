@@ -1,17 +1,20 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
 from datetime import datetime
+
+from pydantic import BaseModel, Field
+
 
 # --- SCHEME PREFERINȚE DIETĂ ---
 class DietPreferenceBase(BaseModel):
-    restrictions: Optional[List[str]] = Field(default_factory=list)
-    allergies: Optional[List[str]] = Field(default_factory=list)
-    goals: Optional[str] = None
+    restrictions: list[str] | None = Field(default_factory=list)
+    allergies: list[str] | None = Field(default_factory=list)
+    goals: str | None = None
+
 
 class DietPreferenceCreateUpdate(DietPreferenceBase):
     # Backward-compatibility input used by some clients:
     # preferences can come as a single string or a list.
-    preferences: Optional[List[str] | str] = None
+    preferences: list[str] | str | None = None
+
 
 class DietPreferenceResponse(DietPreferenceBase):
     id: int
@@ -21,12 +24,15 @@ class DietPreferenceResponse(DietPreferenceBase):
     class Config:
         from_attributes = True
 
+
 # --- SCHEME GREUTATE (Weight Log) ---
 class WeightLogBase(BaseModel):
     weight_kg: float
 
+
 class WeightLogCreate(WeightLogBase):
     pass
+
 
 class WeightLogResponse(WeightLogBase):
     id: int
@@ -36,13 +42,14 @@ class WeightLogResponse(WeightLogBase):
     class Config:
         from_attributes = True
 
+
 # --- SCHEME PRESCripții ---
 class PrescriptionResponse(BaseModel):
     id: int
     user_id: int
     filename: str
     s3_url_or_path: str
-    notes: Optional[str] = None
+    notes: str | None = None
     uploaded_at: datetime
 
     class Config:

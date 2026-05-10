@@ -80,14 +80,14 @@ async def delete_prescription(
 ) -> Response:
     print(f"[DELETE] prescription_id: {prescription_id}, type: {type(prescription_id)}")
     print(f"[DELETE] current_user.id: {current_user.id}, type: {type(current_user.id)}")
-    
+
     query = select(Prescription).where(
         Prescription.id == prescription_id,
         Prescription.user_id == current_user.id,
     )
     result = await db.execute(query)
     prescription = result.scalar_one_or_none()
-    
+
     print(f"[DELETE] prescription found: {prescription is not None}")
 
     if prescription is None:
@@ -147,7 +147,9 @@ async def upsert_diet_preferences(
         if isinstance(legacy_preferences, str):
             normalized_restrictions = [legacy_preferences]
         else:
-            normalized_restrictions = [str(item) for item in legacy_preferences if str(item).strip()]
+            normalized_restrictions = [
+                str(item) for item in legacy_preferences if str(item).strip()
+            ]
 
     preferences.restrictions = normalized_restrictions
     preferences.allergies = data["allergies"] or []

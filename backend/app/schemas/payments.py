@@ -20,7 +20,9 @@ class GymPricingImportRequest(BaseModel):
         default=None,
         description="Full https URL of the pricing/membership page. Omit to use the gym's saved website.",
     )
-    persist: bool = Field(default=True, description="If true, overwrite gym.pricing_plans in the database.")
+    persist: bool = Field(
+        default=True, description="If true, overwrite gym.pricing_plans in the database."
+    )
 
 
 class GymPricingImportResponse(BaseModel):
@@ -35,7 +37,9 @@ class GymPricingImportResponse(BaseModel):
 
 class CheckoutSessionRequest(BaseModel):
     gym_id: int = Field(ge=1)
-    plan_index: int = Field(ge=0, description="Index in normalized pricing_plans list from GET /gyms/{id}/pricing")
+    plan_index: int = Field(
+        ge=0, description="Index in normalized pricing_plans list from GET /gyms/{id}/pricing"
+    )
 
 
 class CheckoutSessionResponse(BaseModel):
