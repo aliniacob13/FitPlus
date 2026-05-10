@@ -27,6 +27,10 @@ export type CheckoutSessionResponse = {
   session_id: string;
 };
 
+export type ConfirmCheckoutSessionResponse = {
+  ok: boolean;
+};
+
 export const paymentsApi = {
   getGymPricing: async (gymId: number): Promise<GymPricingPlan[]> => {
     const { data } = await api.get<GymPricingPlan[]>(`/gyms/${gymId}/pricing`);
@@ -40,6 +44,13 @@ export const paymentsApi = {
     const { data } = await api.post<CheckoutSessionResponse>(`/payments/checkout`, {
       gym_id: gymId,
       plan_index: planIndex,
+    });
+    return data;
+  },
+
+  confirmCheckoutSession: async (sessionId: string): Promise<ConfirmCheckoutSessionResponse> => {
+    const { data } = await api.post<ConfirmCheckoutSessionResponse>(`/payments/checkout/confirm-session`, {
+      session_id: sessionId,
     });
     return data;
   },

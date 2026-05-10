@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -18,8 +19,13 @@ from app.models.gym import Gym
 from app.models.payment import Payment
 from app.models.subscription import Subscription
 from app.models.user import User
-from app.schemas.payments import CheckoutSessionRequest, CheckoutSessionResponse
-from app.services.pricing_plans import normalize_pricing_plans
+from app.schemas.payments import (
+    CheckoutSessionRequest,
+    CheckoutSessionResponse,
+    ConfirmCheckoutSessionRequest,
+    ConfirmCheckoutSessionResponse,
+)
+from app.services.pricing_plans import effective_pricing_plans
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +36,39 @@ stripe.api_key = settings.STRIPE_SECRET_KEY or None
 
 def _stripe_enabled() -> bool:
     return bool(settings.STRIPE_SECRET_KEY)
+
+
+def _stripe_obj_id(val: object | None) -> str | None:
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val
+    sid = getattr(val, "id", None)
+    return str(sid) if sid else None
+
+
+def _checkout_session_as_handler_dict(sess: object) -> dict[str, Any]:
+    """Shape expected by _handle_checkout_session_completed (Stripe webhook payload subset)."""
+    meta_raw = getattr(sess, "metadata", None) or {}
+    if hasattr(meta_raw, "to_dict"):
+        meta = meta_raw.to_dict()
+    elif isinstance(meta_raw, dict):
+        meta = dict(meta_raw)
+    else:
+        try:
+            meta = dict(meta_raw)
+        except (TypeError, ValueError):
+            meta = {}
+
+    return {
+        "id": getattr(sess, "id", None),
+        "metadata": meta,
+        "subscription": _stripe_obj_id(getattr(sess, "subscription", None)),
+        "amount_total": getattr(sess, "amount_total", None),
+        "currency": getattr(sess, "currency", None),
+        "payment_intent": _stripe_obj_id(getattr(sess, "payment_intent", None)),
+        "payment_status": getattr(sess, "payment_status", None),
+    }
 
 
 @router.post("/checkout", response_model=CheckoutSessionResponse)
@@ -48,7 +87,10 @@ async def create_checkout_session(
     if not gym:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
 
-    plans = normalize_pricing_plans(gym.pricing_plans)
+    plans = effective_pricing_plans(
+        gym.pricing_plans,
+        fallback=settings.subscription_pricing_fallback_enabled,
+    )
     if not plans:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,6 +169,64 @@ async def create_checkout_session(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe returned no checkout URL.")
 
     return CheckoutSessionResponse(checkout_url=url, session_id=sid)
+
+
+@router.post("/checkout/confirm-session", response_model=ConfirmCheckoutSessionResponse)
+async def confirm_checkout_session(
+    body: ConfirmCheckoutSessionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ConfirmCheckoutSessionResponse:
+    """
+    Persist subscription after Checkout completes. Use when Stripe webhooks cannot reach your server
+    (typical local dev). Safe to call twice (idempotent on checkout session id).
+    """
+    if not _stripe_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Stripe is not configured (STRIPE_SECRET_KEY).",
+        )
+
+    try:
+        sess = await asyncio.to_thread(stripe.checkout.Session.retrieve, body.session_id)
+    except stripe.error.InvalidRequestError as e:
+        logger.info("confirm-session: session not found: %s", e)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout session not found.") from e
+    except stripe.error.StripeError as e:
+        logger.warning("confirm-session: Stripe error: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=getattr(e, "user_message", None) or str(e),
+        ) from e
+
+    if getattr(sess, "mode", None) != "subscription":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Checkout session is not in subscription mode.",
+        )
+
+    payload = _checkout_session_as_handler_dict(sess)
+    meta = payload.get("metadata") or {}
+    if str(meta.get("user_id", "")) != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This checkout session does not belong to the current user.",
+        )
+
+    if payload.get("payment_status") != "paid":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment is not completed yet.",
+        )
+
+    try:
+        await _handle_checkout_session_completed(db, payload)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        logger.info("confirm-session: duplicate / race (IntegrityError), treating as ok.")
+
+    return ConfirmCheckoutSessionResponse(ok=True)
 
 
 @router.post("/webhook")

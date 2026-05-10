@@ -181,7 +181,11 @@ export const FavoriteGymsScreen = () => {
                       const id = gymDetail.id;
                       const name = gymDetail.name;
                       closeDetail();
-                      navigation.navigate("SubscriptionPlans", { gymId: id, gymName: name });
+                      navigation.navigate("SubscriptionPlans", {
+                        gymId: id,
+                        gymName: name,
+                        website: gymDetail.website,
+                      });
                     }}
                     style={styles.subscribeBtn}
                   >

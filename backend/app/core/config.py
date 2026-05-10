@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     )
     STRIPE_CHECKOUT_CANCEL_URL: str = "https://example.com/fitplus/payment-cancel"
 
+    # Gyms synced from Google Places often have no pricing_plans; fallback fills demo plans for tests.
+    SUBSCRIPTION_FALLBACK_PRICING: bool = False
+
+    # POST /gyms/{id}/pricing/import-from-url — HTML fetch limits (bytes before decode, chars sent to LLM).
+    GYM_PRICING_IMPORT_MAX_BYTES: int = 1_500_000
+    GYM_PRICING_IMPORT_MAX_TEXT_CHARS: int = 14_000
+
     # Maps / Places
     GOOGLE_MAPS_API_KEY: str = ""
 
@@ -65,6 +72,11 @@ class Settings(BaseSettings):
     # Dev / seeding (disable in production)
     SEED_ENABLED: bool = False
     SEED_TOKEN: str = ""
+
+    @property
+    def subscription_pricing_fallback_enabled(self) -> bool:
+        """Use placeholder plans when a gym has no pricing_plans JSON."""
+        return self.SUBSCRIPTION_FALLBACK_PRICING or self.DEBUG
 
 
 settings = Settings()

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class GymPricingPlanResponse(BaseModel):
@@ -13,6 +13,26 @@ class GymPricingPlanResponse(BaseModel):
     features: list[str] = Field(default_factory=list)
 
 
+class GymPricingImportRequest(BaseModel):
+    """Body for importing plans from a public pricing page."""
+
+    url: HttpUrl | None = Field(
+        default=None,
+        description="Full https URL of the pricing/membership page. Omit to use the gym's saved website.",
+    )
+    persist: bool = Field(default=True, description="If true, overwrite gym.pricing_plans in the database.")
+
+
+class GymPricingImportResponse(BaseModel):
+    plans: list[GymPricingPlanResponse]
+    source_url: str
+    persisted: bool
+    note: str | None = Field(
+        default=None,
+        description="Optional hint (e.g. respect site terms / verify prices).",
+    )
+
+
 class CheckoutSessionRequest(BaseModel):
     gym_id: int = Field(ge=1)
     plan_index: int = Field(ge=0, description="Index in normalized pricing_plans list from GET /gyms/{id}/pricing")
@@ -21,6 +41,16 @@ class CheckoutSessionRequest(BaseModel):
 class CheckoutSessionResponse(BaseModel):
     checkout_url: str
     session_id: str
+
+
+class ConfirmCheckoutSessionRequest(BaseModel):
+    """After Stripe redirects the customer, call this so the app can persist the subscription without a webhook (e.g. localhost dev)."""
+
+    session_id: str = Field(..., min_length=8, description="Stripe Checkout Session id (cs_...)")
+
+
+class ConfirmCheckoutSessionResponse(BaseModel):
+    ok: bool = True
 
 
 class UserSubscriptionResponse(BaseModel):

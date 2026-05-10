@@ -6,6 +6,7 @@ from geoalchemy2.types import Geography
 from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import ACCESS_TOKEN_TYPE, decode_token
 from app.models.favorite import FavoriteGym
@@ -22,8 +23,18 @@ from app.schemas.gym import (
     GymReviewCreate,
     GymReviewResponse,
 )
-from app.schemas.payments import GymPricingPlanResponse
-from app.services.pricing_plans import normalize_pricing_plans
+from app.schemas.payments import (
+    GymPricingImportRequest,
+    GymPricingImportResponse,
+    GymPricingPlanResponse,
+)
+from app.services.gym_pricing_import import (
+    GymPricingImportError,
+    import_plans_from_url,
+    llm_usable_for_import,
+)
+from app.services.llm_service import LLMProviderError
+from app.services.pricing_plans import effective_pricing_plans
 
 router = APIRouter(prefix="/gyms", tags=["Gyms"])
 
@@ -211,8 +222,76 @@ async def get_gym_pricing_plans(
     gym = await db.get(Gym, gym_id)
     if not gym:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
-    raw = normalize_pricing_plans(gym.pricing_plans)
+    raw = effective_pricing_plans(
+        gym.pricing_plans,
+        fallback=settings.subscription_pricing_fallback_enabled,
+    )
     return [GymPricingPlanResponse(**plan) for plan in raw]
+
+
+@router.post(
+    "/{gym_id}/pricing/import-from-url",
+    response_model=GymPricingImportResponse,
+)
+async def import_gym_pricing_from_url(
+    gym_id: int,
+    body: GymPricingImportRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_require_current_user),
+) -> GymPricingImportResponse:
+    """
+    Fetch a public HTML page (pricing URL or gym website), extract membership plans via LLM,
+    optionally persist on the gym row. Intended for mock/display pricing — verify on the official site.
+    """
+    if not llm_usable_for_import():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="LLM provider is not configured for pricing import.",
+        )
+
+    gym = await db.get(Gym, gym_id)
+    if not gym:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
+
+    source = str(body.url).strip() if body.url else (gym.website or "").strip()
+    if not source:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No URL provided and gym has no website saved.",
+        )
+
+    try:
+        normalized, storage_rows = await import_plans_from_url(source)
+    except GymPricingImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=exc.message,
+        ) from exc
+
+    persisted = False
+    if body.persist:
+        gym.pricing_plans = storage_rows
+        db.add(gym)
+        await db.commit()
+        await db.refresh(gym)
+        persisted = True
+
+    plans_out = [GymPricingPlanResponse(**p) for p in normalized]
+    note = (
+        "Prices are inferred from public page text; verify on the official site. "
+        "Respect robots.txt and site terms when fetching."
+    )
+    return GymPricingImportResponse(
+        plans=plans_out,
+        source_url=source,
+        persisted=persisted,
+        note=note,
+    )
 
 
 # ── Gym detail ────────────────────────────────────────────────────────────────

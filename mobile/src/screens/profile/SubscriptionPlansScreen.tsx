@@ -13,6 +13,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Screen } from "@/components/ui/Screen";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { gymApi } from "@/services/gymApi";
 import { GymPricingPlan, paymentsApi } from "@/services/paymentsApi";
 import { AppStackParamList } from "@/types/navigation";
 import { formatApiError } from "@/utils/apiErrors";
@@ -29,12 +30,14 @@ const formatMoney = (cents: number, currency: string): string => {
 export const SubscriptionPlansScreen = () => {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
-  const { gymId, gymName } = route.params;
+  const { gymId, gymName, website: websiteParam } = route.params;
 
   const [plans, setPlans] = useState<GymPricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState<string | null>(websiteParam ?? null);
+  const [importLoading, setImportLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +58,42 @@ export const SubscriptionPlansScreen = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (websiteParam) {
+      setWebsite(websiteParam);
+    }
+  }, [websiteParam]);
+
+  useEffect(() => {
+    if (websiteParam) return;
+    let cancelled = false;
+    gymApi
+      .getById(gymId)
+      .then((g) => {
+        if (!cancelled && g.website) setWebsite(g.website);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [gymId, websiteParam]);
+
+  const runImportFromWebsite = async () => {
+    setImportLoading(true);
+    try {
+      await gymApi.importPricingFromUrl(gymId, { persist: true });
+      await load();
+      Alert.alert(
+        "Actualizat",
+        "Planurile au fost extrase din pagina indicata si salvate local. Verifica preturile pe site-ul oficial.",
+      );
+    } catch (e) {
+      Alert.alert("Import", formatApiError(e, "Nu s-au putut importa planurile."));
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const startCheckout = async (planIndex: number) => {
     setCheckoutLoading(planIndex);
@@ -111,6 +150,25 @@ export const SubscriptionPlansScreen = () => {
         {gymName ?? `Gym #${gymId}`}
       </Text>
 
+      {website ? (
+        <Pressable
+          style={({ pressed }) => [styles.importBtn, pressed && styles.importBtnPressed]}
+          onPress={() => void runImportFromWebsite()}
+          disabled={importLoading}
+        >
+          {importLoading ? (
+            <ActivityIndicator color={colors.accent.base} />
+          ) : (
+            <Text style={styles.importBtnLabel}>Actualizeaza planuri de pe site</Text>
+          )}
+        </Pressable>
+      ) : (
+        <Text style={styles.websiteHint}>
+          Nu avem URL de site pentru aceasta sala; nu putem rula importul automat. Deschide sala din harta (cu website pe
+          Google) sau seteaza website-ul in backend.
+        </Text>
+      )}
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent.base} />
@@ -152,8 +210,27 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.styles.bodySmall,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     color: colors.textPalette.secondary,
+  },
+  websiteHint: {
+    ...typography.styles.caption,
+    color: colors.textPalette.secondary,
+    marginBottom: spacing.md,
+  },
+  importBtn: {
+    borderWidth: 1,
+    borderColor: colors.accent.base,
+    borderRadius: radius.button,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  importBtnPressed: { opacity: 0.85 },
+  importBtnLabel: {
+    color: colors.accent.base,
+    fontWeight: "700",
+    fontSize: typography.size.base,
   },
   list: { gap: spacing.md, paddingBottom: spacing["2xl"] },
   planCard: {

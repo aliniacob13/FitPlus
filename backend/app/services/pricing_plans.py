@@ -4,6 +4,22 @@ from __future__ import annotations
 
 from typing import Any
 
+# Used when gym.pricing_plans is null/empty and fallback is enabled (DEBUG or SUBSCRIPTION_FALLBACK_PRICING).
+_DEFAULT_DEMO_RAW_PLANS: list[dict[str, Any]] = [
+    {
+        "name": "Basic (demo)",
+        "price_ron": 99,
+        "period": "month",
+        "features": ["Placeholder — set pricing_plans on the gym for real prices"],
+    },
+    {
+        "name": "Plus (demo)",
+        "price_ron": 149,
+        "period": "month",
+        "features": ["Placeholder — configure gym.pricing_plans in DB or admin"],
+    },
+]
+
 
 def _period_to_days(period: str) -> int:
     p = period.lower().strip()
@@ -79,3 +95,15 @@ def normalize_pricing_plans(raw: Any) -> list[dict[str, Any]]:
         )
 
     return out
+
+
+def effective_pricing_plans(raw: Any, *, fallback: bool) -> list[dict[str, Any]]:
+    """
+    Normalized plans from DB JSON, or demo placeholder plans when empty and fallback is True.
+    """
+    normalized = normalize_pricing_plans(raw)
+    if normalized:
+        return normalized
+    if fallback:
+        return normalize_pricing_plans(_DEFAULT_DEMO_RAW_PLANS)
+    return []

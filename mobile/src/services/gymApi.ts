@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import type { GymPricingPlan } from "@/services/paymentsApi";
 
 export type NearbyGym = {
   id: number;
@@ -82,6 +83,13 @@ type NearbyParams = {
   radius_m?: number;
 };
 
+export type GymPricingImportResult = {
+  plans: GymPricingPlan[];
+  source_url: string;
+  persisted: boolean;
+  note?: string | null;
+};
+
 export const gymApi = {
   getNearby: async (params: NearbyParams): Promise<NearbyGym[]> => {
     const { data } = await api.get<NearbyGym[]>("/gyms/nearby", { params });
@@ -116,6 +124,16 @@ export const gymApi = {
   },
   getFavorites: async (): Promise<FavoriteGymEntry[]> => {
     const { data } = await api.get<FavoriteGymEntry[]>("/users/me/favorites");
+    return data;
+  },
+  importPricingFromUrl: async (
+    gymId: number,
+    opts?: { url?: string | null; persist?: boolean },
+  ): Promise<GymPricingImportResult> => {
+    const { data } = await api.post<GymPricingImportResult>(`/gyms/${gymId}/pricing/import-from-url`, {
+      url: opts?.url ?? null,
+      persist: opts?.persist ?? true,
+    });
     return data;
   },
 };
