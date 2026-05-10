@@ -6,9 +6,12 @@ import { CalorieTargetScreen } from "@/screens/nutrition/CalorieTargetScreen";
 import { FoodDiaryScreen } from "@/screens/nutrition/FoodDiaryScreen";
 import { LabelScanScreen } from "@/screens/nutrition/LabelScanScreen";
 import { PlateCoachScreen } from "@/screens/nutrition/PlateCoachScreen";
-import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
-import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { DietPreferencesScreen } from "@/screens/profile/DietPreferencesScreen";
+import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
+import { MySubscriptionsScreen } from "@/screens/profile/MySubscriptionsScreen";
+import { PaymentCheckoutScreen } from "@/screens/profile/PaymentCheckoutScreen";
+import { SubscriptionPlansScreen } from "@/screens/profile/SubscriptionPlansScreen";
+import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { useAuthStore } from "@/store/authStore";
 import { AppStackParamList } from "@/types/navigation";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -37,6 +40,9 @@ const AuthenticatedStack = () => (
       name="DietPreferences"
       component={DietPreferencesScreen}
     />
+    <Stack.Screen name="SubscriptionPlans" component={SubscriptionPlansScreen} />
+    <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
+    <Stack.Screen name="MySubscriptions" component={MySubscriptionsScreen} />
   </Stack.Navigator>
 );
 

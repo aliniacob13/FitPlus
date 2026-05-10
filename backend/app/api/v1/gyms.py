@@ -22,6 +22,8 @@ from app.schemas.gym import (
     GymReviewCreate,
     GymReviewResponse,
 )
+from app.schemas.payments import GymPricingPlanResponse
+from app.services.pricing_plans import normalize_pricing_plans
 
 router = APIRouter(prefix="/gyms", tags=["Gyms"])
 
@@ -197,6 +199,20 @@ async def get_nearby_gyms(
     result = await db.execute(stmt)
     rows = result.mappings().all()
     return [GymResponse(**row) for row in rows]
+
+
+# ── Gym pricing (subscriptions) ───────────────────────────────────────────────
+
+@router.get("/{gym_id}/pricing", response_model=list[GymPricingPlanResponse])
+async def get_gym_pricing_plans(
+    gym_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> list[GymPricingPlanResponse]:
+    gym = await db.get(Gym, gym_id)
+    if not gym:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
+    raw = normalize_pricing_plans(gym.pricing_plans)
+    return [GymPricingPlanResponse(**plan) for plan in raw]
 
 
 # ── Gym detail ────────────────────────────────────────────────────────────────

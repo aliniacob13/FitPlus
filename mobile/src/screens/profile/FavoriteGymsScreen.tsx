@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Loader } from "@/components/ui/Loader";
 import { Screen } from "@/components/ui/Screen";
@@ -9,9 +10,12 @@ import { GymReviewList } from "@/components/gym/GymReviewList";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { FavoriteGymEntry, GymDetailExtended, gymApi } from "@/services/gymApi";
 import { useGymStore } from "@/store/gymStore";
+import { AppStackParamList } from "@/types/navigation";
+
+type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 export const FavoriteGymsScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavProp>();
   const favorites = useGymStore((s) => s.favorites);
   const isFetching = useGymStore((s) => s.isFetching);
   const fetchFavorites = useGymStore((s) => s.fetchFavorites);
@@ -171,6 +175,18 @@ export const FavoriteGymsScreen = () => {
                   {gymDetail.average_rating !== null ? (
                     <Text style={styles.avgRating}>★ {gymDetail.average_rating.toFixed(1)} medie</Text>
                   ) : null}
+
+                  <Pressable
+                    onPress={() => {
+                      const id = gymDetail.id;
+                      const name = gymDetail.name;
+                      closeDetail();
+                      navigation.navigate("SubscriptionPlans", { gymId: id, gymName: name });
+                    }}
+                    style={styles.subscribeBtn}
+                  >
+                    <Text style={styles.subscribeBtnLabel}>Subscription plans</Text>
+                  </Pressable>
 
                   {/* Reviews */}
                   <View style={styles.section}>
@@ -345,6 +361,18 @@ const styles = StyleSheet.create({
     color: colors.accent.base,
     fontWeight: "700",
     fontSize: typography.size.base,
+  },
+  subscribeBtn: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+  },
+  subscribeBtnLabel: {
+    color: colors.textPalette.inverse,
+    fontWeight: "700",
+    fontSize: typography.size.sm,
   },
   section: {
     borderTopWidth: 1,

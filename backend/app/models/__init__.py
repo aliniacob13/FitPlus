@@ -7,3 +7,5 @@ from app.models.message import Message  # noqa: F401
 from app.models.review import GymReview  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.diet import DietPreference, Prescription, WeightLog  # noqa: F401
+from app.models.payment import Payment  # noqa: F401
+from app.models.subscription import Subscription  # noqa: F401

@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    # Redirect URLs for Checkout (Stripe replaces {CHECKOUT_SESSION_ID} in success URL).
+    STRIPE_CHECKOUT_SUCCESS_URL: str = (
+        "https://example.com/fitplus/payment-success?session_id={CHECKOUT_SESSION_ID}"
+    )
+    STRIPE_CHECKOUT_CANCEL_URL: str = "https://example.com/fitplus/payment-cancel"
 
     # Maps / Places
     GOOGLE_MAPS_API_KEY: str = ""
