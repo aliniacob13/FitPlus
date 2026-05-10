@@ -58,8 +58,22 @@ export const MapScreen = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
 
   const favoriteDbIds = useGymStore((s) => s.favoriteGymIds);
+  const favoritesFromApi = useGymStore((s) => s.favorites);
+  const fetchFavorites = useGymStore((s) => s.fetchFavorites);
   const toggleDbFavorite = useGymStore((s) => s.toggleFavorite);
   const initFavoriteState = useGymStore((s) => s.initFavoriteState);
+
+  useEffect(() => {
+    void fetchFavorites();
+  }, [fetchFavorites]);
+
+  const mergedFavoritePlaceIds = useMemo(() => {
+    const merged = new Set(favoritePlaceIds);
+    for (const row of favoritesFromApi) {
+      if (row.place_id) merged.add(row.place_id);
+    }
+    return merged;
+  }, [favoritePlaceIds, favoritesFromApi]);
 
   // ── Derived / filtered data ───────────────────────────────────────────────
 
@@ -70,10 +84,10 @@ export const MapScreen = () => {
           if (gym.rating == null) return false;
           if (gym.rating < minRating) return false;
         }
-        if (onlyFavorites && !favoritePlaceIds.has(gym.place_id)) return false;
+        if (onlyFavorites && !mergedFavoritePlaceIds.has(gym.place_id)) return false;
         return true;
       }),
-    [nearbyGyms, minRating, onlyFavorites, favoritePlaceIds],
+    [nearbyGyms, minRating, onlyFavorites, mergedFavoritePlaceIds],
   );
 
   const nearestGyms = useMemo(() => filteredNearbyGyms.slice(0, 5), [filteredNearbyGyms]);
@@ -81,8 +95,8 @@ export const MapScreen = () => {
   const isGymFavorited = useMemo(() => {
     if (!selectedGym) return false;
     if (linkedDbGym !== null) return favoriteDbIds.has(linkedDbGym.id);
-    return favoritePlaceIds.has(selectedGym.place_id);
-  }, [selectedGym, linkedDbGym, favoriteDbIds, favoritePlaceIds]);
+    return mergedFavoritePlaceIds.has(selectedGym.place_id);
+  }, [selectedGym, linkedDbGym, favoriteDbIds, mergedFavoritePlaceIds]);
 
   // ── Map helpers ───────────────────────────────────────────────────────────
 

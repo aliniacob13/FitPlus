@@ -9,6 +9,8 @@ type GymStoreState = {
   fetchFavorites: () => Promise<void>;
   toggleFavorite: (gymId: number) => Promise<boolean>;
   initFavoriteState: (gymId: number, isFavorited: boolean) => void;
+  /** Clear cached favorites (e.g. on logout). */
+  resetFavorites: () => void;
 };
 
 export const useGymStore = create<GymStoreState>((set, get) => ({
@@ -62,5 +64,9 @@ export const useGymStore = create<GymStoreState>((set, get) => ({
       isFavorited ? next.add(gymId) : next.delete(gymId);
       return { favoriteGymIds: next };
     });
+  },
+
+  resetFavorites: () => {
+    set({ favorites: [], favoriteGymIds: new Set(), isFetching: false });
   },
 }));
