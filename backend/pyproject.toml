@@ -1,0 +1,34 @@
+[tool.ruff]
+target-version = "py312"
+src = ["app", "tests"]
+line-length = 100
+exclude = [
+    ".venv",
+    "alembic/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "UP", "B", "SIM",
+]
+ignore = [
+    "B008",
+    # Line length: enforced loosely via `ruff format`; long strings/URLs stay readable.
+    "E501",
+    # Prefer explicit chaining later; legacy handlers use bare `raise HTTPException`.
+    "B904",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/env.py" = ["E402"]
+# SQLAlchemy relationships use forward refs; names resolve at mapper configure time.
+"app/models/*.py" = ["F821"]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = ["*/tests/*", "*/alembic/*"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true

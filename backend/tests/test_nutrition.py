@@ -1,5 +1,3 @@
-import pytest
-
 from app.services.nutrition import (
     ActivityLevel,
     Goal,
@@ -57,7 +55,9 @@ def test_target_lose_with_weekly_rate() -> None:
 
 def test_target_gain_with_weekly_rate() -> None:
     # 0.3 kg/week → 0.3 * 7700 / 7 ≈ 330 kcal/day
-    assert compute_target_calories(2000, Goal.gain, weekly_rate_kg=0.3) == 2000 + round(0.3 * 7700 / 7)
+    assert compute_target_calories(2000, Goal.gain, weekly_rate_kg=0.3) == 2000 + round(
+        0.3 * 7700 / 7
+    )
 
 
 def test_target_lose_clamped_above_minimum() -> None:

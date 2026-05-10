@@ -1,6 +1,8 @@
 import * as Location from "expo-location";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -12,10 +14,14 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { GymDetailExtended, gymApi } from "@/services/gymApi";
 import { GeocodeResult, RealGymDetail, RealGymSummary, placesApi } from "@/services/placesApi";
 import { useGymStore } from "@/store/gymStore";
+import type { AppStackParamList } from "@/types/navigation";
+import { formatApiError } from "@/utils/apiErrors";
 
 const BUCHAREST = { latitude: 44.4268, longitude: 26.1025 };
 const CITY_RADIUS_M = 25_000;
 const RATING_OPTIONS = [0, 3.0, 3.5, 4.0, 4.5] as const;
+
+type StackNav = NativeStackNavigationProp<AppStackParamList>;
 
 const openMaps = (gym: { name: string; latitude: number; longitude: number }) => {
   const query = encodeURIComponent(`${gym.name} ${gym.latitude},${gym.longitude}`);
@@ -31,6 +37,7 @@ const MapEmbed = ({ uri }: { uri: string }) =>
   });
 
 export const MapScreen = () => {
+  const navigation = useNavigation<StackNav>();
   const heartScale = useRef(new Animated.Value(1)).current;
 
   const [coords, setCoords] = useState(BUCHAREST);
@@ -53,8 +60,22 @@ export const MapScreen = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
 
   const favoriteDbIds = useGymStore((s) => s.favoriteGymIds);
+  const favoritesFromApi = useGymStore((s) => s.favorites);
+  const fetchFavorites = useGymStore((s) => s.fetchFavorites);
   const toggleDbFavorite = useGymStore((s) => s.toggleFavorite);
   const initFavoriteState = useGymStore((s) => s.initFavoriteState);
+
+  useEffect(() => {
+    void fetchFavorites();
+  }, [fetchFavorites]);
+
+  const mergedFavoritePlaceIds = useMemo(() => {
+    const merged = new Set(favoritePlaceIds);
+    for (const row of favoritesFromApi) {
+      if (row.place_id) merged.add(row.place_id);
+    }
+    return merged;
+  }, [favoritePlaceIds, favoritesFromApi]);
 
   // ── Derived / filtered data ───────────────────────────────────────────────
 
@@ -65,10 +86,10 @@ export const MapScreen = () => {
           if (gym.rating == null) return false;
           if (gym.rating < minRating) return false;
         }
-        if (onlyFavorites && !favoritePlaceIds.has(gym.place_id)) return false;
+        if (onlyFavorites && !mergedFavoritePlaceIds.has(gym.place_id)) return false;
         return true;
       }),
-    [nearbyGyms, minRating, onlyFavorites, favoritePlaceIds],
+    [nearbyGyms, minRating, onlyFavorites, mergedFavoritePlaceIds],
   );
 
   const nearestGyms = useMemo(() => filteredNearbyGyms.slice(0, 5), [filteredNearbyGyms]);
@@ -76,8 +97,8 @@ export const MapScreen = () => {
   const isGymFavorited = useMemo(() => {
     if (!selectedGym) return false;
     if (linkedDbGym !== null) return favoriteDbIds.has(linkedDbGym.id);
-    return favoritePlaceIds.has(selectedGym.place_id);
-  }, [selectedGym, linkedDbGym, favoriteDbIds, favoritePlaceIds]);
+    return mergedFavoritePlaceIds.has(selectedGym.place_id);
+  }, [selectedGym, linkedDbGym, favoriteDbIds, mergedFavoritePlaceIds]);
 
   // ── Location bootstrap ────────────────────────────────────────────────────
 
@@ -168,7 +189,39 @@ export const MapScreen = () => {
     }
   };
 
-  const useManualLocation = async () => {
+  const openSubscriptionPlansForPlace = async (
+    placeId: string,
+    payload: {
+      name: string;
+      address: string | null;
+      latitude: number;
+      longitude: number;
+      rating: number | null;
+      image_url: string | null;
+    },
+  ) => {
+    try {
+      const detail = await gymApi.resolvePlaceToDbGym(placeId, {
+        name: payload.name,
+        address: payload.address,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        rating: payload.rating,
+        image_url: payload.image_url,
+      });
+      const params = { gymId: detail.id, gymName: detail.name };
+      const parentNav = navigation.getParent();
+      if (parentNav?.navigate) {
+        parentNav.navigate("SubscriptionPlans", params);
+      } else {
+        navigation.navigate("SubscriptionPlans", params);
+      }
+    } catch (e) {
+      Alert.alert("Abonamente", formatApiError(e, "Nu am putut pregati sala pentru planuri."));
+    }
+  };
+
+  const applyManualLocation = async () => {
     const query = manualLocation.trim();
     if (!query) { setError("Introdu un oras sau o adresa."); return; }
     setLoadingManualLocation(true);
@@ -249,7 +302,7 @@ export const MapScreen = () => {
             onChangeText={setManualLocation}
             placeholder="Ex: Iasi, Romania"
           />
-          <Button label="Foloseste locatia introdusa" onPress={() => void useManualLocation()} loading={loadingManualLocation} />
+          <Button label="Foloseste locatia introdusa" onPress={() => void applyManualLocation()} loading={loadingManualLocation} />
           <Button label="Incarca sali reale din zona" onPress={() => void loadNearby()} loading={loading} />
           {error ? <ErrorState message={error} /> : null}
 
@@ -293,17 +346,30 @@ export const MapScreen = () => {
             <View style={styles.nearest}>
               <Text style={styles.nearestTitle}>Cele mai apropiate sali</Text>
               {nearestGyms.map((gym) => (
-                <Pressable
-                  key={`nearest-${gym.place_id}`}
-                  style={styles.nearestCard}
-                  onPress={() => void loadGymDetail(gym.place_id)}
-                >
-                  <Text style={styles.cardTitle}>{gym.name}</Text>
-                  <Text style={styles.meta}>
-                    {gym.distance_m ? `${(gym.distance_m / 1000).toFixed(2)} km` : "N/A"}{" "}
-                    {gym.rating ? `| ${gym.rating.toFixed(1)}★` : ""}
-                  </Text>
-                </Pressable>
+                <View key={`nearest-${gym.place_id}`} style={styles.nearestCard}>
+                  <Pressable style={styles.nearestCardMain} onPress={() => void loadGymDetail(gym.place_id)}>
+                    <Text style={styles.cardTitle}>{gym.name}</Text>
+                    <Text style={styles.meta}>
+                      {gym.distance_m ? `${(gym.distance_m / 1000).toFixed(2)} km` : "N/A"}{" "}
+                      {gym.rating ? `| ${gym.rating.toFixed(1)}★` : ""}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.nearestPlansBtn}
+                    onPress={() =>
+                      void openSubscriptionPlansForPlace(gym.place_id, {
+                        name: gym.name,
+                        address: gym.address,
+                        latitude: gym.latitude,
+                        longitude: gym.longitude,
+                        rating: gym.rating,
+                        image_url: gym.photo_url,
+                      })
+                    }
+                  >
+                    <Text style={styles.nearestPlansLabel}>Abonamente</Text>
+                  </Pressable>
+                </View>
               ))}
             </View>
           ) : null}
@@ -355,6 +421,19 @@ export const MapScreen = () => {
                   {selectedGym.website ? (
                     <Button label="Website oficial" onPress={() => void Linking.openURL(selectedGym.website ?? "")} />
                   ) : null}
+                  <Button
+                    label="Planuri / abonamente"
+                    onPress={() =>
+                      void openSubscriptionPlansForPlace(selectedGym.place_id, {
+                        name: selectedGym.name,
+                        address: selectedGym.address,
+                        latitude: selectedGym.latitude,
+                        longitude: selectedGym.longitude,
+                        rating: selectedGym.rating,
+                        image_url: selectedGym.photo_urls[0] ?? null,
+                      })
+                    }
+                  />
                   <Button label="Google Maps (destinatie)" onPress={() => openMaps(selectedGym)} />
                   <Button label="Cum ajung (pe jos)" onPress={() => openDirections("walking")} />
                   <Button label="Cum ajung (auto)" onPress={() => openDirections("driving")} />
@@ -498,8 +577,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
+    overflow: "hidden",
+    gap: 0,
+  },
+  nearestCardMain: {
     padding: spacing.sm,
     gap: spacing.xs,
+  },
+  nearestPlansBtn: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+    backgroundColor: colors.accent.muted,
+  },
+  nearestPlansLabel: {
+    color: colors.accent.base,
+    fontWeight: "700",
+    fontSize: 13,
   },
   list: {
     gap: spacing.sm,

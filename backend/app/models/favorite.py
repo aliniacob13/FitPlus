@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,13 +20,11 @@ class FavoriteGym(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
 
     user: Mapped[User] = relationship("User", back_populates="favorites")
     gym: Mapped[Gym] = relationship("Gym", back_populates="favorited_by")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "gym_id", name="uq_favorite_gyms_user_gym"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "gym_id", name="uq_favorite_gyms_user_gym"),)

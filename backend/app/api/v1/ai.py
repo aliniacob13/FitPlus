@@ -22,6 +22,7 @@ from app.services.llm_service import LLMProviderError, llm_service
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
+
 @router.post("/workout/chat", response_model=AIChatResponse)
 async def workout_chat(
     payload: AIChatRequest,
@@ -224,7 +225,11 @@ async def _chat_stream(
                 yield {"event": "chunk", "data": chunk}
 
             db.add(Message(conversation_id=conversation.id, role="user", content=message))
-            db.add(Message(conversation_id=conversation.id, role="assistant", content=full_response.strip()))
+            db.add(
+                Message(
+                    conversation_id=conversation.id, role="assistant", content=full_response.strip()
+                )
+            )
             await db.commit()
 
             yield {"event": "meta", "data": str(conversation.id)}
@@ -271,7 +276,9 @@ async def _resolve_conversation(
     return conversation
 
 
-async def _get_conversation_or_404(conversation_id: int, user_id: int, db: AsyncSession) -> Conversation:
+async def _get_conversation_or_404(
+    conversation_id: int, user_id: int, db: AsyncSession
+) -> Conversation:
     conversation = await db.get(Conversation, conversation_id)
     if not conversation or conversation.user_id != user_id:
         raise HTTPException(
@@ -281,7 +288,9 @@ async def _get_conversation_or_404(conversation_id: int, user_id: int, db: Async
     return conversation
 
 
-async def _get_recent_history(db: AsyncSession, conversation_id: int, limit: int = 12) -> list[Message]:
+async def _get_recent_history(
+    db: AsyncSession, conversation_id: int, limit: int = 12
+) -> list[Message]:
     result = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conversation_id)
