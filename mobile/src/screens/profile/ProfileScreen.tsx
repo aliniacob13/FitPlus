@@ -24,7 +24,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useUserStore } from "@/store/userStore";
 import { AppStackParamList } from "@/types/navigation";
 
-type NavProp = NativeStackNavigationProp<AppStackParamList>;
+type NavProp = NativeStackNavigationProp<AppStackParamList, "MainTabs">;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -200,10 +200,9 @@ export const ProfileScreen = () => {
   };
 
   const handleLogout = () => {
-    const runLogout = () => void logout();
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("Are you sure you want to log out?")) {
-        runLogout();
+      if (window.confirm("Are you sure you want to log out?")) {
+        void logout();
       }
       return;
     }
@@ -212,7 +211,7 @@ export const ProfileScreen = () => {
       {
         text: "Log out",
         style: "destructive",
-        onPress: runLogout,
+        onPress: () => void logout(),
       },
     ]);
   };
@@ -445,14 +444,6 @@ export const ProfileScreen = () => {
             label="Full Edit Screen"
             description="Update all profile fields"
             onPress={() => navigation.navigate("UpdateProfile")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="card-outline"
-            iconColor={colors.success}
-            label="My subscriptions"
-            description="Gym memberships via Stripe"
-            onPress={() => navigation.navigate("MySubscriptions")}
           />
           <NavRowDivider />
           <NavRow
