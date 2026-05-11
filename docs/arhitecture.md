@@ -2,9 +2,7 @@
 
 [← Back to README](../README.md)
 
-TBD: UML diagrams, arhitectural component diagrams, workflows, ER diagrams, API endpoint diagrams, etc
-
----
+This document contains **Mermaid** diagrams for system context, data model (ER-style), API surface, AI chat flow, and deployment. For the course rubric cross-reference, see [course_rubric_report.md](course_rubric_report.md).
 
 ## System Architecture
 
@@ -25,9 +23,9 @@ graph TB
         LLM[LLMService Wrapper]
     end
 
-    subgraph Data["Data Layer"]
+        subgraph Data["Data Layer"]
         PG[(PostgreSQL + PostGIS)]
-        Ollama[Ollama - Local LLM]
+        LLMCloud[LLM API — Anthropic / OpenAI]
         Stripe[Stripe API]
         FS[File Storage]
     end
@@ -41,7 +39,7 @@ graph TB
     Service --> Models
     Models --> PG
     Service --> LLM
-    LLM --> Ollama
+    LLM --> LLMCloud
     Service --> Stripe
     Service --> FS
 ```
@@ -222,7 +220,7 @@ sequenceDiagram
     participant App as React Native
     participant API as FastAPI
     participant DB as PostgreSQL
-    participant LLM as Ollama (LLM)
+    participant LLM as LLM API (Anthropic / OpenAI)
 
     User->>App: Types message in chat
     App->>API: POST /api/ai/workout/chat
@@ -249,7 +247,7 @@ graph TB
     subgraph Cloud["Cloud / VPS"]
         FastAPI[FastAPI Server]
         PG[(PostgreSQL + PostGIS)]
-        Ollama[Ollama LLM Server]
+        LLMCloud[LLM API — Anthropic / OpenAI]
     end
 
     subgraph External
@@ -260,7 +258,7 @@ graph TB
     iOS -->|HTTPS| FastAPI
     Android -->|HTTPS| FastAPI
     FastAPI --> PG
-    FastAPI --> Ollama
+    FastAPI --> LLMCloud
     FastAPI --> StripeAPI
     GH -->|Deploy| FastAPI
 ```

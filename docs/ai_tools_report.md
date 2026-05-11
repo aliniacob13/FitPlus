@@ -12,7 +12,7 @@
 | ChatGPT / Claude | Architecture decisions, debugging, code review | All |
 | Claude Code | Agentic coding, refactoring | — |
 | Cursor | AI-assisted IDE | — |
-| Ollama (in-app) | Workout & Diet AI agents | M4, M5 |
+| Anthropic / OpenAI APIs (via app) | Workout, Diet & vision nutrition features | M4, M5 |
 
 ---
 

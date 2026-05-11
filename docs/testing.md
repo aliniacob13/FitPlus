@@ -40,10 +40,11 @@ ruff format app tests
 
 ### Live LLM evaluation (not in default CI)
 
-CI intentionally leaves API keys empty so calls hit the built-in fallback or mocks. To smoke-test a real provider locally:
+In **development** we used **Anthropic** (`ANTHROPIC_API_KEY`, `LLM_PROVIDER=anthropic`, models in `.env`). The same `LLMService` can call **OpenAI**, but that is not our primary documented setup.
 
-1. Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` and matching `LLM_PROVIDER` / `LLM_MODEL` in `.env`.
-2. Run targeted tests **without** mocking, e.g. manual HTTP calls or a personal script — avoid committing secrets or tying PR CI to paid quotas.
+CI intentionally leaves API keys empty so tests use the **fallback** or **mock** LLM path — see evals under `tests/evals/`.
+
+For a local smoke test with a real provider: set `ANTHROPIC_API_KEY` and `LLM_PROVIDER=anthropic` (and the related models) in `backend/.env`, run the backend, and exercise the app or an HTTP client — **never** commit secrets to the repo.
 
 ## Mobile (Expo)
 

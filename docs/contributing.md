@@ -9,11 +9,11 @@
 ```
 main            ← production-ready, deploy triggers here
   └── develop   ← integration branch, all features merge here
-        ├── feature/auth-jwt           (Membru 1)
-        ├── feature/rn-navigation      (Membru 2)
-        ├── feature/gym-nearby-api     (Membru 3)
-        ├── feature/stripe-checkout    (Membru 4)
-        ├── feature/diet-agent         (Membru 5)
+        ├── feature/auth-jwt           (Member 1)
+        ├── feature/rn-navigation      (Member 2)
+        ├── feature/gym-nearby-api     (Member 3)
+        ├── feature/stripe-checkout    (Member 4)
+        ├── feature/diet-agent         (Member 5)
         └── bugfix/map-pin-crash       (any member)
 ```
 

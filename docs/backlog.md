@@ -1,6 +1,6 @@
 # Backlog & User Stories
 
-[← Back to README](../README.md)
+[← Back to README](../README.md) · [Course rubric report](course_rubric_report.md)
 
 ---
 
@@ -51,6 +51,22 @@
 
 ---
 
+## Nutrition, food diary, and extended agents (implemented)
+
+These capabilities extend the nutrition module beyond the base diet chat. They are implemented in the backend (`/api/v1/nutrition/…`, `/api/v1/ai/nutrition/…`) and in the mobile app (`mobile/src/screens/nutrition/`, related stores).
+
+| ID | User story (short) | Delivered |
+|----|-------------------|-----------|
+| **US-N1** | As a user, I want to compute my daily calorie target from my profile (height, weight, goal) so I know my intake budget. | Compute endpoint + persist `daily_calorie_target` on the user; calculator screen in the app. |
+| **US-N2** | As a user, I want to search foods and add them to my daily log so I see calories and macros for the day. | USDA search (`/nutrition/foods/search`), daily food log (`/users/me/food-log`), totals in the UI. |
+| **US-N3** | As a user, I want to photograph a **nutrition label** and have the app suggest a food entry for my log. | `POST /nutrition/label-scan` — OCR (Tesseract) + parser; log entry with source `label_scan`. |
+| **US-N4** | As a user, I want to take a photo of my **plate** and have an agent estimate foods and calories. | **Plate coach:** vision LLM (`/ai/nutrition/plate/analyze`, `/clarify`), `nutrition_vision` conversations, image downscale before the API call. |
+| **US-N5** | As a user, I want the plate agent to clarify portions or ingredients in chat. | `clarify` flow tied to the same vision conversation. |
+
+**Technical:** vision and label features use the same provider credentials as the main LLM (in practice **Anthropic** + vision model in `.env`, e.g. `VISION_LLM_MODEL`).
+
+---
+
 ## Development Backlog
 
 Tasks ordered by execution priority. Dependencies are marked.
@@ -85,7 +101,7 @@ Tasks ordered by execution priority. Dependencies are marked.
 | 14 | Build gym detail view (bottom sheet on pin tap) | Member 3 | #13 |
 | 15 | Build subscription plans & pricing UI | Member 4 | #7, #10 |
 | 16 | Integrate frontend payment flow (Stripe Checkout → confirmation) | Member 4 | #15, #11 |
-| 17 | Set up LLM provider in FastAPI (Ollama + `LLMService` wrapper) | Member 4 | #1 |
+| 17 | Set up LLM provider in FastAPI (`LLMService` + **Anthropic** keys / optional OpenAI in `.env`) | Member 4 | #1 |
 | 18a | Build Workout AI Agent (system prompt, context injection, endpoints) | Member 4 | #17 |
 | 18b | Build Diet AI Agent (system prompt, context injection, endpoints) | Member 5 | #17 |
 | 19 | Create conversation history database (Conversation + Message models) | Member 4 | #2 |
