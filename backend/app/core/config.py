@@ -54,6 +54,17 @@ class Settings(BaseSettings):
     # POST /gyms/{id}/pricing/import-from-url — HTML fetch limits (bytes before decode, chars sent to LLM).
     GYM_PRICING_IMPORT_MAX_BYTES: int = 1_500_000
     GYM_PRICING_IMPORT_MAX_TEXT_CHARS: int = 18_000
+    # Per-page plain text cap before merging (keeps memory stable on large SPAs).
+    GYM_PRICING_IMPORT_PAGE_TEXT_CHARS: int = 8_000
+    GYM_PRICING_IMPORT_MERGE_MAX_CHUNKS: int = 10
+    # Same-site crawl (priority queue by path keywords). Depth 0 = seed paths only.
+    GYM_PRICING_CRAWL_MAX_PAGES: int = 28
+    GYM_PRICING_CRAWL_MAX_DEPTH: int = 2
+    GYM_PRICING_CRAWL_MAX_LINKS_PER_PAGE: int = 45
+    # Headless Chromium (requires `playwright install chromium` in Docker / dev machines).
+    GYM_PRICING_PLAYWRIGHT_ENABLED: bool = True
+    GYM_PRICING_PLAYWRIGHT_TIMEOUT_MS: int = 35_000
+    GYM_PRICING_PLAYWRIGHT_SETTLE_S: float = 0.75
 
     # Maps / Places
     GOOGLE_MAPS_API_KEY: str = ""

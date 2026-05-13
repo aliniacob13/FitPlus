@@ -209,7 +209,7 @@ export const MapScreen = () => {
         rating: payload.rating,
         image_url: payload.image_url,
       });
-      const params = { gymId: detail.id, gymName: detail.name };
+      const params = { gymId: detail.id, gymName: detail.name, website: detail.website };
       const parentNav = navigation.getParent();
       if (parentNav?.navigate) {
         parentNav.navigate("SubscriptionPlans", params);

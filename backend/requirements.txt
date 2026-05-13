@@ -33,5 +33,6 @@ pytest-asyncio==0.24.0
 # Payments
 stripe==11.4.0
 
-# Gym pricing import (HTML → text)
+# Gym pricing import (HTML → text + optional headless crawl)
 beautifulsoup4==4.12.3
+playwright==1.49.1

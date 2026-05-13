@@ -23,6 +23,14 @@ class GymPricingImportRequest(BaseModel):
     persist: bool = Field(
         default=True, description="If true, overwrite gym.pricing_plans in the database."
     )
+    use_playwright: bool = Field(
+        default=True,
+        description="If true, use headless Chromium when available (better for JS-rendered prices).",
+    )
+    deep_crawl: bool = Field(
+        default=True,
+        description="If true, follow same-site links (pricing-related paths prioritized) up to crawl limits.",
+    )
 
 
 class GymPricingImportResponse(BaseModel):

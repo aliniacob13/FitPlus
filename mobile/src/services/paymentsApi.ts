@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { api, API_LONG_OPERATION_TIMEOUT_MS } from "@/services/api";
 
 export type GymPricingPlan = {
   key: string;
@@ -31,9 +31,34 @@ export type ConfirmCheckoutSessionResponse = {
   ok: boolean;
 };
 
+export type GymPricingImportResponse = {
+  plans: GymPricingPlan[];
+  source_url: string;
+  persisted: boolean;
+  note?: string | null;
+};
+
 export const paymentsApi = {
   getGymPricing: async (gymId: number): Promise<GymPricingPlan[]> => {
     const { data } = await api.get<GymPricingPlan[]>(`/gyms/${gymId}/pricing`);
+    return data;
+  },
+
+  /** Crawl gym website + LLM extract; requires auth. Omits url to use gym.website from DB. */
+  importGymPricingFromUrl: async (
+    gymId: number,
+    body?: {
+      url?: string;
+      persist?: boolean;
+      use_playwright?: boolean;
+      deep_crawl?: boolean;
+    },
+  ): Promise<GymPricingImportResponse> => {
+    const { data } = await api.post<GymPricingImportResponse>(
+      `/gyms/${gymId}/pricing/import-from-url`,
+      body ?? { persist: true },
+      { timeout: API_LONG_OPERATION_TIMEOUT_MS },
+    );
     return data;
   },
 

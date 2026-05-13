@@ -13,6 +13,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Screen } from "@/components/ui/Screen";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { gymApi } from "@/services/gymApi";
 import { GymPricingPlan, paymentsApi } from "@/services/paymentsApi";
 import { AppStackParamList } from "@/types/navigation";
 import { formatApiError } from "@/utils/apiErrors";
@@ -22,35 +23,80 @@ type NavProp = NativeStackNavigationProp<AppStackParamList, "SubscriptionPlans">
 
 const formatMoney = (cents: number, currency: string): string => {
   const major = cents / 100;
-  const sym = currency.toLowerCase() === "ron" ? "RON" : currency.toUpperCase();
-  return `${major.toFixed(2)} ${sym}`;
+  const c = currency.toLowerCase();
+  if (c === "ron") return `${major.toFixed(2)} RON`;
+  if (c === "eur") return `${major.toFixed(2)} €`;
+  return `${major.toFixed(2)} ${currency.toUpperCase()}`;
 };
+
+const isDemoPlaceholderPlans = (plans: GymPricingPlan[]): boolean =>
+  plans.length > 0 &&
+  plans.every(
+    (p) =>
+      /\(demo\)/i.test(p.name) ||
+      (p.features?.some((f) => /placeholder/i.test(String(f))) ?? false),
+  );
 
 export const SubscriptionPlansScreen = () => {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
-  const { gymId, gymName } = route.params;
+  const { gymId, gymName, website: websiteFromRoute } = route.params;
 
   const [plans, setPlans] = useState<GymPricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setImporting(false);
     setError(null);
     try {
-      const data = await paymentsApi.getGymPricing(gymId);
+      let data = await paymentsApi.getGymPricing(gymId);
+      let website = websiteFromRoute?.trim() || null;
+      if ((data.length === 0 || isDemoPlaceholderPlans(data)) && !website) {
+        const detail = await gymApi.getById(gymId);
+        website = detail.website?.trim() || null;
+      }
+
+      const shouldTryImport =
+        Boolean(website) && (data.length === 0 || isDemoPlaceholderPlans(data));
+
+      if (shouldTryImport) {
+        setImporting(true);
+        try {
+          await paymentsApi.importGymPricingFromUrl(gymId, {
+            persist: true,
+            url: website!,
+            use_playwright: true,
+            deep_crawl: true,
+          });
+          data = await paymentsApi.getGymPricing(gymId);
+        } catch (impErr) {
+          const msg = formatApiError(impErr, "Could not import plans from the gym website.");
+          setPlans(data);
+          setError(msg);
+          return;
+        } finally {
+          setImporting(false);
+        }
+      }
+
       setPlans(data);
       if (!data.length) {
-        setError("This gym has no subscription plans yet.");
+        setError(
+          website
+            ? "No subscription plans were found. Prices may be only in images or a PDF, or the site blocks automated access."
+            : "This gym has no saved website yet, so plans cannot be imported automatically.",
+        );
       }
     } catch (e) {
       setError(formatApiError(e, "Could not load plans."));
     } finally {
       setLoading(false);
     }
-  }, [gymId]);
+  }, [gymId, websiteFromRoute]);
 
   useEffect(() => {
     void load();
@@ -99,6 +145,9 @@ export const SubscriptionPlansScreen = () => {
     </View>
   );
 
+  const showList = !loading && !error && plans.length > 0;
+  const showEmptyState = !loading && !error && plans.length === 0;
+
   return (
     <Screen scrollable={false}>
       <View style={styles.header}>
@@ -114,6 +163,9 @@ export const SubscriptionPlansScreen = () => {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent.base} />
+          {importing ? (
+            <Text style={styles.importHint}>Fetching plans from the gym website…</Text>
+          ) : null}
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -122,14 +174,21 @@ export const SubscriptionPlansScreen = () => {
             <Text style={styles.retryTxt}>Retry</Text>
           </Pressable>
         </View>
-      ) : (
+      ) : showList ? (
         <FlatList
           data={plans}
           keyExtractor={(item) => item.key}
           renderItem={renderPlan}
           contentContainerStyle={styles.list}
         />
-      )}
+      ) : showEmptyState ? (
+        <View style={styles.center}>
+          <Text style={styles.muted}>No plans to show.</Text>
+          <Pressable onPress={() => void load()} style={styles.retry}>
+            <Text style={styles.retryTxt}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </Screen>
   );
 };
@@ -154,6 +213,12 @@ const styles = StyleSheet.create({
     ...typography.styles.bodySmall,
     marginBottom: spacing.md,
     color: colors.textPalette.secondary,
+  },
+  importHint: {
+    ...typography.styles.bodySmall,
+    textAlign: "center",
+    color: colors.textPalette.secondary,
+    paddingHorizontal: spacing.md,
   },
   list: { gap: spacing.md, paddingBottom: spacing["2xl"] },
   planCard: {
@@ -201,6 +266,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   err: { ...typography.styles.bodySmall, textAlign: "center", color: colors.error },
+  muted: { ...typography.styles.bodySmall, textAlign: "center", color: colors.textPalette.secondary },
   retry: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

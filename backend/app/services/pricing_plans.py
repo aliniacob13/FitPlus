@@ -35,8 +35,8 @@ def _period_to_days(period: str) -> int:
     return 30
 
 
-def _parse_price_ron_value(val: Any) -> float | None:
-    """Accept numbers or strings like '199 lei', '199,50 RON'."""
+def _parse_price_major_value(val: Any) -> float | None:
+    """Parse a major-unit price from numbers or strings like '199 lei', '49,99 EUR', '39 €'."""
     if val is None or isinstance(val, bool):
         return None
     if isinstance(val, int | float):
@@ -61,6 +61,7 @@ def normalize_pricing_plans(raw: Any) -> list[dict[str, Any]]:
     key, name, amount_cents, currency, period, period_days, features.
 
     Supports seed shape: {"name", "price_ron", "period", "features"}.
+    Also: {"name", "price_eur", ...} for euro-denominated sites.
     Also: amount_cents, currency, key, period_days.
     """
     if raw is None:
@@ -86,13 +87,22 @@ def normalize_pricing_plans(raw: Any) -> list[dict[str, Any]]:
                 cents = int(p["amount_cents"])
             except (TypeError, ValueError):
                 cents = None
-        elif p.get("price_ron") is not None:
-            parsed = _parse_price_ron_value(p.get("price_ron"))
+            currency = str(p.get("currency") or "ron").lower()
+        elif p.get("price_eur") is not None:
+            parsed = _parse_price_major_value(p.get("price_eur"))
             cents = int(round(parsed * 100)) if parsed is not None else None
+            currency = "eur"
+        elif p.get("price_ron") is not None:
+            parsed = _parse_price_major_value(p.get("price_ron"))
+            cents = int(round(parsed * 100)) if parsed is not None else None
+            currency = "ron"
+        else:
+            cents = None
+            currency = "ron"
+
         if cents is None or cents <= 0:
             continue
 
-        currency = str(p.get("currency") or "ron").lower()
         period = str(p.get("period") or "month")
         period_days = p.get("period_days")
         try:
