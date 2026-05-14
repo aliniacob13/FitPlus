@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from urllib.parse import urldefrag, urljoin, urlparse
 
 from bs4 import BeautifulSoup
@@ -148,21 +149,72 @@ def extract_same_site_links(html: str, base_url: str, seed_host_norm: str) -> li
     return out
 
 
+def budget_plain_text_for_pricing(text: str, max_chars: int) -> str:
+    """
+    Fit long club pages into max_chars without dropping mid-page Tarife blocks.
+
+    Many gym sites repeat huge nav blocks first; naive [:max_chars] never reaches prices.
+    """
+    if max_chars < 500:
+        return text[:max_chars]
+    if len(text) <= max_chars:
+        return text
+
+    sep = "\n\n…\n\n"
+    sep_len = len(sep)
+
+    # First plausible list price: glued RON (189ron), spaced LEI / EUR, or euro symbol.
+    price_pat = re.compile(
+        r"(?<![\d.,])"
+        r"(?:[1-9]\d{0,3}|[1-9]\d{0,2}[.,]\d{2})"
+        r"\s*(?:ron\b|lei\b|eur\b|euro\b|€|\u20ac)",
+        re.IGNORECASE,
+    )
+    m = price_pat.search(text)
+    if m is not None:
+        pos = (m.start() + m.end()) // 2
+        start = max(0, pos - max_chars // 2)
+        end = min(len(text), start + max_chars)
+        start = max(0, end - max_chars)
+        return text[start:end]
+
+    anchor = re.search(
+        r"(?im)"
+        r"^#{1,6}\s*tarife\s*$"
+        r"|^[ \t]*tarife[ \t]*$"
+        r"|\babonamente\s*(?:[&]|și|si)\s*tarife\b"
+        r"|\btarife\s+abonamente\b",
+        text,
+    )
+    if anchor is not None:
+        pos = anchor.start()
+        start = max(0, pos - 800)
+        end = min(len(text), start + max_chars)
+        start = max(0, end - max_chars)
+        return text[start:end]
+
+    head_n = max(0, (max_chars - sep_len) * 35 // 100)
+    tail_n = max_chars - sep_len - head_n
+    return (text[:head_n] + sep + text[-tail_n:])[:max_chars]
+
+
 def html_to_plain_text(html: str, *, max_chars: int) -> str:
     """Strip scripts/styles and collapse whitespace (bounded)."""
     sample = html[:4000].lower()
     if "<html" not in sample and "<body" not in sample and "<div" not in sample:
         # Plain text or tiny fragment
         lines = (ln.strip() for ln in html.splitlines())
-        return "\n".join(ln for ln in lines if ln)[:max_chars]
+        collapsed = "\n".join(ln for ln in lines if ln)
+        return budget_plain_text_for_pricing(collapsed, max_chars)
 
-    soup = BeautifulSoup(html[: max_chars * 4], "html.parser")
+    # Parse full HTML so pricing sections below large nav/header blocks are included.
+    soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "noscript", "svg"]):
         tag.decompose()
     raw_text = soup.get_text(separator="\n")
     lines = (ln.strip() for ln in raw_text.splitlines())
     collapsed = "\n".join(ln for ln in lines if ln)
-    return collapsed[:max_chars]
+    return budget_plain_text_for_pricing(collapsed, max_chars)
 
 
 def text_suggests_pricing(plain: str) -> bool:
@@ -184,6 +236,9 @@ def text_suggests_pricing(plain: str) -> bool:
             "plat",
             "preț",
             "pret ",
+            "\u20ac",
+            "tarife",
+            "tarif ",
         )
     )
 
@@ -236,6 +291,4 @@ def looks_like_html_bytes(raw: bytes) -> bool:
 def looks_like_html_str(content_type: str, raw: bytes) -> bool:
     ctype = (content_type or "").lower()
     looks = looks_like_html_bytes(raw)
-    if ctype and "html" not in ctype and "text/plain" not in ctype and "xml" not in ctype and not looks:
-        return False
-    return True
+    return not (ctype and "html" not in ctype and "text/plain" not in ctype and "xml" not in ctype and not looks)

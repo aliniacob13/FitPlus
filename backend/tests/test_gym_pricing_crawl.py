@@ -1,6 +1,7 @@
 """Unit tests for gym pricing crawl helpers (no network)."""
 
 from app.services.gym_pricing_crawl import (
+    budget_plain_text_for_pricing,
     extract_same_site_links,
     html_to_plain_text,
     merge_page_texts_for_llm,
@@ -53,6 +54,22 @@ def test_html_to_plain_text_strips_scripts() -> None:
     assert "script" not in out.lower()
 
 
+def test_budget_plain_text_keeps_tarife_after_long_nav() -> None:
+    nav = ("Meniu cluburi București\n" * 500)
+    tail = "## Tarife\n### Super Active\n**189ron**\nabonament plată\n### Plus\n**265ron**\n"
+    text = nav + tail
+    out = budget_plain_text_for_pricing(text, max_chars=3500)
+    assert "189ron" in out
+    assert "265ron" in out
+    assert "Tarife" in out
+
+
+def test_budget_plain_text_tarife_heading_without_early_price() -> None:
+    filler = "x" * 12000 + "\n## Tarife\n(vino la sală)\n**240ron**\nabonament\n"
+    out = budget_plain_text_for_pricing(filler, max_chars=2000)
+    assert "240ron" in out
+
+
 def test_merge_page_texts_respects_budget() -> None:
     chunks = [
         ("https://a/x", "short"),
@@ -80,3 +97,42 @@ def test_merge_prefers_pricing_path_over_long_map_text() -> None:
     ]
     _merged, used = merge_page_texts_for_llm(chunks, budget_chars=6000, max_chunks=2)
     assert used[0] == "https://example.com/abonamente/"
+
+
+def test_budget_plain_text_centers_on_eur_price() -> None:
+    """EUR-only pages (49 EUR, 59 euro) must trigger price-centering, not head+tail."""
+    nav = "Bine ati venit la clubul nostru de fitness!\n" * 400
+    tail = "Abonamente anuale\n49 EUR / luna\nBronze\n79 EUR / luna\nSilver\n"
+    text = nav + tail
+    out = budget_plain_text_for_pricing(text, max_chars=3000)
+    assert "EUR" in out
+    assert "49" in out
+
+
+def test_budget_plain_text_plain_tarife_heading() -> None:
+    """Standalone plain-text 'Tarife' line (no markdown) must act as anchor."""
+    filler = "y" * 14000 + "\n"
+    tail = "Tarife\nBasic 199 lei\nPremium 299 lei\n"
+    text = filler + tail
+    out = budget_plain_text_for_pricing(text, max_chars=2000)
+    assert "199" in out
+    assert "lei" in out.lower()
+
+
+def test_budget_plain_text_eur_suffix_glued() -> None:
+    """49,99EUR (no space) should be detected and the pricing block preserved."""
+    nav = "Nav item\n" * 600
+    tail = "Abonamente Club\n49,99EUR Bronze\n79,99EUR Silver\n"
+    text = nav + tail
+    out = budget_plain_text_for_pricing(text, max_chars=3000)
+    assert "49,99EUR" in out or "49,99" in out
+
+
+def test_html_to_plain_text_large_html_not_truncated() -> None:
+    """BeautifulSoup must parse the full HTML even when it is large."""
+    big_nav = "<nav>" + "<p>Link</p>" * 10_000 + "</nav>"
+    pricing = "<section><h2>Tarife</h2><p>199 lei lunar</p></section>"
+    html = f"<html><body>{big_nav}{pricing}</body></html>"
+    out = html_to_plain_text(html, max_chars=4000)
+    assert "199" in out
+    assert "lei" in out.lower()

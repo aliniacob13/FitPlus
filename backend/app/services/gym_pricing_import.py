@@ -28,6 +28,7 @@ from app.services.gym_pricing_crawl import (
     should_skip_path,
     text_suggests_pricing,
 )
+from app.services.gym_pricing_heuristic import _heuristic_plans_from_plain_text
 from app.services.llm_service import LLMService
 from app.services.pricing_plans import normalize_pricing_plans
 
@@ -312,9 +313,10 @@ async def _collect_merged_page_text(
     stripped = merged.strip()
     if len(stripped) < 70:
         raise GymPricingImportError(
-            f"After crawling, extracted text is too short ({len(stripped)} chars). "
-            "Prices may be images only or loaded only via client-side scripts. "
-            "Try a direct pricing page URL or add plans manually."
+            f"Crawled text is too short ({len(stripped)} chars) — "
+            "prices are likely loaded by client-side JavaScript. "
+            'Try POST {"url": "<direct-pricing-page>", "use_playwright": true} '
+            "or add plans manually."
         )
     return merged, used_urls
 
@@ -377,22 +379,29 @@ def normalized_plans_to_storage_rows(normalized: list[dict[str, Any]]) -> list[d
 
 
 _SYSTEM_PROMPT = """You extract gym membership pricing from plain text scraped from one or more webpages (Romanian, English, or mixed).
+
+IMPORTANT OUTPUT RULE: Your ENTIRE response must be a valid JSON array and nothing else.
+Do NOT write any explanation, commentary, apology, or text before or after the JSON.
+If no membership prices are visible in the text, respond with ONLY: []
+
 Rules:
-- Output ONLY a JSON array (no markdown fences, no commentary).
+- Output ONLY a JSON array (no markdown fences, no prose, no commentary).
 - Each element is an object with keys: "name" (string), "period" (one of: "month", "year", "week", "day"),
-  "features" (array of short strings), and exactly ONE of the following price forms (not multiple):
-  • "price_ron": JSON number — price in Romanian lei (RON) per billing period (major units, e.g. 199 or 249.5), OR
-  • "price_eur": JSON number — price in euro (EUR) per billing period (major units, e.g. 39 or 49.99), OR
-  • "amount_cents" (integer) plus "currency" ("ron" or "eur") — smallest currency unit.
-- Prefer **price_eur** when the page lists membership clearly in EUR / € / "euro" only, or when EUR is the primary column.
-- Prefer **price_ron** when prices are clearly in lei / RON.
-- If the same plan shows both RON and EUR, output one object using the currency that appears as the main advertised price (usually the first or boldest column).
-- Numbers must be JSON numbers, never strings.
-- Look for wording like: abonament, membership, pret, tarif, lei, RON, EUR, €, euro, lunar, anual.
-- Euro amounts may appear as "€59", "59 €", "49,99 EUR" — use price_eur as the numeric value only (e.g. 59 or 49.99).
-- One object per distinct paid tier. Merge duplicate lines.
-- Include only plans clearly stated in the text. Never invent or convert currencies (no guessed FX).
-- If there are no membership prices in the text, output [].
+  "features" (array of short strings), and exactly ONE price form:
+  • "price_ron": number — Romanian lei (RON) per billing period in major units (e.g. 199, 249.5, or "249,50" as string if needed), OR
+  • "price_eur": number — euro (EUR) per billing period in major units (e.g. 39, 49.99, "59" as string if needed), OR
+  • "price" + "currency": "ron" or "eur" (or synonyms below), OR
+  • "amount_cents" (integer) + "currency" ("ron" or "eur").
+- Currency synonyms you may use in "currency": ron, RON, Ron, lei, LEI, Lei, leu, LEU; eur, EUR, EURO, euro, €, unicode euro U+20AC.
+- Prefer **price_eur** when the page shows €, EUR, EURO, "euro", "€/lună", "EUR/lună".
+- Prefer **price_ron** when the page shows lei, RON, Ron, "lei/lună", "RON/lună", "preț în lei".
+- If the same plan shows both RON and EUR, use the main advertised column only.
+- Numbers may be JSON numbers OR strings that contain only digits and one optional decimal separator (comma or dot).
+- Look for: abonament, abonamente, membru, membership, pret, preț, tarif, lunar, anual, plată, plata.
+- Euro on site may look like: €59, 59€, 59 €, 49,99 EUR, 49.99 euro.
+- Lei on site may look like: 199 lei, 199 LEI, 249,50 Ron, RON 199, 199 RON, 189ron, 265ron.
+- One object per distinct paid tier. Never invent prices; only values clearly in the text.
+- If there are no membership prices in the text, output []. Do NOT explain why — just output [].
 """
 
 
@@ -403,9 +412,17 @@ async def suggest_plans_from_page_text(*, page_text: str, source_url: str) -> li
     try:
         parsed = parse_llm_json_plans(reply)
     except GymPricingImportError:
-        logger.warning("gym pricing import: LLM JSON parse failed; preview=%r", reply[:600])
-        raise
+        logger.warning(
+            "gym pricing import: LLM returned non-JSON; falling back to heuristic. preview=%r",
+            reply[:200],
+        )
+        parsed = []
     normalized = normalize_pricing_plans(parsed)
+    if not normalized and page_text.strip():
+        fb = _heuristic_plans_from_plain_text(page_text)
+        normalized = normalize_pricing_plans(fb)
+        if normalized:
+            logger.info("gym pricing import: %s plan(s) from text heuristic fallback", len(normalized))
     if parsed and not normalized:
         logger.warning(
             "gym pricing import: LLM returned %s row(s) but none normalized to valid EUR/RON prices",
@@ -443,9 +460,12 @@ async def import_plans_from_url(
     if not normalized:
         raise GymPricingImportError(
             "No plans with a valid EUR or RON price were found in the extracted text. "
-            "The content may not list clear prices (or they may be image-only). "
-            f"Pages tried include: {pages_hint}. "
-            'You can POST with body {"url": "https://...pricing-page..."} for a specific page.'
+            "Prices may be image-only or rendered by client-side JavaScript. "
+            f"Pages tried: {pages_hint}. "
+            "To fix: (1) POST with a direct pricing page URL, "
+            'e.g. {"url": "https://example.com/abonamente"}; '
+            '(2) add "use_playwright": true for JS-rendered sites; '
+            "(3) add plans manually."
         )
 
     storage = normalized_plans_to_storage_rows(normalized)
