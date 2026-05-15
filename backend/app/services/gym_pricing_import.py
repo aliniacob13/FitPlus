@@ -34,6 +34,21 @@ from app.services.pricing_plans import normalize_pricing_plans
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_FITPLUS_PLANS: list[dict[str, Any]] = [
+    {
+        "name": "Day Pass",
+        "price_ron": 30,
+        "period": "day",
+        "features": ["Acces o zi", "Echipamente fitness", "Vestiare"],
+    },
+    {
+        "name": "Monthly Standard",
+        "price_ron": 150,
+        "period": "month",
+        "features": ["Acces nelimitat lunar", "Echipamente fitness", "Vestiare", "Duș"],
+    },
+]
+
 
 class GymPricingImportError(Exception):
     """Raised when fetch / parse fails before LLM."""
@@ -436,10 +451,11 @@ async def import_plans_from_url(
     *,
     use_playwright: bool | None = None,
     deep_crawl: bool | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     """
-    Returns (normalized_plans, storage_rows).
-    Raises GymPricingImportError or LLMProviderError.
+    Returns (normalized_plans, storage_rows, is_default).
+    is_default is True when no prices were found and FitPlus default plans were injected.
+    Raises GymPricingImportError (network/crawl failure) or LLMProviderError.
     """
     if not _http_url_ok(url):
         raise GymPricingImportError("Invalid URL (only http/https allowed).")
@@ -457,16 +473,16 @@ async def import_plans_from_url(
         page_text=page_text,
         source_url=f"{source_hint} | pages used: {pages_hint}",
     )
+    is_default = False
     if not normalized:
-        raise GymPricingImportError(
-            "No plans with a valid EUR or RON price were found in the extracted text. "
-            "Prices may be image-only or rendered by client-side JavaScript. "
-            f"Pages tried: {pages_hint}. "
-            "To fix: (1) POST with a direct pricing page URL, "
-            'e.g. {"url": "https://example.com/abonamente"}; '
-            '(2) add "use_playwright": true for JS-rendered sites; '
-            "(3) add plans manually."
+        logger.warning(
+            "gym pricing import: no prices extracted from %s (pages: %s) — "
+            "injecting FitPlus default plans",
+            source_hint,
+            pages_hint,
         )
+        normalized = normalize_pricing_plans(_DEFAULT_FITPLUS_PLANS)
+        is_default = True
 
     storage = normalized_plans_to_storage_rows(normalized)
-    return normalized, storage
+    return normalized, storage, is_default

@@ -6,10 +6,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from app.services.gym_pricing_import import (
+    _DEFAULT_FITPLUS_PLANS,
     GymPricingImportError,
+    import_plans_from_url,
     parse_llm_json_plans,
     suggest_plans_from_page_text,
 )
+from app.services.pricing_plans import normalize_pricing_plans
 
 
 def test_parse_llm_json_plans_plain_array() -> None:
@@ -72,3 +75,71 @@ async def test_suggest_plans_llm_empty_array_returns_empty() -> None:
         )
 
     assert result == []
+
+
+# ── Default FitPlus fallback ──────────────────────────────────────────────────
+
+
+def test_default_fitplus_plans_normalize_correctly() -> None:
+    """Default plans must pass through normalize_pricing_plans without errors."""
+    result = normalize_pricing_plans(_DEFAULT_FITPLUS_PLANS)
+    assert len(result) == 2
+    names = {p["name"] for p in result}
+    assert "Day Pass" in names
+    assert "Monthly Standard" in names
+    assert all(p["amount_cents"] > 0 for p in result)
+    assert all(p["currency"] == "ron" for p in result)
+    periods = {p["period"] for p in result}
+    assert "day" in periods
+    assert "month" in periods
+
+
+@pytest.mark.asyncio
+async def test_import_plans_returns_default_when_no_prices_found() -> None:
+    """When LLM + heuristic both yield nothing, import_plans_from_url returns default plans."""
+    with (
+        patch(
+            "app.services.gym_pricing_import._collect_merged_page_text",
+            new=AsyncMock(return_value=("Bine ati venit la clubul nostru.", ["https://example.com/"])),
+        ),
+        patch(
+            "app.services.gym_pricing_import.suggest_plans_from_page_text",
+            new=AsyncMock(return_value=[]),
+        ),
+    ):
+        normalized, storage, is_default = await import_plans_from_url("https://example.com/")
+
+    assert is_default is True
+    assert len(normalized) >= 2
+    assert all(p["amount_cents"] > 0 for p in normalized)
+    names = {p["name"] for p in normalized}
+    assert "Day Pass" in names
+    assert "Monthly Standard" in names
+
+
+@pytest.mark.asyncio
+async def test_import_plans_is_default_false_when_prices_found() -> None:
+    """When extraction succeeds, is_default must be False."""
+    real_plan = {
+        "key": "plan_0",
+        "name": "Basic",
+        "amount_cents": 19900,
+        "currency": "ron",
+        "period": "month",
+        "period_days": 30,
+        "features": [],
+    }
+    with (
+        patch(
+            "app.services.gym_pricing_import._collect_merged_page_text",
+            new=AsyncMock(return_value=("199 lei abonament lunar.", ["https://example.com/"])),
+        ),
+        patch(
+            "app.services.gym_pricing_import.suggest_plans_from_page_text",
+            new=AsyncMock(return_value=[real_plan]),
+        ),
+    ):
+        normalized, storage, is_default = await import_plans_from_url("https://example.com/")
+
+    assert is_default is False
+    assert normalized[0]["amount_cents"] == 19900
