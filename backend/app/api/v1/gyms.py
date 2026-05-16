@@ -273,7 +273,7 @@ async def import_gym_pricing_from_url(
         )
 
     try:
-        normalized, storage_rows = await import_plans_from_url(
+        normalized, storage_rows, is_default = await import_plans_from_url(
             source,
             use_playwright=body.use_playwright,
             deep_crawl=body.deep_crawl,
@@ -299,14 +299,21 @@ async def import_gym_pricing_from_url(
         persisted = True
 
     plans_out = [GymPricingPlanResponse(**p) for p in normalized]
-    note = (
-        "Prices are inferred from public page text; verify on the official site. "
-        "Respect robots.txt and site terms when fetching."
-    )
+    if is_default:
+        note = (
+            "Prețuri FitPlus implicite — site-ul sălii nu conținea prețuri detectabile. "
+            "Verificați și actualizați direct la sală."
+        )
+    else:
+        note = (
+            "Prices are inferred from public page text; verify on the official site. "
+            "Respect robots.txt and site terms when fetching."
+        )
     return GymPricingImportResponse(
         plans=plans_out,
         source_url=source,
         persisted=persisted,
+        is_default=is_default,
         note=note,
     )
 
