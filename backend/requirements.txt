@@ -32,8 +32,6 @@ pytest-asyncio==0.24.0
 
 # Payments
 stripe==11.4.0
-# urllib3 2.x causes import deadlock on arm64 macOS (stripe→requests→urllib3 hang)
-urllib3<2
 
 # Gym pricing import (HTML → text + optional headless crawl)
 beautifulsoup4==4.12.3

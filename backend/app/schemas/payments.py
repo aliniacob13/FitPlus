@@ -37,10 +37,6 @@ class GymPricingImportResponse(BaseModel):
     plans: list[GymPricingPlanResponse]
     source_url: str
     persisted: bool
-    is_default: bool = Field(
-        default=False,
-        description="True when no prices were detected and FitPlus default plans were used.",
-    )
     note: str | None = Field(
         default=None,
         description="Optional hint (e.g. respect site terms / verify prices).",
