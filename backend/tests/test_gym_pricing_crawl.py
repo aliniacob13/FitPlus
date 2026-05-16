@@ -55,7 +55,7 @@ def test_html_to_plain_text_strips_scripts() -> None:
 
 
 def test_budget_plain_text_keeps_tarife_after_long_nav() -> None:
-    nav = ("Meniu cluburi București\n" * 500)
+    nav = "Meniu cluburi București\n" * 500
     tail = "## Tarife\n### Super Active\n**189ron**\nabonament plată\n### Plus\n**265ron**\n"
     text = nav + tail
     out = budget_plain_text_for_pricing(text, max_chars=3500)

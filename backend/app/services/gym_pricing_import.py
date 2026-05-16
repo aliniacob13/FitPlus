@@ -240,11 +240,7 @@ async def _collect_merged_page_text(
 
             plain = html_to_plain_text(html, max_chars=page_text_cap)
             n = len(plain.strip())
-            min_chars = (
-                22
-                if path_score(nu) >= 95 and text_suggests_pricing(plain)
-                else 35
-            )
+            min_chars = 22 if path_score(nu) >= 95 and text_suggests_pricing(plain) else 35
             if n >= min_chars:
                 chunks.append((nu, plain))
                 logger.info("gym pricing import: %s chars from %s (depth=%s)", n, nu, depth)
@@ -286,11 +282,7 @@ async def _collect_merged_page_text(
                 continue
             plain = html_to_plain_text(html, max_chars=page_text_cap)
             n = len(plain.strip())
-            min_chars = (
-                22
-                if path_score(u) >= 95 and text_suggests_pricing(plain)
-                else 35
-            )
+            min_chars = 22 if path_score(u) >= 95 and text_suggests_pricing(plain) else 35
             if n >= min_chars:
                 chunks.append((u, plain))
                 have.add(u)
@@ -308,9 +300,7 @@ async def _collect_merged_page_text(
             ) as pw_ctx:
                 await crawl_then_boost(pw_ctx)
         except Exception as exc:
-            logger.warning(
-                "Playwright unavailable (%s); continuing with HTTP fetch only.", exc
-            )
+            logger.warning("Playwright unavailable (%s); continuing with HTTP fetch only.", exc)
             await crawl_then_boost(None)
     else:
         await crawl_then_boost(None)
@@ -318,8 +308,7 @@ async def _collect_merged_page_text(
     if not chunks:
         tail = " | ".join(last_errors[:6]) if last_errors else "no pages could be read"
         raise GymPricingImportError(
-            "Could not download useful HTML from the site or common pricing paths. "
-            f"Details: {tail}"
+            f"Could not download useful HTML from the site or common pricing paths. Details: {tail}"
         )
 
     merged, used_urls = merge_page_texts_for_llm(
@@ -437,7 +426,9 @@ async def suggest_plans_from_page_text(*, page_text: str, source_url: str) -> li
         fb = _heuristic_plans_from_plain_text(page_text)
         normalized = normalize_pricing_plans(fb)
         if normalized:
-            logger.info("gym pricing import: %s plan(s) from text heuristic fallback", len(normalized))
+            logger.info(
+                "gym pricing import: %s plan(s) from text heuristic fallback", len(normalized)
+            )
     if parsed and not normalized:
         logger.warning(
             "gym pricing import: LLM returned %s row(s) but none normalized to valid EUR/RON prices",
@@ -463,9 +454,7 @@ async def import_plans_from_url(
     uw = True if use_playwright is None else use_playwright
     dc = True if deep_crawl is None else deep_crawl
 
-    page_text, used_urls = await _collect_merged_page_text(
-        url, use_playwright=uw, deep_crawl=dc
-    )
+    page_text, used_urls = await _collect_merged_page_text(url, use_playwright=uw, deep_crawl=dc)
 
     pages_hint = ", ".join(used_urls[:10])
     source_hint = normalize_http_url(url.strip()) or url.strip()

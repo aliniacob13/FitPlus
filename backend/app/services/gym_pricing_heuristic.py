@@ -39,9 +39,7 @@ def _heuristic_plans_from_plain_text(text: str) -> list[dict[str, Any]]:
     pat_currency_first = re.compile(
         r"(?i)(?P<c>ron|lei|leu|€|\u20ac|eur|euro)\s+(?P<num>\d{1,4}(?:[.,]\d{1,2})?)\b"
     )
-    pat_glued_eur = re.compile(
-        r"(?i)(?P<num>\d{1,4}(?:[.,]\d{1,2})?)(?P<c>€|\u20ac)(?=\s|$)"
-    )
+    pat_glued_eur = re.compile(r"(?i)(?P<num>\d{1,4}(?:[.,]\d{1,2})?)(?P<c>€|\u20ac)(?=\s|$)")
     pat_glued_lei = re.compile(
         r"(?i)(?P<num>\d{1,4}(?:[.,]\d{1,2})?)(?P<c>lei)(?=\s|$|[,.;:!?\)\]]|/|-)"
     )

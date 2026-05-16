@@ -291,4 +291,10 @@ def looks_like_html_bytes(raw: bytes) -> bool:
 def looks_like_html_str(content_type: str, raw: bytes) -> bool:
     ctype = (content_type or "").lower()
     looks = looks_like_html_bytes(raw)
-    return not (ctype and "html" not in ctype and "text/plain" not in ctype and "xml" not in ctype and not looks)
+    return not (
+        ctype
+        and "html" not in ctype
+        and "text/plain" not in ctype
+        and "xml" not in ctype
+        and not looks
+    )

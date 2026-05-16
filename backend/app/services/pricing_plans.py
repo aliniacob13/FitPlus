@@ -182,9 +182,7 @@ def normalize_pricing_plans(raw: Any) -> list[dict[str, Any]]:
                 currency = "ron"
 
         price_generic = _dict_get_ci(p, "price", "Price", "pret", "Pret", "preț")
-        cur_generic = _dict_get_ci(
-            p, "currency", "Currency", "moneda", "Moneda", "curr", "unit"
-        )
+        cur_generic = _dict_get_ci(p, "currency", "Currency", "moneda", "Moneda", "curr", "unit")
         if cents is None and price_generic is not None:
             inferred = _normalize_currency_token(cur_generic)
             parsed = _parse_price_major_value(price_generic)

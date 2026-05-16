@@ -273,9 +273,7 @@ class LLMService:
             (msg.get("content", "") for msg in reversed(messages) if msg.get("role") == "user"),
             "",
         )
-        return (
-            "LLM provider is not configured yet. " f"Received your message: {latest_user_message}"
-        )
+        return f"LLM provider is not configured yet. Received your message: {latest_user_message}"
 
     @staticmethod
     def _extract_provider_error_message(response: httpx.Response) -> str:

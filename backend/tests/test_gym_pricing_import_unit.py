@@ -100,7 +100,9 @@ async def test_import_plans_returns_default_when_no_prices_found() -> None:
     with (
         patch(
             "app.services.gym_pricing_import._collect_merged_page_text",
-            new=AsyncMock(return_value=("Bine ati venit la clubul nostru.", ["https://example.com/"])),
+            new=AsyncMock(
+                return_value=("Bine ati venit la clubul nostru.", ["https://example.com/"])
+            ),
         ),
         patch(
             "app.services.gym_pricing_import.suggest_plans_from_page_text",

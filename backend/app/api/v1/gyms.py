@@ -233,9 +233,7 @@ async def get_gym_pricing_plans(
     if not gym:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
     # Do not inject demo plans for Google Places gyms — they need real import-from-url data.
-    use_demo_fallback = (
-        settings.subscription_pricing_fallback_enabled and gym.place_id is None
-    )
+    use_demo_fallback = settings.subscription_pricing_fallback_enabled and gym.place_id is None
     raw = effective_pricing_plans(gym.pricing_plans, fallback=use_demo_fallback)
     return [GymPricingPlanResponse(**plan) for plan in raw]
 
