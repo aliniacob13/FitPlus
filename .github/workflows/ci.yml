@@ -44,6 +44,8 @@ jobs:
       LLM_MODEL: gpt-4o-mini
       OPENAI_API_KEY: ""
       ANTHROPIC_API_KEY: ""
+      # Gym pricing import tests use HTTP-only path (no Chromium install in CI job).
+      GYM_PRICING_PLAYWRIGHT_ENABLED: "false"
 
     steps:
       - uses: actions/checkout@v4

@@ -232,10 +232,9 @@ async def get_gym_pricing_plans(
     gym = await db.get(Gym, gym_id)
     if not gym:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gym not found.")
-    raw = effective_pricing_plans(
-        gym.pricing_plans,
-        fallback=settings.subscription_pricing_fallback_enabled,
-    )
+    # Do not inject demo plans for Google Places gyms — they need real import-from-url data.
+    use_demo_fallback = settings.subscription_pricing_fallback_enabled and gym.place_id is None
+    raw = effective_pricing_plans(gym.pricing_plans, fallback=use_demo_fallback)
     return [GymPricingPlanResponse(**plan) for plan in raw]
 
 
@@ -250,8 +249,9 @@ async def import_gym_pricing_from_url(
     _: User = Depends(_require_current_user),
 ) -> GymPricingImportResponse:
     """
-    Fetch a public HTML page (pricing URL or gym website), extract membership plans via LLM,
-    optionally persist on the gym row. Intended for mock/display pricing — verify on the official site.
+    Fetch public HTML (HTTP + optional headless Chromium), crawl same-site pricing links,
+    then extract membership plans via LLM. Optionally persist on the gym row.
+    Verify on the official site; respect robots.txt and site terms.
     """
     if not llm_usable_for_import():
         raise HTTPException(
@@ -271,7 +271,11 @@ async def import_gym_pricing_from_url(
         )
 
     try:
-        normalized, storage_rows = await import_plans_from_url(source)
+        normalized, storage_rows, is_default = await import_plans_from_url(
+            source,
+            use_playwright=body.use_playwright,
+            deep_crawl=body.deep_crawl,
+        )
     except GymPricingImportError as exc:
         logger.warning("Gym %s pricing import failed: %s", gym_id, exc)
         raise HTTPException(
@@ -293,14 +297,21 @@ async def import_gym_pricing_from_url(
         persisted = True
 
     plans_out = [GymPricingPlanResponse(**p) for p in normalized]
-    note = (
-        "Prices are inferred from public page text; verify on the official site. "
-        "Respect robots.txt and site terms when fetching."
-    )
+    if is_default:
+        note = (
+            "Prețuri FitPlus implicite — site-ul sălii nu conținea prețuri detectabile. "
+            "Verificați și actualizați direct la sală."
+        )
+    else:
+        note = (
+            "Prices are inferred from public page text; verify on the official site. "
+            "Respect robots.txt and site terms when fetching."
+        )
     return GymPricingImportResponse(
         plans=plans_out,
         source_url=source,
         persisted=persisted,
+        is_default=is_default,
         note=note,
     )
 

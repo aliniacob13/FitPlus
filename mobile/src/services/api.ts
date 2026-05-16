@@ -11,9 +11,18 @@ type AuthTokenGetters = {
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+/** Default HTTP timeout (most API calls). */
+export const API_DEFAULT_TIMEOUT_MS = 15_000;
+
+/**
+ * Gym pricing import runs headless crawl + LLM on the backend and often exceeds 15s.
+ * Use this for POST /gyms/{id}/pricing/import-from-url (and similar long jobs).
+ */
+export const API_LONG_OPERATION_TIMEOUT_MS = 240_000;
+
 export const api = axios.create({
   baseURL: env.apiBaseUrl,
-  timeout: 15000,
+  timeout: API_DEFAULT_TIMEOUT_MS,
 });
 
 let authGetters: AuthTokenGetters | null = null;

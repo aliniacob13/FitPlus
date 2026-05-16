@@ -25,7 +25,8 @@ export type AppStackParamList = {
   ConversationHistory: { agentType: "workout" | "diet" };
   /** Diet preferences – allergies, restrictions, nutritional goals */
   DietPreferences: undefined;
-  SubscriptionPlans: { gymId: number; gymName?: string };
+  /** website optional hint for auto-import when pricing_plans empty (from resolve/detail). */
+  SubscriptionPlans: { gymId: number; gymName?: string; website?: string | null };
   PaymentCheckout: { checkoutUrl: string; sessionId: string };
   MySubscriptions: undefined;
 };

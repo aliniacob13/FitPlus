@@ -23,12 +23,24 @@ class GymPricingImportRequest(BaseModel):
     persist: bool = Field(
         default=True, description="If true, overwrite gym.pricing_plans in the database."
     )
+    use_playwright: bool = Field(
+        default=True,
+        description="If true, use headless Chromium when available (better for JS-rendered prices).",
+    )
+    deep_crawl: bool = Field(
+        default=True,
+        description="If true, follow same-site links (pricing-related paths prioritized) up to crawl limits.",
+    )
 
 
 class GymPricingImportResponse(BaseModel):
     plans: list[GymPricingPlanResponse]
     source_url: str
     persisted: bool
+    is_default: bool = Field(
+        default=False,
+        description="True when no prices were detected and FitPlus default plans were used.",
+    )
     note: str | None = Field(
         default=None,
         description="Optional hint (e.g. respect site terms / verify prices).",

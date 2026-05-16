@@ -184,6 +184,7 @@ export const FavoriteGymsScreen = () => {
                       navigation.navigate("SubscriptionPlans", {
                         gymId: id,
                         gymName: name,
+                        website: gymDetail.website,
                       });
                     }}
                     style={styles.subscribeBtn}
