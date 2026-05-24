@@ -7,7 +7,7 @@
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React Native](https://img.shields.io/badge/Mobile-React%20Native-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Ollama](https://img.shields.io/badge/AI-Ollama%20(Local%20LLM)-000000?logo=ollama&logoColor=white)](https://ollama.com/)
+[![Anthropic](https://img.shields.io/badge/LLM-Anthropic%20API-D4A574?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
 [![Stripe](https://img.shields.io/badge/Payments-Stripe-635BFF?logo=stripe&logoColor=white)](https://stripe.com/)
 
 [Features](#-features) · [Architecture](#-architecture) · [Getting Started](#-getting-started) · [Documentation](#-documentation) · [Team](#-team)
@@ -18,7 +18,7 @@
 
 ## About
 
-FitPlus is a mobile application that helps users monitor their physical activity and nutrition through **two AI agents** — a **Workout Trainer** and a **Diet Counselor** — both powered by locally-running language models via Ollama. The app also aggregates gym information (locations, prices, equipment, reviews) and allows users to purchase memberships directly.
+FitPlus is a mobile application that helps users monitor their physical activity and nutrition through **AI-assisted features** — including a **Workout Trainer** and a **Diet Counselor** chat — backed by **cloud LLM APIs** (in our setup: **Anthropic**, via `ANTHROPIC_API_KEY` / configurable `LLM_PROVIDER`). The app also aggregates gym information (locations, prices, equipment, reviews), supports **nutrition logging** (food diary, label scan, plate coach), and allows users to purchase memberships via **Stripe**.
 
 ---
 
@@ -46,6 +46,12 @@ FitPlus is a mobile application that helps users monitor their physical activity
 - Grocery list generation with precise nutritional targets
 - Supports uploaded health prescriptions from nutritionists
 - Remembers your preferences across conversations
+
+### Nutrition & food diary
+- Daily calorie target from profile (TDEE-style calculator), persisted on the user
+- Food search (USDA FoodData Central) and manual logging with day totals
+- **Nutrition label scan:** camera/gallery → OCR + parser → suggested food entry
+- **Plate coach (vision):** photo of a meal → AI estimates items and calories; clarifying follow-ups in chat
 
 ### User Profile
 - Personal fitness profile with goals and restrictions
@@ -88,10 +94,12 @@ For detailed diagrams (UML, component architecture, workflows), see the [Archite
 
 | Document                                            | Description |
 |-----------------------------------------------------|-------------|
-| [Backlog & User Stories](docs/backlog.md)           | All 17 user stories, prioritized backlog with 21 tasks |
-| [Architecture & Diagrams](docs/architecture.md)     | UML diagrams, component architecture, workflows, ER diagram |
+| [Course rubric report (SDM + AI)](docs/course_rubric_report.md) | Rubric mapping: user stories, diagrams, Git, tests/evals, bug+PR, CI/CD, AI tools report — links to detailed pages |
+| [Backlog & User Stories](docs/backlog.md)           | User stories (≥10), sprint backlog + nutrition extensions |
+| [Architecture & Diagrams](docs/arhitecture.md)    | Mermaid diagrams: system, ER-style, API, agent workflows |
 | [Task Distribution](docs/task_distribution.md)      | Overview of who does what — links to individual task sheets |
 | [Contributing & Git Workflow](docs/contributing.md) | Branch strategy, PR process, commit conventions |
+| [Testing & CI](docs/testing.md)                     | Pytest, Ruff, agent evals, GitHub Actions, mobile lint/Jest |
 | [AI Tools Report](docs/ai_tools_report.md)          | How AI tools were used throughout development |
 | [pgAdmin Docker Setup](docs/pgadmin_docker_setup.md) | One-command setup for pgAdmin + DB access |
 | [Run Project Guide](docs/run_project_guide.md)      | End-to-end commands: DB, backend, frontend, testing |
@@ -121,7 +129,7 @@ For detailed diagrams (UML, component architecture, workflows), see the [Archite
 | Migrations | Alembic |
 | Auth | JWT (access + refresh tokens) |
 | Payments | Stripe Checkout |
-| AI / LLM | Ollama (Mistral 7B / Llama 3 8B) |
+| AI / LLM | Anthropic API (Claude) — same `LLMService` layer can use OpenAI; keys in `.env` |
 | CI/CD | GitHub Actions |
 | Containerization | Docker + docker-compose |
 
@@ -131,11 +139,11 @@ For detailed diagrams (UML, component architecture, workflows), see the [Archite
 
 | Member | Role | Key Responsibilities |
 |--------|------|---------------------|
-| **Membru 1** | Backend Lead | FastAPI, PostgreSQL, Auth, CI/CD pipeline |
-| **Membru 2** | Frontend Lead | React Native, Navigation, UI components, Chat UI |
-| **Membru 3** | Gym Module Owner | PostGIS, Maps integration, Reviews, Favorites |
-| **Membru 4** | Payments + AI | Stripe integration, Workout AI Agent, Ollama setup |
-| **Membru 5** | Health + AI | Diet preferences, Prescriptions, Diet AI Agent, Evals |
+| **Member 1** | Backend Lead | FastAPI, PostgreSQL, Auth, CI/CD pipeline |
+| **Member 2** | Frontend Lead | React Native, Navigation, UI components, Chat UI |
+| **Member 3** | Gym Module Owner | PostGIS, Maps integration, Reviews, Favorites |
+| **Member 4** | Payments + AI | Stripe integration, Workout AI Agent, LLM provider setup |
+| **Member 5** | Health + AI | Diet preferences, Prescriptions, Diet AI Agent, Evals |
 
 ---
 

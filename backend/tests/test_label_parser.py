@@ -1,5 +1,4 @@
 """Unit tests for the nutrition label OCR parser (no Tesseract installation needed)."""
-import pytest
 
 from app.services.ocr import LabelParseResult, parse_nutrition_label
 
@@ -87,7 +86,12 @@ def test_parse_colon_separator() -> None:
 
 
 def test_confidence_bounds() -> None:
-    for text in ["", "Calories 100", "Calories 100\nProtein 10g", "Calories 100\nProtein 10g\nFat 5g"]:
+    for text in [
+        "",
+        "Calories 100",
+        "Calories 100\nProtein 10g",
+        "Calories 100\nProtein 10g\nFat 5g",
+    ]:
         r = parse_nutrition_label(text)
         assert 0.0 <= r.confidence <= 1.0
 

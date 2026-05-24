@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -20,7 +20,7 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
 
 
 def _create_token(subject: str, token_type: str, expires_minutes: int) -> str:
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     payload = {
         "sub": subject,
         "type": token_type,

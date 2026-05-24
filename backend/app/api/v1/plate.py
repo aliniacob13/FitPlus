@@ -3,6 +3,7 @@
 POST /ai/nutrition/plate/analyze  — upload image, get food item estimates.
 POST /ai/nutrition/plate/clarify  — answer LLM questions, get refined estimates.
 """
+
 import io
 import json
 import re
@@ -19,10 +20,10 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
 from app.schemas.plate import (
+    ClarificationQuestion,
     ClarificationRequest,
     PlateAnalysisResponse,
     PlateItem,
-    ClarificationQuestion,
 )
 from app.services.llm_service import LLMProviderError, llm_service
 from app.services.vision_llm import VisionLLMError, analyze_image
@@ -181,7 +182,9 @@ async def _get_plate_conversation(
     return conv
 
 
-async def _get_recent_messages(db: AsyncSession, conversation_id: int, limit: int = 10) -> list[Message]:
+async def _get_recent_messages(
+    db: AsyncSession, conversation_id: int, limit: int = 10
+) -> list[Message]:
     result = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conversation_id)
@@ -249,7 +252,9 @@ async def analyze_plate(
             detail=str(exc),
         ) from exc
 
-    db.add(Message(conversation_id=conv.id, role="user", content="[Plate photo uploaded for analysis]"))
+    db.add(
+        Message(conversation_id=conv.id, role="user", content="[Plate photo uploaded for analysis]")
+    )
     db.add(Message(conversation_id=conv.id, role="assistant", content=raw_json))
     await db.commit()
 
@@ -265,9 +270,7 @@ async def clarify_plate(
     conv = await _get_plate_conversation(payload.conversation_id, current_user.id, db)
     history = await _get_recent_messages(db, conv.id)
 
-    answers_text = "\n".join(
-        f"Item {a.index}: {a.answer}" for a in payload.answers
-    )
+    answers_text = "\n".join(f"Item {a.index}: {a.answer}" for a in payload.answers)
     user_message = (
         "I can clarify the following items:\n"
         f"{answers_text}\n\n"

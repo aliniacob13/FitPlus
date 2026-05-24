@@ -26,7 +26,7 @@ interface FoodDiaryState {
   setDate: (date: string) => void;
   fetchDay: (date: string) => Promise<void>;
   addEntry: (req: FoodLogCreateRequest) => Promise<boolean>;
-  deleteEntry: (id: number) => Promise<void>;
+  deleteEntry: (id: number) => Promise<boolean>;
   setDailyKcalTarget: (kcal: number) => void;
   hydrateCalorieTargetFromServer: (kcal: number | null | undefined) => void;
   clearCalorieTarget: () => void;
@@ -73,13 +73,17 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
   },
 
   deleteEntry: async (id) => {
-    set({ error: null });
+    if (get().saving) return false;
+    set({ saving: true, error: null });
     try {
       await nutritionApi.deleteFoodLogEntry(id);
       const { date } = get();
       await get().fetchDay(date);
+      set({ saving: false });
+      return true;
     } catch (err) {
-      set({ error: formatApiError(err, "Could not delete entry.") });
+      set({ error: formatApiError(err, "Could not delete entry."), saving: false });
+      return false;
     }
   },
 

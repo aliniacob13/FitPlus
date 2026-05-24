@@ -155,7 +155,9 @@ async def get_real_gym_details(place_id: str, db: AsyncSession = Depends(get_db)
 
 
 @router.get("/geocode", response_model=GeocodeResponse)
-async def geocode_location(query: str = Query(..., min_length=2, max_length=200)) -> GeocodeResponse:
+async def geocode_location(
+    query: str = Query(..., min_length=2, max_length=200),
+) -> GeocodeResponse:
     if google_places_service.is_enabled:
         try:
             result = await google_places_service.geocode(query)

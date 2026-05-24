@@ -4,11 +4,10 @@ Integration tests for the Reviews & Favorites feature.
 Each test runs against the real PostgreSQL database but inside a transaction
 that is rolled back automatically by the `db` fixture in conftest.py.
 """
-import pytest
-from httpx import AsyncClient
 
+import pytest
 from app.models.gym import Gym
-from app.models.user import User
+from httpx import AsyncClient
 
 
 class TestReviews:

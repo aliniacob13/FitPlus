@@ -19,7 +19,7 @@ The project is split into 5 modules, each owned by one team member. Members 1 & 
         ▼           ▼               ▼
    ┌─────────┐ ┌──────────┐  ┌──────────┐
    │ M3: Gym │ │M4: Pay + │  │M5: Health│
-   │ & Hartă │ │Workout AI│  │+ Diet AI │
+   │ & Map   │ │Workout AI│  │+ Diet AI │
    └─────────┘ └────┬─────┘  └────┬─────┘
                     │  LLMService  │
                     │◄────────────►│
@@ -34,11 +34,11 @@ The project is split into 5 modules, each owned by one team member. Members 1 & 
 
 | Member | Primary Module | Secondary Module | Task Sheet                          |
 |--------|---------------|-----------------|-------------------------------------|
-| **Membru 1** | Backend infrastructure, Auth, CI/CD | Code review, deploy | [📄 member1.md](tasks/member1.md)   |
-| **Membru 2** | Frontend core, shared UI, Chat component | Home screen, polish | [📄 member2.md](tasks/member2.md) |
-| **Membru 3** | Gym database, Map, Favorites, Reviews | Gym recommendations | [📄 member3.md](tasks/member3.md) |
-| **Membru 4** | Stripe Payments + Workout AI Agent | Ollama/LLM setup | [📄 member4.md](tasks/member4.md) |
-| **Membru 5** | Health data, Prescriptions + Diet AI Agent | Agent evals (both) | [📄 member5.md](tasks/member5.md) |
+| **Member 1** | Backend infrastructure, Auth, CI/CD | Code review, deploy | [📄 member1.md](tasks/member1.md)   |
+| **Member 2** | Frontend core, shared UI, Chat component | Home screen, polish | [📄 member2.md](tasks/member2.md) |
+| **Member 3** | Gym database, Map, Favorites, Reviews | Gym recommendations | [📄 member3.md](tasks/member3.md) |
+| **Member 4** | Stripe Payments + Workout AI Agent | LLM provider setup (Anthropic) | [📄 member4.md](tasks/member4.md) |
+| **Member 5** | Health data, Prescriptions + Diet AI Agent | Agent evals (both) | [📄 member5.md](tasks/member5.md) |
 
 ---
 
@@ -46,10 +46,10 @@ The project is split into 5 modules, each owned by one team member. Members 1 & 
 
 | Sprint | M1 | M2 | M3 | M4 | M5 |
 |--------|----|----|----|----|-----|
-| **S0** (zile 1–4) | FastAPI + DB + Auth + Docker + CI/CD | RN + Nav + State + Auth screens | Modele Gym DB, seed data | Research Stripe + Ollama setup | Research LLM, modele Health DB |
-| **S1** (săpt 1) | Profil endpoints, Swagger docs | Profil screens, API layer, componente shared | API nearby + hartă cu pins | Stripe checkout + webhook, system prompt workout | Diet preferences API, prescriptions upload |
-| **S2** (săpt 2) | Code review, teste integrare | Chat UI component, Home screen | Detalii sală, favorite, review-uri | Workout agent complet + chat conectat | Diet agent complet + chat conectat |
-| **S3** (săpt 3) | Deploy final, optimizări | Polish UI, dark mode | Polish hartă, filtre, teste | Abonamente UI, teste workout agent | Evals ambii agenți, weight tracker UI |
+| **S0** (days 1–4) | FastAPI + DB + Auth + Docker + CI/CD | RN + Nav + State + Auth screens | Gym DB models, seed data | Research Stripe + LLM API keys | Research LLM, Health DB models |
+| **S1** (week 1) | Profile endpoints, Swagger docs | Profile screens, API layer, shared components | Nearby API + map with pins | Stripe checkout + webhook, workout system prompt | Diet preferences API, prescriptions upload |
+| **S2** (week 2) | Code review, integration tests | Chat UI component, Home screen | Gym detail, favorites, reviews | Workout agent + wired chat | Diet agent + wired chat |
+| **S3** (week 3) | Final deploy, optimizations | Polish UI, dark mode | Map polish, filters, tests | Subscriptions UI, workout agent tests | Evals for both agents, weight tracker UI |
 
 ---
 

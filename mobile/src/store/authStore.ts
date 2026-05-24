@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { AuthResponse, authApi } from "@/services/authApi";
 import { setApiAuthHandlers } from "@/services/api";
 import { useFoodDiaryStore } from "@/store/foodDiaryStore";
+import { useGymStore } from "@/store/gymStore";
 
 const ACCESS_TOKEN_KEY = "fitplus.access_token";
 const REFRESH_TOKEN_KEY = "fitplus.refresh_token";
@@ -110,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     useFoodDiaryStore.getState().clearCalorieTarget();
+    useGymStore.getState().resetFavorites();
     set({
       accessToken: null,
       refreshToken: null,

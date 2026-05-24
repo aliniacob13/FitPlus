@@ -63,7 +63,9 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> To
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
-async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)) -> AccessTokenResponse:
+async def refresh(
+    payload: RefreshRequest, db: AsyncSession = Depends(get_db)
+) -> AccessTokenResponse:
     decoded = decode_token(payload.refresh_token)
     if not decoded or decoded.get("type") != REFRESH_TOKEN_TYPE:
         raise HTTPException(

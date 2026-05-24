@@ -3,7 +3,6 @@ from __future__ import annotations
 from math import atan2, cos, radians, sin, sqrt
 
 import httpx
-
 from app.core.config import settings
 from app.schemas.places import GeocodeResponse, PlaceGymDetail, PlaceGymSummary
 
@@ -48,7 +47,9 @@ class GooglePlacesService:
             city=city,
         )
 
-    async def search_nearby_gyms(self, latitude: float, longitude: float, radius_m: int = 20_000) -> list[PlaceGymSummary]:
+    async def search_nearby_gyms(
+        self, latitude: float, longitude: float, radius_m: int = 20_000
+    ) -> list[PlaceGymSummary]:
         if not self.is_enabled:
             return []
 
@@ -101,7 +102,9 @@ class GooglePlacesService:
                     website=place.get("websiteUri"),
                     google_maps_url=place.get("googleMapsUri"),
                     photo_url=photo_url,
-                    opening_hours=((place.get("regularOpeningHours") or {}).get("weekdayDescriptions")),
+                    opening_hours=(
+                        (place.get("regularOpeningHours") or {}).get("weekdayDescriptions")
+                    ),
                     distance_m=self._distance_m(latitude, longitude, place_lat, place_lng),
                 )
             )
@@ -122,7 +125,9 @@ class GooglePlacesService:
         }
 
         async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.get(f"{GOOGLE_PLACES_BASE_URL}/places/{place_id}", headers=headers)
+            response = await client.get(
+                f"{GOOGLE_PLACES_BASE_URL}/places/{place_id}", headers=headers
+            )
             if response.status_code == 404:
                 return None
             response.raise_for_status()

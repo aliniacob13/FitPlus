@@ -7,8 +7,10 @@ from app.core.database import get_db
 from app.core.security import ACCESS_TOKEN_TYPE, decode_token
 from app.models.favorite import FavoriteGym
 from app.models.gym import Gym
+from app.models.subscription import Subscription
 from app.models.user import User
 from app.schemas.gym import FavoriteGymResponse
+from app.schemas.payments import UserSubscriptionResponse
 from app.schemas.user import UserProfileResponse, UserProfileUpdateRequest
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -96,3 +98,31 @@ async def get_my_favorites(
     )
     rows = (await db.execute(stmt)).mappings().all()
     return [FavoriteGymResponse(**row) for row in rows]
+
+
+@router.get("/me/subscriptions", response_model=list[UserSubscriptionResponse])
+async def get_my_subscriptions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[UserSubscriptionResponse]:
+    stmt = (
+        select(Subscription, Gym.name)
+        .join(Gym, Gym.id == Subscription.gym_id)
+        .where(Subscription.user_id == current_user.id)
+        .order_by(Subscription.created_at.desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    return [
+        UserSubscriptionResponse(
+            id=sub.id,
+            gym_id=sub.gym_id,
+            gym_name=gym_name,
+            plan_name=sub.plan_name,
+            status=sub.status,
+            stripe_subscription_id=sub.stripe_subscription_id,
+            started_at=sub.started_at,
+            expires_at=sub.expires_at,
+            created_at=sub.created_at,
+        )
+        for sub, gym_name in rows
+    ]

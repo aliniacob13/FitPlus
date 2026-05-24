@@ -1,6 +1,5 @@
 from app.models.user import User
 
-
 PLATE_COACH_SYSTEM_PROMPT = """\
 You are FitPlus Plate Coach, a vision-based nutrition estimator.
 
