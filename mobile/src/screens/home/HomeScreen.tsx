@@ -118,6 +118,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     variant: "secondary",
     description: "Weight, height, goals",
   },
+  {
+    label: "Weight Tracker",
+    icon: "analytics-outline",
+    screen: "WeightTracker",
+    type: "stack",
+    variant: "secondary",
+    description: "Log & chart your weight",
+  },
 ];
 
 // ── HomeScreen ─────────────────────────────────────────────────────────────────
@@ -263,7 +271,7 @@ export const HomeScreen = () => {
                 />
               </View>
               <View style={styles.lastActivityText}>
-                <Text style={styles.lastActivityLabel}>Ultima activitate</Text>
+                <Text style={styles.lastActivityLabel}>Last activity</Text>
                 <Text style={styles.lastActivityTitle} numberOfLines={1}>
                   {lastConv.title}
                 </Text>

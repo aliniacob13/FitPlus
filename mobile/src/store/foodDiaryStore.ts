@@ -73,13 +73,30 @@ export const useFoodDiaryStore = create<FoodDiaryState>((set, get) => ({
   },
 
   deleteEntry: async (id) => {
-    set({ error: null });
+    // Optimistic: remove immediately so UI responds at once
+    const prevEntries = get().entries;
+    const prevTotals = get().totals;
+    const removed = prevEntries.find((e) => e.id === id);
+    const nextEntries = prevEntries.filter((e) => e.id !== id);
+    const nextTotals = removed
+      ? {
+          kcal: Math.max(0, prevTotals.kcal - removed.kcal),
+          protein_g: Math.max(0, prevTotals.protein_g - removed.protein_g),
+          carbs_g: Math.max(0, prevTotals.carbs_g - removed.carbs_g),
+          fat_g: Math.max(0, prevTotals.fat_g - removed.fat_g),
+        }
+      : prevTotals;
+
+    set({ entries: nextEntries, totals: nextTotals, error: null });
+
     try {
       await nutritionApi.deleteFoodLogEntry(id);
+      // Re-fetch silently to sync server totals
       const { date } = get();
       await get().fetchDay(date);
     } catch (err) {
-      set({ error: formatApiError(err, "Could not delete entry.") });
+      // Rollback on failure
+      set({ entries: prevEntries, totals: prevTotals, error: formatApiError(err, "Could not delete entry.") });
     }
   },
 

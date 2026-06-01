@@ -435,13 +435,33 @@ export const ProfileScreen = () => {
           />
         </Card>
 
+        {/* ── Progress ── */}
+        <SectionTitle title="Progress" />
+        <Card variant="default" padding="sm">
+          <NavRow
+            icon="analytics-outline"
+            iconColor={colors.accent.base}
+            label="Weight Tracker"
+            description="Log and chart your weight over time"
+            onPress={() => navigation.navigate("WeightTracker")}
+          />
+          <NavRowDivider />
+          <NavRow
+            icon="card-outline"
+            iconColor={colors.warning}
+            label="My Subscriptions"
+            description="Active gym memberships"
+            onPress={() => navigation.navigate("MySubscriptions")}
+          />
+        </Card>
+
         {/* ── Account ── */}
         <SectionTitle title="Account" />
         <Card variant="default" padding="sm">
           <NavRow
             icon="person-outline"
             iconColor={colors.info}
-            label="Full Edit Screen"
+            label="Edit Profile"
             description="Update all profile fields"
             onPress={() => navigation.navigate("UpdateProfile")}
           />
@@ -463,7 +483,7 @@ export const ProfileScreen = () => {
         </Card>
 
         <View style={styles.versionBadge}>
-          <Text style={styles.versionText}>FitPlus — Persoana 2 build</Text>
+          <Text style={styles.versionText}>FitPlus v1.0</Text>
         </View>
       </ScrollView>
     </Screen>

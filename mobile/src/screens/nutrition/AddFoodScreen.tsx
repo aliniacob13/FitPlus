@@ -12,6 +12,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
+import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -140,6 +141,7 @@ export const AddFoodScreen = () => {
           style={styles.scanShortcut}
           onPress={() => navigation.navigate("LabelScan", { date })}
         >
+          <Ionicons name="barcode-outline" size={16} color={colors.accent.base} />
           <Text style={styles.scanShortcutText}>Scan Nutrition Label</Text>
         </TouchableOpacity>
 
@@ -327,11 +329,14 @@ const styles = StyleSheet.create({
     color: colors.accent.base,
   },
   scanShortcut: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[2],
     borderWidth: 1,
     borderColor: colors.accent.base,
     borderRadius: radius.md,
     paddingVertical: spacing[2],
-    alignItems: "center",
     backgroundColor: colors.bg.elevated,
   },
   scanShortcutText: {

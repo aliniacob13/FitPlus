@@ -34,7 +34,8 @@
         {
           "locationWhenInUsePermission": "FitPlus foloseste locatia ta pentru a afisa sali din apropiere pe harta."
         }
-      ]
+      ],
+      "expo-status-bar"
     ]
   }
 }

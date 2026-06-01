@@ -10,6 +10,7 @@ import { DietPreferencesScreen } from "@/screens/profile/DietPreferencesScreen";
 import { FavoriteGymsScreen } from "@/screens/profile/FavoriteGymsScreen";
 import { MySubscriptionsScreen } from "@/screens/profile/MySubscriptionsScreen";
 import { PaymentCheckoutScreen } from "@/screens/profile/PaymentCheckoutScreen";
+import { WeightTrackerScreen } from "@/screens/profile/WeightTrackerScreen";
 import { SubscriptionPlansScreen } from "@/screens/profile/SubscriptionPlansScreen";
 import { UpdateProfileScreen } from "@/screens/profile/UpdateProfileScreen";
 import { useAuthStore } from "@/store/authStore";
@@ -43,6 +44,7 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="SubscriptionPlans" component={SubscriptionPlansScreen} />
     <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
     <Stack.Screen name="MySubscriptions" component={MySubscriptionsScreen} />
+    <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} />
   </Stack.Navigator>
 );
 

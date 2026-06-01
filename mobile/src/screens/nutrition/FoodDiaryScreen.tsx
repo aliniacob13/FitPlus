@@ -1,5 +1,6 @@
-import { useCallback, useEffect } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -32,15 +33,7 @@ const formatDate = (dateStr: string): string => {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 };
 
-const MacroBar = ({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) => (
+const MacroBar = ({ label, value, color }: { label: string; value: number; color: string }) => (
   <View style={styles.macroItem}>
     <Text style={[styles.macroValue, { color }]}>{Math.round(value)}g</Text>
     <Text style={styles.macroLabel}>{label}</Text>
@@ -49,34 +42,61 @@ const MacroBar = ({
 
 const EntryRow = ({
   entry,
-  onDelete,
+  pendingDelete,
+  onRequestDelete,
+  onConfirmDelete,
+  onCancelDelete,
 }: {
   entry: FoodLogEntry;
-  onDelete: (id: number) => void;
-}) => (
-  <View style={styles.entryRow}>
-    <View style={styles.entryInfo}>
-      <Text style={styles.entryName} numberOfLines={1}>
-        {entry.name}
-      </Text>
-      <Text style={styles.entrySub}>
-        {entry.grams}g · P {Math.round(entry.protein_g)}g · C {Math.round(entry.carbs_g)}g · F{" "}
-        {Math.round(entry.fat_g)}g
-      </Text>
+  pendingDelete: boolean;
+  onRequestDelete: (id: number) => void;
+  onConfirmDelete: (id: number) => void;
+  onCancelDelete: () => void;
+}) => {
+  if (pendingDelete) {
+    return (
+      <View style={styles.confirmRow}>
+        <Text style={styles.confirmText} numberOfLines={1}>
+          Delete <Text style={styles.confirmName}>{entry.name}</Text>?
+        </Text>
+        <TouchableOpacity
+          onPress={() => onConfirmDelete(entry.id)}
+          style={styles.confirmYes}
+        >
+          <Text style={styles.confirmYesText}>Delete</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onCancelDelete} style={styles.confirmNo}>
+          <Text style={styles.confirmNoText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.entryRow}>
+      <View style={styles.entryInfo}>
+        <Text style={styles.entryName} numberOfLines={1}>
+          {entry.name}
+        </Text>
+        <Text style={styles.entrySub}>
+          {entry.grams}g · P {Math.round(entry.protein_g)}g · C {Math.round(entry.carbs_g)}g · F{" "}
+          {Math.round(entry.fat_g)}g
+        </Text>
+      </View>
+      <View style={styles.entryRight}>
+        <Text style={styles.entryKcal}>{Math.round(entry.kcal)}</Text>
+        <Text style={styles.entryKcalUnit}>kcal</Text>
+      </View>
+      <TouchableOpacity
+        onPress={() => onRequestDelete(entry.id)}
+        style={styles.deleteBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="trash-outline" size={18} color={colors.error} />
+      </TouchableOpacity>
     </View>
-    <View style={styles.entryRight}>
-      <Text style={styles.entryKcal}>{Math.round(entry.kcal)}</Text>
-      <Text style={styles.entryKcalUnit}>kcal</Text>
-    </View>
-    <TouchableOpacity
-      onPress={() => onDelete(entry.id)}
-      style={styles.deleteBtn}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-    >
-      <Text style={styles.deleteBtnText}>✕</Text>
-    </TouchableOpacity>
-  </View>
-);
+  );
+};
 
 export const FoodDiaryScreen = () => {
   const navigation = useNavigation<NavProp>();
@@ -92,8 +112,15 @@ export const FoodDiaryScreen = () => {
   const setDate = useFoodDiaryStore((s) => s.setDate);
   const deleteEntry = useFoodDiaryStore((s) => s.deleteEntry);
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
   useEffect(() => {
     void fetchDay(date);
+  }, [date]);
+
+  // Clear pending delete when date changes
+  useEffect(() => {
+    setPendingDeleteId(null);
   }, [date]);
 
   const navigateDate = useCallback(
@@ -104,11 +131,9 @@ export const FoodDiaryScreen = () => {
     [date, setDate],
   );
 
-  const handleDelete = (id: number) => {
-    Alert.alert("Remove entry", "Delete this food entry?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => void deleteEntry(id) },
-    ]);
+  const handleConfirmDelete = (id: number) => {
+    setPendingDeleteId(null);
+    void deleteEntry(id);
   };
 
   const safeKcalTarget = dailyKcalTarget ?? 0;
@@ -118,7 +143,6 @@ export const FoodDiaryScreen = () => {
   return (
     <Screen scrollable={false}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <Text style={styles.title}>Food Diary</Text>
 
         {/* Date navigator */}
@@ -164,13 +188,11 @@ export const FoodDiaryScreen = () => {
             </View>
           </View>
 
-          {/* Progress bar */}
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${kcalPercent}%` as `${number}%` }]} />
           </View>
           <Text style={styles.progressLabel}>{kcalPercent}% of target</Text>
 
-          {/* Macro summary */}
           <View style={styles.macroRow}>
             <MacroBar label="Protein" value={totals.protein_g} color={colors.info} />
             <MacroBar label="Carbs" value={totals.carbs_g} color={colors.warning} />
@@ -196,21 +218,33 @@ export const FoodDiaryScreen = () => {
           <Loader />
         ) : entries.length === 0 ? (
           <View style={styles.empty}>
+            <Ionicons name="restaurant-outline" size={48} color={colors.textPalette.muted} />
             <Text style={styles.emptyText}>No entries yet for this day.</Text>
-            <Text style={styles.emptyHint}>Tap "Add Food" to log your first meal.</Text>
+            <Text style={styles.emptyHint}>Tap "+ Add Food" to log your first meal.</Text>
           </View>
         ) : (
           <Card variant="default" padding="none">
             {entries.map((entry, idx) => (
               <View key={entry.id}>
-                <EntryRow entry={entry} onDelete={handleDelete} />
+                <EntryRow
+                  entry={entry}
+                  pendingDelete={pendingDeleteId === entry.id}
+                  onRequestDelete={(id) => setPendingDeleteId(id)}
+                  onConfirmDelete={handleConfirmDelete}
+                  onCancelDelete={() => setPendingDeleteId(null)}
+                />
                 {idx < entries.length - 1 && <View style={styles.divider} />}
               </View>
             ))}
           </Card>
         )}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
 
         <Button label="Back" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
       </ScrollView>
@@ -238,21 +272,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[2],
     paddingHorizontal: spacing.md,
   },
-  dateArrow: {
-    padding: spacing[2],
-  },
+  dateArrow: { padding: spacing[2] },
   dateArrowText: {
     fontSize: typography.size["2xl"],
     color: colors.accent.base,
     fontWeight: "700",
     lineHeight: 28,
   },
-  dateLabel: {
-    ...typography.styles.h3,
-  },
-  disabled: {
-    color: colors.textPalette.muted,
-  },
+  dateLabel: { ...typography.styles.h3 },
+  disabled: { color: colors.textPalette.muted },
   kcalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -270,18 +298,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPalette.secondary,
   },
-  kcalLabel: {
-    ...typography.styles.label,
-    marginTop: 2,
-  },
-  setupTitle: {
-    ...typography.styles.h3,
-    marginBottom: spacing[1],
-  },
-  setupHint: {
-    ...typography.styles.bodySmall,
-    marginBottom: spacing[3],
-  },
+  kcalLabel: { ...typography.styles.label, marginTop: 2 },
+  setupTitle: { ...typography.styles.h3, marginBottom: spacing[1] },
+  setupHint: { ...typography.styles.bodySmall, marginBottom: spacing[3] },
   kcalDivider: {
     width: 1,
     height: 40,
@@ -311,17 +330,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: `${colors.accent.base}30`,
   },
-  macroItem: {
-    alignItems: "center",
-  },
-  macroValue: {
-    fontSize: typography.size.lg,
-    fontWeight: "800",
-  },
-  macroLabel: {
-    ...typography.styles.label,
-    marginTop: 2,
-  },
+  macroItem: { alignItems: "center" },
+  macroValue: { fontSize: typography.size.lg, fontWeight: "800" },
+  macroLabel: { ...typography.styles.label, marginTop: 2 },
   entryRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -329,35 +340,60 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     gap: spacing[3],
   },
-  entryInfo: {
-    flex: 1,
-  },
+  entryInfo: { flex: 1 },
   entryName: {
     fontSize: typography.size.base,
     fontWeight: "600",
     color: colors.textPalette.primary,
   },
-  entrySub: {
-    ...typography.styles.caption,
-    marginTop: 2,
-  },
-  entryRight: {
-    alignItems: "flex-end",
-  },
+  entrySub: { ...typography.styles.caption, marginTop: 2 },
+  entryRight: { alignItems: "flex-end" },
   entryKcal: {
     fontSize: typography.size.base,
     fontWeight: "700",
     color: colors.textPalette.primary,
   },
-  entryKcalUnit: {
-    ...typography.styles.caption,
+  entryKcalUnit: { ...typography.styles.caption },
+  deleteBtn: { padding: spacing[1] },
+  // Inline delete confirmation row
+  confirmRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[3],
+    gap: spacing[2],
+    backgroundColor: colors.error + "12",
   },
-  deleteBtn: {
-    padding: spacing[1],
-  },
-  deleteBtnText: {
+  confirmText: {
+    flex: 1,
     fontSize: typography.size.sm,
-    color: colors.textPalette.muted,
+    color: colors.textPalette.secondary,
+  },
+  confirmName: {
+    fontWeight: "700",
+    color: colors.textPalette.primary,
+  },
+  confirmYes: {
+    paddingVertical: spacing[1],
+    paddingHorizontal: spacing[3],
+    borderRadius: radius.sm,
+    backgroundColor: colors.error,
+  },
+  confirmYesText: {
+    fontSize: typography.size.sm,
+    fontWeight: "700",
+    color: colors.white,
+  },
+  confirmNo: {
+    paddingVertical: spacing[1],
+    paddingHorizontal: spacing[3],
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg.overlay,
+  },
+  confirmNoText: {
+    fontSize: typography.size.sm,
+    fontWeight: "600",
+    color: colors.textPalette.secondary,
   },
   divider: {
     height: 1,
@@ -367,17 +403,24 @@ const styles = StyleSheet.create({
   empty: {
     alignItems: "center",
     paddingVertical: spacing["2xl"],
+    gap: spacing[2],
   },
-  emptyText: {
-    ...typography.styles.bodySmall,
-    marginBottom: spacing[1],
+  emptyText: { ...typography.styles.h3, color: colors.textPalette.secondary },
+  emptyHint: { ...typography.styles.bodySmall, textAlign: "center" },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    padding: spacing[3],
+    borderRadius: radius.md,
+    backgroundColor: colors.error + "18",
+    borderWidth: 1,
+    borderColor: colors.error + "40",
   },
-  emptyHint: {
-    ...typography.styles.caption,
-  },
-  error: {
+  errorText: {
     color: colors.error,
     fontWeight: "600",
-    textAlign: "center",
+    fontSize: typography.size.sm,
+    flex: 1,
   },
 });
