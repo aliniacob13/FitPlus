@@ -68,13 +68,13 @@ const EntryRow = ({
       <Text style={styles.entryKcal}>{Math.round(entry.kcal)}</Text>
       <Text style={styles.entryKcalUnit}>kcal</Text>
     </View>
-    <TouchableOpacity
+    <Pressable
       onPress={() => onDelete(entry.id)}
       style={styles.deleteBtn}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Text style={styles.deleteBtnText}>✕</Text>
-    </TouchableOpacity>
+    </Pressable>
   </View>
 );
 
@@ -104,12 +104,25 @@ export const FoodDiaryScreen = () => {
     [date, setDate],
   );
 
-  const handleDelete = (id: number) => {
-    Alert.alert("Remove entry", "Delete this food entry?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => void deleteEntry(id) },
-    ]);
-  };
+  const handleDelete = useCallback(
+    (id: number) => {
+      Alert.alert("Remove entry", "Delete this food entry?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteEntry(id).then((success) => {
+              if (!success) {
+                Alert.alert("Error", "Could not delete this entry. Please try again.");
+              }
+            });
+          },
+        },
+      ]);
+    },
+    [deleteEntry],
+  );
 
   const safeKcalTarget = dailyKcalTarget ?? 0;
   const kcalProgress = safeKcalTarget > 0 ? Math.min(totals.kcal / safeKcalTarget, 1) : 0;
@@ -200,14 +213,14 @@ export const FoodDiaryScreen = () => {
             <Text style={styles.emptyHint}>Tap "Add Food" to log your first meal.</Text>
           </View>
         ) : (
-          <Card variant="default" padding="none">
+          <View style={styles.entryList}>
             {entries.map((entry, idx) => (
               <View key={entry.id}>
                 <EntryRow entry={entry} onDelete={handleDelete} />
                 {idx < entries.length - 1 && <View style={styles.divider} />}
               </View>
             ))}
-          </Card>
+          </View>
         )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -322,6 +335,13 @@ const styles = StyleSheet.create({
     ...typography.styles.label,
     marginTop: 2,
   },
+  entryList: {
+    borderRadius: radius.card,
+    backgroundColor: colors.bg.surface,
+    borderWidth: 1,
+    borderColor: colors.borderPalette.default,
+    marginBottom: spacing[4],
+  },
   entryRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -353,7 +373,7 @@ const styles = StyleSheet.create({
     ...typography.styles.caption,
   },
   deleteBtn: {
-    padding: spacing[1],
+    padding: spacing[3],
   },
   deleteBtnText: {
     fontSize: typography.size.sm,
