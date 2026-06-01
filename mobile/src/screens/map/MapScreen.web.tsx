@@ -158,6 +158,8 @@ export const MapScreen = () => {
     return () => {
       cancelled = true;
     };
+    // initFavoriteState is a stable Zustand action
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGym]);
 
   // ── Gym list helpers ──────────────────────────────────────────────────────

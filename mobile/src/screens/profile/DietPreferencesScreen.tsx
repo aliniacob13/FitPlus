@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,

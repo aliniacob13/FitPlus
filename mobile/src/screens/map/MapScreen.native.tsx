@@ -276,6 +276,8 @@ export const MapScreen = () => {
 
     void lookup();
     return () => { cancelled = true; };
+    // initFavoriteState is a stable Zustand action
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGym]);
 
   // ── Heart / favorite helpers ──────────────────────────────────────────────
@@ -329,6 +331,8 @@ export const MapScreen = () => {
     };
     void bootstrapMap();
     return () => { mounted = false; };
+    // loadLocation / loadNearby are stable component-scoped functions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────

@@ -1,101 +1,77 @@
 import { ReactNode } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
-
 import { colors, radius, shadows, spacing, typography } from "@/constants/theme";
 
 type Variant = "default" | "elevated" | "accent" | "flat";
-type Padding = "none" | "sm" | "md" | "lg";
 
-type CardProps = {
+interface CardProps {
   children: ReactNode;
   variant?: Variant;
-  onPress?: () => void;
+  padding?: "none" | "sm" | "md" | "lg";
   title?: string;
-  subtitle?: string;
+  onPress?: () => void;
   style?: ViewStyle;
-  padding?: Padding;
-};
+}
 
-const variantStyles: Record<Variant, ViewStyle> = {
-  default: {
-    backgroundColor: colors.bg.surface,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    ...shadows.sm,
-  },
-  elevated: {
-    backgroundColor: colors.bg.elevated,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.muted,
-    ...shadows.md,
-  },
-  accent: {
-    backgroundColor: colors.bg.surface,
-    borderWidth: 1.5,
-    borderColor: colors.accent.base,
-    ...shadows.accent,
-  },
-  flat: {
-    backgroundColor: colors.bg.surface,
-    borderWidth: 0,
-  },
-};
+export const Card = ({
+  children,
+  variant = "default",
+  padding = "md",
+  title,
+  onPress,
+  style,
+}: CardProps) => {
+  const Container = onPress ? TouchableOpacity : View;
+  const containerProps = onPress ? { onPress, activeOpacity: 0.82 } : {};
 
-const paddingMap: Record<Padding, number> = {
-  none: 0,
-  sm: spacing.md,
-  md: spacing.lg,
-  lg: spacing["2xl"],
-};
-
-export const Card = ({ children, variant = "default", onPress, title, subtitle, style, padding = "md" }: CardProps) => {
-  const pad = paddingMap[padding];
-  const hasHeader = Boolean(title || subtitle);
-  const content = (
-    <>
-      {hasHeader ? (
-        <View style={[styles.header, pad > 0 ? { paddingHorizontal: pad, paddingTop: pad } : undefined]}>
-          <View style={styles.headerText}>
-            {title ? <Text style={styles.title}>{title}</Text> : null}
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-          </View>
-        </View>
+  return (
+    <Container
+      {...containerProps}
+      style={[
+        styles.base,
+        styles[`variant_${variant}`],
+        padding !== "none" && styles[`padding_${padding}`],
+        style,
+      ]}
+    >
+      {title ? (
+        <Text style={styles.title}>{title}</Text>
       ) : null}
-      <View style={pad > 0 ? { padding: pad, paddingTop: hasHeader ? spacing[3] : pad } : undefined}>{children}</View>
-    </>
+      {children}
+    </Container>
   );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.base, variantStyles[variant], style]}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-
-  return <View style={[styles.base, variantStyles[variant], style]}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
   base: {
     borderRadius: radius.card,
     overflow: "hidden",
-    marginBottom: spacing[4],
+    borderWidth: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+  variant_default: {
+    backgroundColor: colors.surfaceBase,
+    borderColor: colors.lineColor,
   },
-  headerText: {
-    flex: 1,
-    marginRight: spacing[3],
+  variant_elevated: {
+    backgroundColor: colors.surface2,
+    borderColor: colors.lineColor,
+    ...shadows.sm,
   },
+  variant_accent: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBase + "40",
+  },
+  variant_flat: {
+    backgroundColor: colors.surface2,
+    borderColor: "transparent",
+  },
+
+  padding_sm: { padding: spacing.sm },
+  padding_md: { padding: spacing.md },
+  padding_lg: { padding: spacing.lg },
+
   title: {
     ...typography.styles.h3,
-    marginBottom: 2,
-  },
-  subtitle: {
-    ...typography.styles.bodySmall,
+    marginBottom: spacing.sm,
   },
 });

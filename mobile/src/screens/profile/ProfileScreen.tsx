@@ -12,6 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -26,23 +27,32 @@ import { AppStackParamList } from "@/types/navigation";
 
 type NavProp = NativeStackNavigationProp<AppStackParamList, "MainTabs">;
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Weight sparkline ──────────────────────────────────────────────────────────
 
-type StatRowProps = {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: string;
+const WeightSparkline = ({ data = [80.7, 80.4, 80.1, 79.8, 79.4, 79.1, 78.8, 78.4] }: { data?: number[] }) => {
+  const W = 220, H = 60;
+  if (data.length < 2) return null;
+  const max = Math.max(...data) + 0.3, min = Math.min(...data) - 0.3;
+  const span = max - min;
+  const step = W / (data.length - 1);
+  const pts = data.map((v, i) => `${i * step},${H - ((v - min) / span) * H}`);
+  const linePath = "M" + pts.join(" L");
+  const fillPath = linePath + ` L${W},${H} L0,${H} Z`;
+  return (
+    <Svg width={W} height={H} style={{ marginTop: spacing[3] }}>
+      <Defs>
+        <LinearGradient id="wg" x1="0" x2="0" y1="0" y2="1">
+          <Stop offset="0%" stopColor={colors.primaryBase} stopOpacity="0.2" />
+          <Stop offset="100%" stopColor={colors.primaryBase} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Path d={fillPath} fill="url(#wg)" />
+      <Path d={linePath} fill="none" stroke={colors.primaryBase} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 };
 
-const StatRow = ({ icon, label, value }: StatRowProps) => (
-  <View style={styles.statRow}>
-    <View style={styles.statRowLeft}>
-      <Ionicons name={icon} size={15} color={colors.textPalette.secondary} />
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-    <Text style={styles.statValue}>{value}</Text>
-  </View>
-);
+// ── NavRow ────────────────────────────────────────────────────────────────────
 
 type NavRowProps = {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -54,82 +64,41 @@ type NavRowProps = {
   danger?: boolean;
 };
 
-const NavRow = ({
-  icon,
-  iconColor,
-  label,
-  description,
-  badge,
-  onPress,
-  danger = false,
-}: NavRowProps) => (
+const NavRow = ({ icon, iconColor, label, description, badge, onPress, danger = false }: NavRowProps) => (
   <TouchableOpacity style={styles.navRow} onPress={onPress} activeOpacity={0.7}>
-    <View
-      style={[
-        styles.navRowIcon,
-        {
-          backgroundColor: danger
-            ? colors.error + "20"
-            : (iconColor ?? colors.accent.base) + "20",
-        },
-      ]}
-    >
-      <Ionicons
-        name={icon}
-        size={16}
-        color={danger ? colors.error : (iconColor ?? colors.accent.base)}
-      />
+    <View style={[styles.navIcon, { backgroundColor: (danger ? colors.error : (iconColor ?? colors.primaryBase)) + "18" }]}>
+      <Ionicons name={icon} size={16} color={danger ? colors.error : (iconColor ?? colors.primaryBase)} />
     </View>
-    <View style={styles.navRowContent}>
-      <Text style={[styles.navRowLabel, danger && styles.navRowLabelDanger]}>
-        {label}
-      </Text>
-      {description && (
-        <Text style={styles.navRowDesc} numberOfLines={1}>
-          {description}
-        </Text>
-      )}
+    <View style={styles.navContent}>
+      <Text style={[styles.navLabel, danger && { color: colors.error }]}>{label}</Text>
+      {description && <Text style={styles.navDesc} numberOfLines={1}>{description}</Text>}
     </View>
     {badge && (
-      <View style={styles.navRowBadge}>
-        <Text style={styles.navRowBadgeText}>{badge}</Text>
+      <View style={styles.navBadge}>
+        <Text style={styles.navBadgeText}>{badge}</Text>
       </View>
     )}
-    <Ionicons
-      name="chevron-forward"
-      size={16}
-      color={danger ? colors.error : colors.textPalette.muted}
-    />
+    <Ionicons name="chevron-forward" size={14} color={danger ? colors.error : colors.muted2} />
   </TouchableOpacity>
 );
 
-const NavRowDivider = () => <View style={styles.navRowDivider} />;
-const SectionTitle = ({ title }: { title: string }) => (
+const NavDivider = () => <View style={styles.navDivider} />;
+
+const SectionLabel = ({ title }: { title: string }) => (
   <Text style={styles.sectionLabel}>{title}</Text>
 );
 
-// ── Avatar with photo ─────────────────────────────────────────────────────────
-
-type AvatarProps = {
-  imageUri: string | null;
-  initials: string;
-  onPress: () => void;
-  onLongPress: () => void;
-};
+// ── Avatar ────────────────────────────────────────────────────────────────────
 
 const ProfileAvatar = ({
-  imageUri,
-  initials,
-  onPress,
-  onLongPress,
-}: AvatarProps) => (
+  imageUri, initials, onPress, onLongPress,
+}: { imageUri: string | null; initials: string; onPress: () => void; onLongPress: () => void }) => (
   <TouchableOpacity
     style={styles.avatarRing}
     onPress={onPress}
     onLongPress={onLongPress}
     activeOpacity={0.85}
     accessibilityLabel="Change profile photo"
-    accessibilityHint="Tap to change, long press to remove"
   >
     {imageUri ? (
       <Image source={{ uri: imageUri }} style={styles.avatarImage} />
@@ -138,10 +107,8 @@ const ProfileAvatar = ({
         <Text style={styles.avatarText}>{initials}</Text>
       </View>
     )}
-
-    {/* Camera badge overlay */}
     <View style={styles.cameraBadge}>
-      <Ionicons name="camera" size={12} color={colors.textPalette.inverse} />
+      <Ionicons name="camera" size={11} color={colors.primaryInk} />
     </View>
   </TouchableOpacity>
 );
@@ -179,16 +146,16 @@ export const ProfileScreen = () => {
     setGoals(profile?.goals ?? "");
   }, [profile]);
 
-  const parseOptionalNumber = (value: string): number | undefined => {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : undefined;
+  const parseOptionalNumber = (v: string) => {
+    const t = v.trim();
+    if (!t) return undefined;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : undefined;
   };
 
   const handleSave = async () => {
     setSaveMessage(null);
-    const success = await updateProfile({
+    const ok = await updateProfile({
       name: name.trim() || undefined,
       age: parseOptionalNumber(age),
       weight_kg: parseOptionalNumber(weightKg),
@@ -196,293 +163,161 @@ export const ProfileScreen = () => {
       fitness_level: fitnessLevel.trim() || undefined,
       goals: goals.trim() || undefined,
     });
-    if (success) setSaveMessage("Profile saved successfully.");
+    if (ok) setSaveMessage("Profile saved successfully.");
   };
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
-      if (window.confirm("Are you sure you want to log out?")) {
-        void logout();
-      }
+      if (window.confirm("Log out of FitPlus?")) void logout();
       return;
     }
-    Alert.alert("Log out", "Are you sure you want to log out?", [
+    Alert.alert("Log out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: () => void logout(),
-      },
+      { text: "Log out", style: "destructive", onPress: () => void logout() },
     ]);
   };
 
-  const displayName =
-    profile?.name || profile?.email?.split("@")[0] || "Athlete";
-  const initials = displayName
-    .split(" ")
-    .map((w: string) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const displayName = profile?.name || profile?.email?.split("@")[0] || "Athlete";
+  const initials = displayName.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
 
-  const dietRestrictionsCount =
-    (dietPreferences?.restrictions?.length ?? 0) +
-    (dietPreferences?.allergies?.length ?? 0);
-  const dietBadge =
-    dietRestrictionsCount > 0 ? `${dietRestrictionsCount} active` : undefined;
-  const dietDesc =
-    dietPreferences?.goals ??
-    (dietRestrictionsCount > 0
-      ? `${dietRestrictionsCount} restriction(s) set`
-      : "No preferences set yet");
+  const dietCount = (dietPreferences?.restrictions?.length ?? 0) + (dietPreferences?.allergies?.length ?? 0);
+  const dietBadge = dietCount > 0 ? `${dietCount} active` : undefined;
+  const dietDesc = dietPreferences?.goals ?? (dietCount > 0 ? `${dietCount} restriction(s)` : "No preferences set");
 
   return (
     <Screen scrollable={false}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Avatar hero ── */}
-        <View style={styles.avatarSection}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+
+        {/* ── Hero section ── */}
+        <View style={styles.hero}>
           <ProfileAvatar
             imageUri={imageUri}
             initials={initials}
             onPress={pickImage}
             onLongPress={imageUri ? removeImage : pickImage}
           />
-
           <Text style={styles.displayName}>{displayName}</Text>
-          <Text style={styles.email}>{profile?.email ?? "N/A"}</Text>
-
-          {/* Tap hint */}
-          <TouchableOpacity onPress={pickImage} activeOpacity={0.7}>
-            <Text style={styles.photoHint}>
-              {imageUri ? "Tap photo to change · Long press to remove" : "Tap to add a profile photo"}
-            </Text>
-          </TouchableOpacity>
-
-          {profile?.fitness_level ? (
+          <Text style={styles.email}>{profile?.email ?? ""}</Text>
+          <Text style={styles.photoHint}>
+            {imageUri ? "Tap to change · Long press to remove" : "Tap to add a photo"}
+          </Text>
+          {profile?.fitness_level && (
             <View style={styles.levelBadge}>
-              <Ionicons
-                name="trophy-outline"
-                size={11}
-                color={colors.accent.base}
-              />
-              <Text style={styles.levelBadgeText}>{profile.fitness_level}</Text>
+              <Ionicons name="trophy-outline" size={11} color={colors.primaryBase} />
+              <Text style={styles.levelText}>{profile.fitness_level}</Text>
             </View>
-          ) : null}
+          )}
         </View>
 
-        {/* ── Body Stats ── */}
-        <Card variant="default" title="Body Stats" padding="md">
-          <StatRow
-            icon="scale-outline"
-            label="Age"
-            value={profile?.age ? `${profile.age} yrs` : "—"}
-          />
-          <View style={styles.divider} />
-          <StatRow
-            icon="barbell-outline"
-            label="Weight"
-            value={profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}
-          />
-          <View style={styles.divider} />
-          <StatRow
-            icon="resize-outline"
-            label="Height"
-            value={profile?.height_cm ? `${profile.height_cm} cm` : "—"}
-          />
-          {profile?.goals ? (
-            <>
-              <View style={styles.divider} />
-              <StatRow
-                icon="flag-outline"
-                label="Goals"
-                value={profile.goals}
-              />
-            </>
-          ) : null}
+        {/* ── Stats row ── */}
+        <View style={styles.statsRow}>
+          {[
+            { label: "Weight", value: profile?.weight_kg ? `${profile.weight_kg}` : "—", unit: "kg" },
+            { label: "Height", value: profile?.height_cm ? `${profile.height_cm}` : "—", unit: "cm" },
+            { label: "Age",    value: profile?.age ? `${profile.age}` : "—", unit: "yrs" },
+          ].map((s) => (
+            <View key={s.label} style={styles.statBox}>
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statUnit}>{s.unit}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Weight chart ── */}
+        <Card variant="default" padding="md">
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <View style={{ gap: 2 }}>
+              <Text style={styles.eyebrow}>greutate · 30 zile</Text>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+                <Text style={styles.weightBig}>{profile?.weight_kg ?? "—"}</Text>
+                <Text style={{ fontSize: 12, color: colors.good, fontWeight: "600" }}>↓ progres</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate("WeightTracker")} style={styles.chartLink}>
+              <Text style={styles.chartLinkText}>See all</Text>
+              <Ionicons name="arrow-forward" size={12} color={colors.primaryBase} />
+            </TouchableOpacity>
+          </View>
+          <WeightSparkline />
         </Card>
 
         {/* ── Edit Profile ── */}
-        <Card variant="default" title="Edit Profile" padding="md">
+        <Card variant="default" padding="md">
+          <Text style={styles.cardTitle}>Edit Profile</Text>
           <View style={styles.fields}>
-            <Input
-              label="Name"
-              value={name}
-              onChangeText={setName}
-              placeholder="E.g. Alex"
-              autoCapitalize="words"
-            />
-            <Input
-              label="Age"
-              value={age}
-              onChangeText={setAge}
-              placeholder="E.g. 24"
-              keyboardType="numeric"
-            />
-            <Input
-              label="Weight (kg)"
-              value={weightKg}
-              onChangeText={setWeightKg}
-              placeholder="E.g. 70.5"
-              keyboardType="numeric"
-            />
-            <Input
-              label="Height (cm)"
-              value={heightCm}
-              onChangeText={setHeightCm}
-              placeholder="E.g. 175"
-              keyboardType="numeric"
-            />
-            <Input
-              label="Fitness level"
-              value={fitnessLevel}
-              onChangeText={setFitnessLevel}
-              placeholder="beginner / intermediate / advanced"
-            />
-            <Input
-              label="Goals"
-              value={goals}
-              onChangeText={setGoals}
-              placeholder="E.g. fat loss, muscle gain"
-              multiline
-            />
+            <Input label="Name" value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" />
+            <View style={styles.twoCol}>
+              <View style={{ flex: 1 }}>
+                <Input label="Age" value={age} onChangeText={setAge} placeholder="24" keyboardType="numeric" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Input label="Weight (kg)" value={weightKg} onChangeText={setWeightKg} placeholder="70.5" keyboardType="numeric" />
+              </View>
+            </View>
+            <View style={styles.twoCol}>
+              <View style={{ flex: 1 }}>
+                <Input label="Height (cm)" value={heightCm} onChangeText={setHeightCm} placeholder="175" keyboardType="numeric" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Input label="Fitness level" value={fitnessLevel} onChangeText={setFitnessLevel} placeholder="intermediate" />
+              </View>
+            </View>
+            <Input label="Goals" value={goals} onChangeText={setGoals} placeholder="fat loss, muscle gain…" multiline />
           </View>
         </Card>
 
         {error ? <ErrorState message={error} /> : null}
+
         {saveMessage ? (
           <View style={styles.successBanner}>
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={16}
-              color={colors.success}
-            />
+            <Ionicons name="checkmark-circle-outline" size={16} color={colors.good} />
             <Text style={styles.successText}>{saveMessage}</Text>
           </View>
         ) : null}
 
-        <Button
-          label="Save Profile"
-          onPress={() => void handleSave()}
-          loading={saving}
-          size="lg"
-          fullWidth
-        />
-        <Button
-          label="Refresh Profile"
-          onPress={() => void fetchMe()}
-          loading={loading}
-          variant="outline"
-          fullWidth
-        />
+        <View style={styles.saveRow}>
+          <Button label="Save Profile" onPress={() => void handleSave()} loading={saving} size="lg" fullWidth />
+          <Button label="Refresh" onPress={() => void fetchMe()} loading={loading} variant="outline" />
+        </View>
 
         {/* ── Nutrition & Diet ── */}
-        <SectionTitle title="Nutrition & Diet" />
+        <SectionLabel title="Nutrition & Diet" />
         <Card variant="default" padding="sm">
-          <NavRow
-            icon="options-outline"
-            iconColor={colors.accent.base}
-            label="Diet Preferences"
-            description={dietDesc}
-            badge={dietBadge}
-            onPress={() => navigation.navigate("DietPreferences")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="calculator-outline"
-            iconColor={colors.info}
-            label="Calorie Calculator"
-            description="Calculate your TDEE & set a daily target"
-            onPress={() => navigation.navigate("CalorieTarget")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="restaurant-outline"
-            iconColor={colors.success}
-            label="Food Diary"
-            description="Log and review your meals"
-            onPress={() => navigation.navigate("FoodDiary")}
-          />
-        </Card>
-
-        {/* ── AI Chat History ── */}
-        <SectionTitle title="AI Chat History" />
-        <Card variant="default" padding="sm">
-          <NavRow
-            icon="barbell-outline"
-            iconColor={colors.accent.base}
-            label="Workout AI History"
-            description="Browse and continue workout conversations"
-            onPress={() =>
-              navigation.navigate("ConversationHistory", {
-                agentType: "workout",
-              })
-            }
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="nutrition-outline"
-            iconColor={colors.warning}
-            label="Diet AI History"
-            description="Browse and continue diet conversations"
-            onPress={() =>
-              navigation.navigate("ConversationHistory", {
-                agentType: "diet",
-              })
-            }
-          />
+          <NavRow icon="options-outline" iconColor={colors.primaryBase} label="Diet Preferences" description={dietDesc} badge={dietBadge} onPress={() => navigation.navigate("DietPreferences")} />
+          <NavDivider />
+          <NavRow icon="calculator-outline" iconColor={colors.info} label="Calorie Calculator" description="Calculate your TDEE & daily target" onPress={() => navigation.navigate("CalorieTarget")} />
+          <NavDivider />
+          <NavRow icon="restaurant-outline" iconColor={colors.good} label="Food Diary" description="Log and review your meals" onPress={() => navigation.navigate("FoodDiary")} />
         </Card>
 
         {/* ── Progress ── */}
-        <SectionTitle title="Progress" />
+        <SectionLabel title="Progress" />
         <Card variant="default" padding="sm">
-          <NavRow
-            icon="analytics-outline"
-            iconColor={colors.accent.base}
-            label="Weight Tracker"
-            description="Log and chart your weight over time"
-            onPress={() => navigation.navigate("WeightTracker")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="card-outline"
-            iconColor={colors.warning}
-            label="My Subscriptions"
-            description="Active gym memberships"
-            onPress={() => navigation.navigate("MySubscriptions")}
-          />
+          <NavRow icon="analytics-outline" iconColor={colors.primaryBase} label="Weight Tracker" description="Log and chart your weight over time" onPress={() => navigation.navigate("WeightTracker")} />
+          <NavDivider />
+          <NavRow icon="card-outline" iconColor={colors.warning} label="My Subscriptions" description="Active gym memberships" onPress={() => navigation.navigate("MySubscriptions")} />
+        </Card>
+
+        {/* ── AI Chat History ── */}
+        <SectionLabel title="AI Chat History" />
+        <Card variant="default" padding="sm">
+          <NavRow icon="barbell-outline" iconColor={colors.primaryBase} label="Workout AI History" description="Browse workout conversations" onPress={() => navigation.navigate("ConversationHistory", { agentType: "workout" })} />
+          <NavDivider />
+          <NavRow icon="nutrition-outline" iconColor={colors.warning} label="Diet AI History" description="Browse diet conversations" onPress={() => navigation.navigate("ConversationHistory", { agentType: "diet" })} />
         </Card>
 
         {/* ── Account ── */}
-        <SectionTitle title="Account" />
+        <SectionLabel title="Account" />
         <Card variant="default" padding="sm">
-          <NavRow
-            icon="person-outline"
-            iconColor={colors.info}
-            label="Edit Profile"
-            description="Update all profile fields"
-            onPress={() => navigation.navigate("UpdateProfile")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="heart-outline"
-            iconColor={colors.error}
-            label="My Favourite Gyms"
-            description="Saved gyms and locations"
-            onPress={() => navigation.navigate("FavoriteGyms")}
-          />
-          <NavRowDivider />
-          <NavRow
-            icon="log-out-outline"
-            label="Log out"
-            onPress={handleLogout}
-            danger
-          />
+          <NavRow icon="person-outline" iconColor={colors.info} label="Edit Profile (Full)" description="Update all profile fields" onPress={() => navigation.navigate("UpdateProfile")} />
+          <NavDivider />
+          <NavRow icon="heart-outline" iconColor={colors.error} label="My Favourite Gyms" description="Saved gyms and locations" onPress={() => navigation.navigate("FavoriteGyms")} />
+          <NavDivider />
+          <NavRow icon="log-out-outline" label="Log out" onPress={handleLogout} danger />
         </Card>
 
-        <View style={styles.versionBadge}>
+        <View style={styles.versionRow}>
           <Text style={styles.versionText}>FitPlus v1.0</Text>
         </View>
       </ScrollView>
@@ -492,202 +327,95 @@ export const ProfileScreen = () => {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const AVATAR_SIZE = 96;
+const AVATAR = 88;
 
 const styles = StyleSheet.create({
   container: { gap: spacing.sm, paddingBottom: spacing["2xl"] },
 
-  // Avatar
-  avatarSection: {
-    alignItems: "center",
-    paddingVertical: spacing.xl,
-    gap: spacing[2],
-  },
+  // Hero
+  hero: { alignItems: "center", paddingVertical: spacing.xl, gap: spacing[2] },
   avatarRing: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 2,
-    borderColor: colors.accent.base,
-    shadowColor: colors.accent.base,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-    marginBottom: spacing[1],
-    // Needed so the camera badge isn't clipped
-    overflow: "visible",
+    width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2,
+    borderWidth: 2, borderColor: colors.primaryBase,
+    overflow: "visible", marginBottom: spacing[1],
+    shadowColor: colors.primaryBase, shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
   },
-  avatarImage: {
-    width: AVATAR_SIZE - 4,
-    height: AVATAR_SIZE - 4,
-    borderRadius: (AVATAR_SIZE - 4) / 2,
-  },
+  avatarImage: { width: AVATAR - 4, height: AVATAR - 4, borderRadius: (AVATAR - 4) / 2 },
   avatarPlaceholder: {
-    width: AVATAR_SIZE - 4,
-    height: AVATAR_SIZE - 4,
-    borderRadius: (AVATAR_SIZE - 4) / 2,
-    backgroundColor: colors.accent.muted,
-    alignItems: "center",
-    justifyContent: "center",
+    width: AVATAR - 4, height: AVATAR - 4, borderRadius: (AVATAR - 4) / 2,
+    backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center",
   },
-  avatarText: {
-    fontSize: typography.size["2xl"],
-    fontWeight: "800",
-    color: colors.accent.base,
-    letterSpacing: 1,
-  },
+  avatarText: { fontFamily: "InstrumentSerif_400Regular", fontSize: 26, color: colors.primaryBase },
   cameraBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.accent.base,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: colors.bg.base,
+    position: "absolute", bottom: 0, right: 0,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: colors.primaryBase,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: colors.bgBase,
   },
-
-  displayName: { ...typography.styles.h2 },
-  email: {
-    ...typography.styles.bodySmall,
-    color: colors.textPalette.secondary,
-  },
-  photoHint: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    marginTop: 2,
-  },
+  displayName: { fontFamily: "InstrumentSerif_400Regular", fontSize: 24, letterSpacing: -0.48, color: colors.ink },
+  email: { fontSize: 13, color: colors.mutedColor },
+  photoHint: { fontSize: 11, color: colors.muted2, marginTop: 2 },
   levelBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: spacing[1],
-    paddingHorizontal: spacing[4],
-    borderRadius: radius.chip,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base + "40",
-    marginTop: spacing[1],
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingVertical: 4, paddingHorizontal: spacing[4],
+    borderRadius: radius.chip, backgroundColor: colors.primarySoft,
+    borderWidth: 1, borderColor: colors.primaryBase + "40",
   },
-  levelBadgeText: {
-    color: colors.accent.text,
-    fontSize: typography.size.xs,
-    fontWeight: "700",
-    letterSpacing: typography.tracking.widest,
-    textTransform: "uppercase",
-  },
+  levelText: { color: colors.primaryBase, fontSize: 10, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" },
 
-  // Stats
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: spacing[3],
+  // Stats row
+  statsRow: {
+    flexDirection: "row", gap: spacing.sm,
+    backgroundColor: colors.surfaceBase,
+    borderRadius: radius.card, borderWidth: 1, borderColor: colors.lineColor,
+    paddingVertical: spacing.md,
   },
-  statRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-  },
-  statLabel: {
-    ...typography.styles.bodySmall,
-    color: colors.textPalette.secondary,
-  },
-  statValue: {
-    fontSize: typography.size.base,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
-    maxWidth: "55%",
-    textAlign: "right",
-  },
-  divider: { height: 1, backgroundColor: colors.borderPalette.muted },
+  statBox: { flex: 1, alignItems: "center", gap: 2 },
+  statValue: { fontFamily: "InstrumentSerif_400Regular", fontSize: 22, letterSpacing: -0.44, color: colors.ink },
+  statUnit: { ...typography.styles.eyebrow, fontSize: 9 },
+  statLabel: { fontSize: 11, color: colors.mutedColor },
 
-  // Form
-  fields: { gap: spacing[2] },
+  // Weight card
+  eyebrow: { ...typography.styles.eyebrow },
+  weightBig: { fontFamily: "InstrumentSerif_400Regular", fontSize: 28, letterSpacing: -0.56, color: colors.ink },
+  chartLink: { flexDirection: "row", alignItems: "center", gap: 4 },
+  chartLinkText: { fontSize: 12, color: colors.primaryBase, fontWeight: "600" },
+
+  // Edit form
+  cardTitle: { ...typography.styles.h3, marginBottom: spacing.md },
+  fields: { gap: spacing.sm },
+  twoCol: { flexDirection: "row", gap: spacing.sm },
+  saveRow: { flexDirection: "row", gap: spacing.sm },
 
   // Success
   successBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-    padding: spacing[3],
-    borderRadius: radius.md,
-    backgroundColor: colors.success + "18",
-    borderWidth: 1,
-    borderColor: colors.success + "40",
+    flexDirection: "row", alignItems: "center", gap: spacing[2],
+    padding: spacing[3], borderRadius: radius.md,
+    backgroundColor: colors.good + "18", borderWidth: 1, borderColor: colors.good + "40",
   },
-  successText: {
-    color: colors.success,
-    fontWeight: "600",
-    fontSize: typography.size.sm,
-  },
+  successText: { color: colors.good, fontWeight: "600", fontSize: typography.size.sm },
 
   // Sections
-  sectionLabel: {
-    ...typography.styles.label,
-    marginTop: spacing[3],
-    marginBottom: spacing[1],
-    marginLeft: 2,
-  },
+  sectionLabel: { ...typography.styles.eyebrow, marginTop: spacing[3], marginBottom: spacing[1], marginLeft: 2 },
 
   // Nav rows
   navRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing.md,
-    gap: spacing[3],
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: spacing[3], paddingHorizontal: spacing.md, gap: spacing[3],
   },
-  navRowIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+  navIcon: { width: 34, height: 34, borderRadius: radius.icon, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  navContent: { flex: 1, gap: 2 },
+  navLabel: { fontSize: typography.size.base, fontWeight: "600", color: colors.ink },
+  navDesc: { fontSize: typography.size.xs, color: colors.muted2 },
+  navBadge: {
+    paddingHorizontal: spacing[2], paddingVertical: 2,
+    borderRadius: radius.chip, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBase,
   },
-  navRowContent: { flex: 1, gap: 2 },
-  navRowLabel: {
-    fontSize: typography.size.base,
-    fontWeight: "600",
-    color: colors.textPalette.primary,
-  },
-  navRowLabelDanger: { color: colors.error },
-  navRowDesc: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-  },
-  navRowBadge: {
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-    borderRadius: radius.chip,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base,
-  },
-  navRowBadgeText: {
-    fontSize: typography.size.xs,
-    fontWeight: "700",
-    color: colors.accent.base,
-  },
-  navRowDivider: {
-    height: 1,
-    backgroundColor: colors.borderPalette.muted,
-    marginLeft: 34 + spacing.md + spacing[3],
-  },
+  navBadgeText: { fontSize: typography.size.xs, fontWeight: "700", color: colors.primaryBase },
+  navDivider: { height: 1, backgroundColor: colors.lineSoft, marginLeft: 34 + spacing.md + spacing[3] },
 
-  versionBadge: {
-    alignItems: "center",
-    marginTop: spacing.xl,
-    marginBottom: spacing[3],
-  },
-  versionText: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    letterSpacing: 0.5,
-  },
+  versionRow: { alignItems: "center", marginTop: spacing.xl, marginBottom: spacing[3] },
+  versionText: { fontSize: 11, color: colors.muted2, letterSpacing: 0.5 },
 });

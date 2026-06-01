@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Circle } from "react-native-svg";
 
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Screen } from "@/components/ui/Screen";
+import { ProgressRing } from "@/components/ui/ProgressRing";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { aiApi, Conversation } from "@/services/aiApi";
 import { nutritionApi } from "@/services/nutritionApi";
@@ -21,602 +20,375 @@ type HomeNav = CompositeNavigationProp<
   NativeStackNavigationProp<AppStackParamList>
 >;
 
-type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+// ── Small macro dot row ───────────────────────────────────────────────────────
 
-// ── Subcomponents ─────────────────────────────────────────────────────────────
+const MacroRow = ({
+  label, value, target, color,
+}: { label: string; value: number; target: number; color: string }) => {
+  const pct = Math.min(1, target > 0 ? value / target : 0);
+  return (
+    <View style={macro.wrap}>
+      <View style={macro.header}>
+        <Text style={macro.label}>{label}</Text>
+        <Text style={macro.value}>{Math.round(value)}<Text style={macro.target}>/{target}g</Text></Text>
+      </View>
+      <View style={macro.track}>
+        <View style={[macro.fill, { width: `${Math.round(pct * 100)}%` as `${number}%`, backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+};
 
-const StatItem = ({ value, label }: { value: string; label: string }) => (
-  <View style={styles.statItem}>
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
+const macro = StyleSheet.create({
+  wrap: { gap: 5 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  label: { fontSize: 11, color: colors.mutedColor, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "500" },
+  value: { fontFamily: "JetBrainsMono_500Medium", fontSize: 11, color: colors.ink2 },
+  target: { color: colors.mutedColor },
+  track: { height: 5, backgroundColor: colors.lineColor, borderRadius: 999 },
+  fill: { height: "100%", borderRadius: 999 },
+});
+
+// ── Triple macro ring ─────────────────────────────────────────────────────────
+
+const TripleRing = ({ size = 100, values = [0.7, 0.5, 0.4] }: { size?: number; values?: number[] }) => {
+  const stroke = 7;
+  const rings = [
+    { color: colors.macroProtein, idx: 0 },
+    { color: colors.macroCarbs,   idx: 1 },
+    { color: colors.macroFat,     idx: 2 },
+  ];
+  return (
+    <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
+      {rings.map(({ color, idx }) => {
+        const r = (size - stroke) / 2 - idx * (stroke + 2);
+        const c = 2 * Math.PI * r;
+        const v = Math.max(0, Math.min(1, values[idx] ?? 0));
+        return (
+          <React.Fragment key={idx}>
+            <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeOpacity={0.15} strokeWidth={stroke} />
+            <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+              strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v)} />
+          </React.Fragment>
+        );
+      })}
+    </Svg>
+  );
+};
+
+// ── Streak dots ───────────────────────────────────────────────────────────────
+
+const StreakDots = ({ streak }: { streak: boolean[] }) => (
+  <View style={{ flexDirection: "row", gap: 6 }}>
+    {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+      <View key={i} style={{ alignItems: "center", gap: 5 }}>
+        <View style={[streakS.dot, streak[i] && streakS.dotOn]} />
+        <Text style={streakS.day}>{d}</Text>
+      </View>
+    ))}
   </View>
 );
 
-const getGreeting = (): string => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-};
+const streakS = StyleSheet.create({
+  dot: {
+    width: 14, height: 14, borderRadius: 4,
+    backgroundColor: colors.lineColor,
+    borderWidth: 1, borderColor: colors.lineSoft,
+  },
+  dotOn: { backgroundColor: colors.primaryBase, borderColor: "transparent" },
+  day: { fontSize: 10, color: colors.mutedColor, fontFamily: "JetBrainsMono_500Medium" },
+});
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
+// ── Suggestion card row ───────────────────────────────────────────────────────
 
-// ── Quick actions ─────────────────────────────────────────────────────────────
+const SuggestionRow = ({
+  icon, title, sub, label, tint, iconColor, onPress,
+}: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; sub: string; label: string; tint: string; iconColor: string; onPress: () => void }) => (
+  <Pressable onPress={onPress} style={({ pressed }) => [suggS.row, pressed && { opacity: 0.88 }]}>
+    <View style={[suggS.icon, { backgroundColor: tint }]}>
+      <Ionicons name={icon} size={20} color={iconColor} />
+    </View>
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text style={suggS.title}>{title}</Text>
+      <Text style={suggS.sub}>{sub}</Text>
+    </View>
+    <View style={suggS.cta}>
+      <Text style={suggS.ctaText}>{label}</Text>
+    </View>
+  </Pressable>
+);
 
-type QuickAction =
-  | {
-      label: string;
-      icon: IoniconName;
-      description: string;
-      variant: "primary" | "outline" | "secondary";
-      type: "tab";
-      tab: keyof MainTabParamList;
-    }
-  | {
-      label: string;
-      icon: IoniconName;
-      description: string;
-      variant: "primary" | "outline" | "secondary";
-      type: "stack";
-      screen: keyof AppStackParamList;
-    };
+const suggS = StyleSheet.create({
+  row: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    padding: 14, backgroundColor: colors.surfaceBase,
+    borderRadius: radius.card, borderWidth: 1, borderColor: colors.lineColor,
+  },
+  icon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 14, fontWeight: "600", color: colors.ink },
+  sub:   { fontSize: 12, color: colors.mutedColor },
+  cta: {
+    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999,
+    backgroundColor: colors.ink,
+  },
+  ctaText: { fontSize: 11, fontWeight: "600", color: colors.bgBase, letterSpacing: 0.3 },
+});
 
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    label: "AI Workout Coach",
-    icon: "barbell-outline",
-    tab: "Workout",
-    type: "tab",
-    variant: "primary",
-    description: "Get a personalised plan",
-  },
-  {
-    label: "AI Diet Coach",
-    icon: "nutrition-outline",
-    tab: "Diet",
-    type: "tab",
-    variant: "outline",
-    description: "Meal & macro advice",
-  },
-  {
-    label: "Food Diary",
-    icon: "restaurant-outline",
-    screen: "FoodDiary",
-    type: "stack",
-    variant: "outline",
-    description: "Log today's meals",
-  },
-  {
-    label: "Diet Preferences",
-    icon: "options-outline",
-    screen: "DietPreferences",
-    type: "stack",
-    variant: "outline",
-    description: "Allergies & restrictions",
-  },
-  {
-    label: "Set Calorie Target",
-    icon: "calculator-outline",
-    screen: "CalorieTarget",
-    type: "stack",
-    variant: "secondary",
-    description: "Calculate your TDEE",
-  },
-  {
-    label: "Update Fitness Profile",
-    icon: "person-outline",
-    screen: "UpdateProfile",
-    type: "stack",
-    variant: "secondary",
-    description: "Weight, height, goals",
-  },
-  {
-    label: "Weight Tracker",
-    icon: "analytics-outline",
-    screen: "WeightTracker",
-    type: "stack",
-    variant: "secondary",
-    description: "Log & chart your weight",
-  },
-];
-
-// ── HomeScreen ─────────────────────────────────────────────────────────────────
+// ── HomeScreen ────────────────────────────────────────────────────────────────
 
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeNav>();
-  const profile = useUserStore((state) => state.profile);
-  const dailyKcalTarget = useFoodDiaryStore((state) => state.dailyKcalTarget);
-  const hasCalorieTarget = useFoodDiaryStore((state) => state.hasCalorieTarget);
-  const diaryDate = useFoodDiaryStore((state) => state.date);
-  const diaryKcal = useFoodDiaryStore((state) => state.totals.kcal);
+  const profile = useUserStore((s) => s.profile);
+  const dailyKcalTarget = useFoodDiaryStore((s) => s.dailyKcalTarget);
+  const diaryDate = useFoodDiaryStore((s) => s.date);
+  const diaryKcal = useFoodDiaryStore((s) => s.totals.kcal);
 
   const [todayKcal, setTodayKcal] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
-  const displayName =
-    profile?.name || profile?.email?.split("@")[0] || "Athlete";
+  const displayName = profile?.name || profile?.email?.split("@")[0] || "Athlete";
   const initials = displayName[0]?.toUpperCase() ?? "A";
+  const today = new Date();
+  const dayLabels = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
+  const monthLabels = ["ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sep", "oct", "nov", "dec"];
+  const dateLabel = `${dayLabels[today.getDay()]} · ${today.getDate()} ${monthLabels[today.getMonth()]}`;
 
-  const remainingKcal = useMemo(() => {
-    const target = dailyKcalTarget ?? 0;
-    return Math.max(target - todayKcal, 0);
-  }, [dailyKcalTarget, todayKcal]);
+  const kcalTarget = dailyKcalTarget ?? 2000;
+  const remaining = Math.max(0, kcalTarget - todayKcal);
+  const kcalProgress = kcalTarget > 0 ? Math.min(1, todayKcal / kcalTarget) : 0;
 
-  const calorieProgress = useMemo(() => {
-    if (!hasCalorieTarget || !dailyKcalTarget || dailyKcalTarget === 0) return 0;
-    return Math.min(todayKcal / dailyKcalTarget, 1);
-  }, [hasCalorieTarget, dailyKcalTarget, todayKcal]);
-
-  // Derived stats from conversations
-  const workoutConvs = useMemo(
-    () => conversations.filter((c) => c.agent_type === "workout"),
-    [conversations],
-  );
-  const dietConvs = useMemo(
-    () => conversations.filter((c) => c.agent_type === "diet"),
-    [conversations],
-  );
-  const lastConv = useMemo(
-    () =>
-      [...conversations].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      )[0] ?? null,
-    [conversations],
-  );
-
-  // ── Data loading ────────────────────────────────────────────────────────────
+  // Fake streak for demo
+  const streak = [true, true, true, true, true, false, false];
 
   useFocusEffect(
     useCallback(() => {
       const load = async () => {
         try {
-          // Calories
           const { data } = await nutritionApi.getFoodLog(todayString());
           setTodayKcal(Math.round(data.totals.kcal));
-        } catch {
-          setTodayKcal(0);
-        }
+        } catch { setTodayKcal(0); }
         try {
-          // Conversations for real stats
           const convs = await aiApi.getConversations();
           setConversations(convs);
-        } catch {
-          // keep previous
-        }
+        } catch { /* keep previous */ }
       };
       void load();
     }, []),
   );
 
-  // Keep calories in sync with food diary store
   useEffect(() => {
     if (diaryDate === todayString()) {
       setTodayKcal(Math.round(diaryKcal));
     }
   }, [diaryDate, diaryKcal]);
 
-  // ── Navigation helpers ──────────────────────────────────────────────────────
-
-  const navigateTo = (action: QuickAction) => {
-    if (action.type === "tab") {
-      navigation.navigate(action.tab);
-    } else {
-      navigation.navigate(action.screen as any);
-    }
-  };
-
-  const greeting = getGreeting();
+  const workoutConvs = conversations.filter((c) => c.agent_type === "workout");
+  const dietConvs    = conversations.filter((c) => c.agent_type === "diet");
 
   return (
-    <Screen>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting},</Text>
-            <Text style={styles.name}>{displayName} 👋</Text>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerDate}>{dateLabel}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            <Text style={styles.greeting}>Bună, </Text>
+            <Text style={[styles.greeting, styles.greetingAccent]}>{displayName}.</Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go to profile"
-            onPress={() => navigation.navigate("Profile")}
-            style={({ pressed }) => [
-              styles.avatarBtn,
-              pressed && styles.avatarBtnPressed,
-              Platform.OS === "web" && styles.avatarBtnWeb,
-            ]}
-          >
-            <Text style={styles.avatarText}>{initials}</Text>
-          </Pressable>
         </View>
+        <Pressable
+          onPress={() => navigation.navigate("Profile")}
+          style={({ pressed }) => [styles.avatar, pressed && { opacity: 0.8 }]}
+        >
+          <Text style={styles.avatarText}>{initials}</Text>
+        </Pressable>
+      </View>
 
-        {/* ── Ultima activitate (Last Activity) ── */}
-        <Card variant="accent" title="AI Activity" padding="md">
-          <View style={styles.statsRow}>
-            <StatItem value={String(conversations.length)} label="Total Chats" />
-            <View style={styles.statDivider} />
-            <StatItem value={String(workoutConvs.length)} label="Workouts" />
-            <View style={styles.statDivider} />
-            <StatItem value={String(dietConvs.length)} label="Diet" />
-          </View>
-
-          {lastConv ? (
-            <Pressable
-              style={styles.lastActivityRow}
-              onPress={() =>
-                navigation.navigate("ConversationHistory", {
-                  agentType: lastConv.agent_type === "workout" ? "workout" : "diet",
-                })
-              }
-              accessibilityRole="button"
-            >
-              <View style={styles.lastActivityIcon}>
-                <Ionicons
-                  name={
-                    lastConv.agent_type === "workout"
-                      ? "barbell-outline"
-                      : "nutrition-outline"
-                  }
-                  size={14}
-                  color={colors.accent.base}
-                />
+      {/* ── Hero ring card ── */}
+      <View style={[styles.heroCard, styles.heroBg]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
+          <ProgressRing
+            size={138}
+            stroke={11}
+            value={kcalProgress}
+            label={String(todayKcal)}
+            sub="kcal"
+            color={kcalProgress >= 1 ? colors.error : colors.primaryBase}
+          />
+          <View style={{ flex: 1, gap: 12 }}>
+            <View>
+              <Text style={styles.ringEyebrow}>remaining</Text>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+                <Text style={styles.ringRemaining}>{remaining}</Text>
+                <Text style={styles.ringUnit}>kcal</Text>
               </View>
-              <View style={styles.lastActivityText}>
-                <Text style={styles.lastActivityLabel}>Last activity</Text>
-                <Text style={styles.lastActivityTitle} numberOfLines={1}>
-                  {lastConv.title}
-                </Text>
-              </View>
-              <Text style={styles.lastActivityTime}>
-                {timeAgo(lastConv.created_at)}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={colors.textPalette.muted}
-              />
-            </Pressable>
-          ) : (
-            <View style={styles.activityHint}>
-              <Ionicons
-                name="information-circle-outline"
-                size={13}
-                color={colors.textPalette.muted}
-              />
-              <Text style={styles.activityHintText}>
-                Start a chat to track your AI activity
-              </Text>
             </View>
-          )}
-        </Card>
-
-        {/* Calorie card */}
-        <Card variant="elevated" title="Calories Today" padding="md">
-          <View style={styles.calorieStatsRow}>
-            <StatItem value={String(todayKcal)} label="Consumed" />
-            <View style={styles.statDivider} />
-            <StatItem
-              value={hasCalorieTarget ? String(dailyKcalTarget ?? 0) : "—"}
-              label="Target"
-            />
-            <View style={styles.statDivider} />
-            <StatItem
-              value={hasCalorieTarget ? String(remainingKcal) : "—"}
-              label="Remaining"
-            />
-          </View>
-
-          {hasCalorieTarget && (
-            <View style={styles.progressBarWrapper}>
-              <View style={styles.progressBarTrack}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${Math.round(calorieProgress * 100)}%` as any,
-                      backgroundColor:
-                        calorieProgress >= 1 ? colors.error : colors.accent.base,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressBarLabel}>
-                {Math.round(calorieProgress * 100)}% of daily goal
-              </Text>
+            <View style={styles.divider} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="flame" size={14} color={colors.accentBase} />
+              <Text style={styles.goalText}>Goal · {kcalTarget} kcal</Text>
             </View>
-          )}
-        </Card>
-
-        {/* Body stats */}
-        <Text style={styles.sectionTitle}>Your Stats</Text>
-        <View style={styles.infoRow}>
-          <Card variant="elevated" style={styles.infoCard} padding="md">
-            <Text style={styles.infoEmoji}>⚖️</Text>
-            <Text style={styles.infoValue}>{profile?.weight_kg ?? "—"}</Text>
-            <Text style={styles.infoLabel}>kg</Text>
-          </Card>
-          <Card variant="elevated" style={styles.infoCard} padding="md">
-            <Text style={styles.infoEmoji}>📏</Text>
-            <Text style={styles.infoValue}>{profile?.height_cm ?? "—"}</Text>
-            <Text style={styles.infoLabel}>cm</Text>
-          </Card>
-          <Card variant="elevated" style={styles.infoCard} padding="md">
-            <Text style={styles.infoEmoji}>🎯</Text>
-            <Text style={styles.infoValue} numberOfLines={1}>
-              {profile?.fitness_level ?? "—"}
-            </Text>
-            <Text style={styles.infoLabel}>level</Text>
-          </Card>
+          </View>
         </View>
+      </View>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsGrid}>
-          {QUICK_ACTIONS.map((action) => (
-            <Pressable
-              key={action.label}
-              onPress={() => navigateTo(action)}
-              style={({ pressed }) => [
-                styles.actionCard,
-                action.variant === "primary" && styles.actionCardPrimary,
-                pressed && styles.actionCardPressed,
-              ]}
-            >
-              <View
-                style={[
-                  styles.actionIconWrap,
-                  action.variant === "primary" && styles.actionIconWrapPrimary,
-                ]}
-              >
-                <Ionicons
-                  name={action.icon}
-                  size={20}
-                  color={
-                    action.variant === "primary"
-                      ? colors.bg.base
-                      : colors.accent.base
-                  }
-                />
-              </View>
-              <Text
-                style={[
-                  styles.actionLabel,
-                  action.variant === "primary" && styles.actionLabelPrimary,
-                ]}
-              >
-                {action.label}
-              </Text>
-              <Text
-                style={[
-                  styles.actionDesc,
-                  action.variant === "primary" && styles.actionDescPrimary,
-                ]}
-              >
-                {action.description}
-              </Text>
-            </Pressable>
+      {/* ── Streak ── */}
+      <View style={styles.card}>
+        <View style={styles.streakHeader}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="flame" size={16} color={colors.accentBase} />
+            <Text style={styles.cardTitle}>5 zile la rând</Text>
+          </View>
+          <Text style={styles.streakLabel}>STREAK</Text>
+        </View>
+        <StreakDots streak={streak} />
+      </View>
+
+      {/* ── Macros card ── */}
+      <View style={styles.card}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <TripleRing size={92} values={[0.74, 0.55, 0.42]} />
+          <View style={{ flex: 1, gap: 10 }}>
+            <Text style={styles.eyebrow}>MACROS TODAY</Text>
+            <MacroRow label="Proteine" value={74}  target={100} color={colors.macroProtein} />
+            <MacroRow label="Carbohidrați" value={138} target={250} color={colors.macroCarbs} />
+            <MacroRow label="Grăsimi" value={28}  target={67}  color={colors.macroFat} />
+          </View>
+        </View>
+      </View>
+
+      {/* ── Pentru azi ── */}
+      <View style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={styles.sectionTitle}>Pentru azi</Text>
+          <Text style={styles.eyebrow}>3 sugestii</Text>
+        </View>
+        <SuggestionRow
+          icon="restaurant-outline" tint={colors.accentSoft} iconColor={colors.accentBase}
+          title="Plate Coach" sub="Foto la prânzul de azi"
+          label="Scan"
+          onPress={() => navigation.navigate("PlateCoach", { date: todayString() })}
+        />
+        <SuggestionRow
+          icon="barbell-outline" tint={colors.primarySoft} iconColor={colors.primaryBase}
+          title="AI Workout Coach" sub="Personalizat pe profilul tău"
+          label="Start"
+          onPress={() => navigation.navigate("Workout")}
+        />
+        <SuggestionRow
+          icon="nutrition-outline" tint={colors.surface2} iconColor={colors.good}
+          title="AI Diet Coach" sub="Ce mănânc pre-workout?"
+          label="Chat"
+          onPress={() => navigation.navigate("Diet")}
+        />
+      </View>
+
+      {/* ── Body stats ── */}
+      <View style={{ gap: 10 }}>
+        <Text style={styles.sectionTitle}>Statistici</Text>
+        <View style={{ flexDirection: "row", gap: spacing[3] }}>
+          {[
+            { emoji: "⚖️", value: profile?.weight_kg ?? "—", label: "kg" },
+            { emoji: "📏", value: profile?.height_cm ?? "—", label: "cm" },
+            { emoji: "🎯", value: profile?.fitness_level ?? "—", label: "level" },
+          ].map((s) => (
+            <View key={s.label} style={[styles.statCard, { flex: 1 }]}>
+              <Text style={{ fontSize: 20, marginBottom: 4 }}>{s.emoji}</Text>
+              <Text style={styles.statValue} numberOfLines={1}>{String(s.value)}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
           ))}
         </View>
       </View>
-    </Screen>
+
+      {/* AI stats */}
+      <View style={[styles.card, { flexDirection: "row", justifyContent: "space-around", paddingVertical: spacing.md }]}>
+        {[
+          { v: conversations.length, l: "Chats" },
+          { v: workoutConvs.length,  l: "Workout" },
+          { v: dietConvs.length,     l: "Diet" },
+        ].map(({ v, l }) => (
+          <View key={l} style={{ alignItems: "center" }}>
+            <Text style={styles.aiStatVal}>{v}</Text>
+            <Text style={styles.eyebrow}>{l}</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 };
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: { gap: spacing.sm },
+  root: { flex: 1, backgroundColor: colors.bgBase },
+  content: { paddingHorizontal: spacing.screen, paddingTop: 48, paddingBottom: 100, gap: spacing.md },
 
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.xl,
-    marginTop: spacing[3],
-  },
-  greeting: {
-    ...typography.styles.bodySmall,
-    color: colors.textPalette.secondary,
-    marginBottom: 2,
-  },
-  name: { ...typography.styles.h2 },
-  avatarBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1.5,
-    borderColor: colors.accent.base,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarBtnPressed: { opacity: 0.85 },
-  avatarBtnWeb: { cursor: "pointer" as const },
-  avatarText: {
-    color: colors.accent.base,
-    fontSize: typography.size.md,
-    fontWeight: "700",
-  },
-
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: spacing[2],
-  },
-  calorieStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: spacing[1],
-  },
-  statItem: { alignItems: "center", flex: 1 },
-  statValue: {
-    fontSize: typography.size["3xl"],
-    fontWeight: "800",
-    color: colors.accent.base,
-    letterSpacing: -1,
-  },
-  statLabel: { ...typography.styles.label, marginTop: spacing[1] },
-  statDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: colors.borderPalette.default,
-  },
-
-  // Last activity
-  lastActivityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[3],
-    marginTop: spacing[3],
-    paddingTop: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderPalette.muted,
-  },
-  lastActivityIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.base,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  lastActivityText: { flex: 1, gap: 2 },
-  lastActivityLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    fontWeight: "600",
-  },
-  lastActivityTitle: {
-    fontSize: typography.size.sm,
-    fontWeight: "600",
-    color: colors.textPalette.primary,
-  },
-  lastActivityTime: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    flexShrink: 0,
-  },
-
-  activityHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: spacing[2],
-    paddingTop: spacing[2],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderPalette.muted,
-  },
-  activityHintText: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-  },
-
-  progressBarWrapper: {
-    marginTop: spacing[3],
-    paddingTop: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderPalette.muted,
-    gap: spacing[1],
-  },
-  progressBarTrack: {
-    height: 6,
-    borderRadius: radius.chip,
-    backgroundColor: colors.bg.overlay,
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: radius.chip,
-  },
-  progressBarLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-    textAlign: "right",
-  },
-
-  sectionTitle: {
-    ...typography.styles.h3,
-    marginTop: spacing[2],
-    marginBottom: spacing[3],
-  },
-  infoRow: {
-    flexDirection: "row",
-    gap: spacing[3],
+    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
     marginBottom: spacing[2],
   },
-  infoCard: { flex: 1, marginBottom: 0, alignItems: "center" },
-  infoEmoji: { fontSize: 22, marginBottom: spacing[1] },
-  infoValue: {
-    fontSize: typography.size.lg,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
+  headerDate: { ...typography.styles.eyebrow, marginBottom: 6 },
+  greeting: {
+    fontFamily: "InstrumentSerif_400Regular",
+    fontSize: 36, letterSpacing: -0.72, lineHeight: 40, color: colors.ink,
   },
-  infoLabel: { ...typography.styles.caption, marginTop: 2 },
+  greetingAccent: {
+    fontFamily: "InstrumentSerif_400Regular_Italic",
+    color: colors.primaryBase,
+  },
+  avatar: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: colors.primarySoft, borderWidth: 1.5, borderColor: colors.primaryBase,
+    alignItems: "center", justifyContent: "center",
+  },
+  avatarText: { color: colors.primaryBase, fontSize: 16, fontWeight: "700" },
 
-  quickActionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing[3],
-    marginBottom: spacing.xl,
+  heroCard: {
+    borderRadius: radius.card, padding: spacing.md + 4,
+    borderWidth: 1, borderColor: "transparent",
   },
-  actionCard: {
-    width: "47%",
-    backgroundColor: colors.bg.elevated,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
+  heroBg: { backgroundColor: colors.surface2 },
+
+  ringEyebrow: { ...typography.styles.eyebrow, marginBottom: 4 },
+  ringRemaining: {
+    fontFamily: "InstrumentSerif_400Regular",
+    fontSize: 30, letterSpacing: -0.6, color: colors.ink,
+  },
+  ringUnit: { fontSize: 14, color: colors.mutedColor },
+  divider: { height: 1, backgroundColor: colors.lineColor },
+  goalText: { fontSize: 12, color: colors.ink2 },
+
+  card: {
+    backgroundColor: colors.surfaceBase,
+    borderRadius: radius.card, borderWidth: 1, borderColor: colors.lineColor,
     padding: spacing.md,
-    gap: spacing[1],
   },
-  actionCardPrimary: {
-    backgroundColor: colors.accent.base,
-    borderColor: colors.accent.base,
-    shadowColor: colors.accent.base,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+  streakHeader: {
+    flexDirection: "row", justifyContent: "space-between",
+    alignItems: "center", marginBottom: 12,
   },
-  actionCardPressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.9,
+  cardTitle: { fontSize: 14, fontWeight: "600", color: colors.ink },
+  streakLabel: { fontFamily: "JetBrainsMono_500Medium", fontSize: 10, color: colors.mutedColor },
+
+  eyebrow: { ...typography.styles.eyebrow },
+  sectionTitle: {
+    fontFamily: "InstrumentSerif_400Regular",
+    fontSize: 22, letterSpacing: -0.44, color: colors.ink,
   },
-  actionIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accent.muted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing[1],
+
+  statCard: {
+    backgroundColor: colors.surface2,
+    borderRadius: radius.card, padding: spacing.md, alignItems: "center",
+    borderWidth: 1, borderColor: colors.lineColor,
   },
-  actionIconWrapPrimary: { backgroundColor: colors.bg.base + "25" },
-  actionLabel: {
-    fontSize: typography.size.sm,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
-    lineHeight: 18,
+  statValue: { fontSize: 18, fontWeight: "700", color: colors.ink },
+  statLabel: { ...typography.styles.caption, marginTop: 2 },
+
+  aiStatVal: {
+    fontFamily: "InstrumentSerif_400Regular",
+    fontSize: 28, letterSpacing: -0.56, color: colors.primaryBase,
   },
-  actionLabelPrimary: { color: colors.bg.base },
-  actionDesc: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
-  },
-  actionDescPrimary: { color: colors.bg.base + "99" },
 });

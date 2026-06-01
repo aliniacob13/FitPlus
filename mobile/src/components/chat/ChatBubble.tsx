@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, shadows, spacing, typography } from "@/constants/theme";
+import { colors, radius, spacing, typography } from "@/constants/theme";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -221,7 +221,7 @@ export const ChatBubble = ({ message, isStreaming = false }: ChatBubbleProps) =>
     <View style={[styles.row, isUser ? styles.rowUser : styles.rowAI]}>
       {!isUser && (
         <View style={styles.aiAvatar}>
-          <Ionicons name="flash" size={13} color={colors.accent.base} />
+          <Ionicons name="leaf-outline" size={14} color={colors.primaryBase} />
         </View>
       )}
 
@@ -315,7 +315,7 @@ export const TypingBubble = () => {
   return (
     <View style={[styles.row, styles.rowAI]}>
       <View style={styles.aiAvatar}>
-        <Ionicons name="flash" size={13} color={colors.accent.base} />
+        <Ionicons name="leaf-outline" size={14} color={colors.primaryBase} />
       </View>
       <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
         <View style={styles.dots}>
@@ -341,39 +341,38 @@ const styles = StyleSheet.create({
   rowAI: { justifyContent: "flex-start" },
 
   aiAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.accent.muted,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: colors.accent.base,
+    borderColor: colors.primaryBase + "50",
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing[2],
     flexShrink: 0,
     alignSelf: "flex-end",
-    marginBottom: 18,
+    marginBottom: 20,
   },
 
   bubbleWrapper: {
-    maxWidth: "78%",
-    gap: 3,
+    maxWidth: "80%",
+    gap: 4,
   },
 
   bubble: {
-    borderRadius: radius.lg,
+    borderRadius: radius.card,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing[3],
   },
   bubbleUser: {
-    backgroundColor: colors.accent.base,
+    backgroundColor: colors.ink,
     borderBottomRightRadius: radius.sm,
-    ...shadows.accent,
   },
   bubbleAI: {
-    backgroundColor: colors.bg.elevated,
+    backgroundColor: colors.surfaceBase,
     borderWidth: 1,
-    borderColor: colors.borderPalette.default,
+    borderColor: colors.lineColor,
     borderBottomLeftRadius: radius.sm,
   },
 
@@ -386,7 +385,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   textUser: {
-    color: colors.textPalette.inverse,
+    color: colors.bgBase,
     fontWeight: "500",
   },
 
@@ -394,7 +393,7 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
   },
   cursorAI: {
-    color: colors.accent.base,
+    color: colors.primaryBase,
     marginTop: 2,
     lineHeight: 22,
   },
@@ -420,6 +419,6 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: colors.textPalette.secondary,
+    backgroundColor: colors.muted2,
   },
 });

@@ -35,58 +35,7 @@ type Prescription = {
   status: "active" | "expired" | "completed";
 };
 
-const mockPrescriptions: Prescription[] = [
-  {
-    id: "1",
-    title: "Vitamine D și B12",
-    doctorName: "Dr. Popescu Ion",
-    notes: "Luați dimineața după masă",
-    files: [
-      {
-        uri: "https://via.placeholder.com/100x150/3B82F6/FFFFFF?text=Prescription",
-        name: "prescription_1.jpg",
-        type: "image/jpeg",
-      },
-    ],
-    createdAt: "2024-03-15T10:30:00Z",
-    status: "active",
-  },
-  {
-    id: "2",
-    title: "Suplimente Calciu",
-    doctorName: "Dr. Ionescu Maria",
-    notes: "Doar după consultație",
-    files: [
-      {
-        uri: "https://via.placeholder.com/100x150/10B981/FFFFFF?text=Prescription",
-        name: "prescription_2.jpg",
-        type: "image/jpeg",
-      },
-      {
-        uri: "https://via.placeholder.com/100x150/F59E0B/FFFFFF?text=Analysis",
-        name: "analysis_1.pdf",
-        type: "application/pdf",
-      },
-    ],
-    createdAt: "2024-02-28T14:15:00Z",
-    status: "active",
-  },
-  {
-    id: "3",
-    title: "Tratament sezonier",
-    doctorName: "Dr. Radulescu Andrei",
-    notes: "Finalizat - control necesar",
-    files: [
-      {
-        uri: "https://via.placeholder.com/100x150/EF4444/FFFFFF?text=Prescription",
-        name: "prescription_3.jpg",
-        type: "image/jpeg",
-      },
-    ],
-    createdAt: "2024-01-10T09:00:00Z",
-    status: "completed",
-  },
-];
+
 
 export const PrescriptionListScreen = () => {
   const navigation = useNavigation<NavProp>();
@@ -97,7 +46,9 @@ export const PrescriptionListScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPrescriptions();
+    void fetchPrescriptions();
+    // fetchPrescriptions is defined below; stable ref — intentional empty dep array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPrescriptions = async () => {
@@ -119,8 +70,9 @@ export const PrescriptionListScreen = () => {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const transformedPrescriptions = data.map((item: any) => {
+      type ApiItem = { id: number; title?: string; filename: string; doctor_name?: string; notes?: string; s3_url_or_path: string; uploaded_at: string };
+      const data = await response.json() as ApiItem[];
+      const transformedPrescriptions = data.map((item) => {
         // Build absolute URL for image paths
         const buildImageUrl = (path: string) => {
           if (path.startsWith('http')) {
@@ -325,6 +277,7 @@ export const PrescriptionListScreen = () => {
           label="Add New Prescription"
           onPress={() => {
             console.log('[Navigation] Navigate to PrescriptionUpload');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             navigation.navigate("PrescriptionUpload" as any);
           }}
           fullWidth
@@ -505,7 +458,8 @@ export const PrescriptionListScreen = () => {
               label="Add First Prescription"
               onPress={() => {
                 console.log('[Navigation] Navigate to PrescriptionUpload from empty state');
-                navigation.navigate("PrescriptionUpload" as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            navigation.navigate("PrescriptionUpload" as any);
               }}
             />
           </Card>
@@ -520,7 +474,7 @@ export const PrescriptionListScreen = () => {
       </ScrollView>
       {/* Modal for viewing files */}
         {selectedPrescription && (
-          <View style={[styles.modalOverlay, Platform.OS === 'web' && { position: 'fixed' as any }]}>
+          <View style={[styles.modalOverlay, Platform.OS === 'web' && { position: 'fixed' as unknown as 'absolute' }]}>
             <View style={styles.modalContent}>
               <Text style={[styles.prescriptionTitle, { fontSize: 18, marginBottom: 15, textAlign: 'center' }]}>
                 Files - {selectedPrescription.title}

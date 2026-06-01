@@ -1,93 +1,87 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ReactNode } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
+import { colors, radius, typography } from "@/constants/theme";
 
-import { colors, radius, shadows, spacing, typography } from "@/constants/theme";
-
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "accent";
 type Size = "sm" | "md" | "lg";
 
-type ButtonProps = {
+interface ButtonProps {
   label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  loading?: boolean;
+  onPress?: () => void;
   variant?: Variant;
   size?: Size;
+  loading?: boolean;
+  disabled?: boolean;
   fullWidth?: boolean;
+  icon?: ReactNode;
+}
+
+const VARIANT_STYLE: Record<Variant, ViewStyle> = {
+  primary:   { backgroundColor: colors.primaryBase },
+  secondary: { backgroundColor: colors.surface2 },
+  outline:   { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.lineColor },
+  ghost:     { backgroundColor: "transparent" },
+  accent:    { backgroundColor: colors.accentBase },
+  danger:    { backgroundColor: colors.error },
 };
 
-const variantStyles = {
-  primary: {
-    backgroundColor: colors.accent.base,
-    ...shadows.accent,
-  },
-  secondary: {
-    backgroundColor: colors.bg.elevated,
-    borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-  },
-  outline: {
-    backgroundColor: colors.transparent,
-    borderWidth: 1.5,
-    borderColor: colors.accent.base,
-  },
-  ghost: {
-    backgroundColor: colors.transparent,
-  },
-  danger: {
-    backgroundColor: "#ff5a5a22",
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-} as const;
+const LABEL_COLOR: Record<Variant, TextStyle> = {
+  primary:   { color: colors.primaryInk },
+  secondary: { color: colors.ink },
+  outline:   { color: colors.ink },
+  ghost:     { color: colors.ink },
+  accent:    { color: colors.primaryInk },
+  danger:    { color: "#fff" },
+};
 
-const labelStyles = {
-  primary: { color: colors.textPalette.inverse },
-  secondary: { color: colors.text },
-  outline: { color: colors.accent.text },
-  ghost: { color: colors.accent.text },
-  danger: { color: colors.error },
-} as const;
+const SIZE_STYLE: Record<Size, ViewStyle> = {
+  sm: { paddingVertical: 8,  paddingHorizontal: 14 },
+  md: { paddingVertical: 12, paddingHorizontal: 18 },
+  lg: { paddingVertical: 16, paddingHorizontal: 22 },
+};
 
-const sizeStyles = {
-  sm: { minHeight: 40, paddingHorizontal: spacing[4], borderRadius: radius.sm },
-  md: { minHeight: 50, paddingHorizontal: spacing[6], borderRadius: radius.button },
-  lg: { minHeight: 58, paddingHorizontal: spacing[8], borderRadius: radius.button },
-} as const;
-
-const sizeLabel = {
+const LABEL_SIZE: Record<Size, TextStyle> = {
   sm: { fontSize: typography.size.sm },
-  md: { fontSize: typography.size.base },
-  lg: { fontSize: typography.size.md },
-} as const;
+  md: { fontSize: 14 },
+  lg: { fontSize: 15 },
+};
 
 export const Button = ({
   label,
   onPress,
-  disabled = false,
-  loading = false,
   variant = "primary",
   size = "md",
+  loading = false,
+  disabled = false,
   fullWidth = false,
+  icon,
 }: ButtonProps) => {
   const isDisabled = disabled || loading;
+
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed }) => [
-        styles.button,
-        variantStyles[variant],
-        sizeStyles[size],
+        styles.base,
+        VARIANT_STYLE[variant],
+        SIZE_STYLE[size],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
-        pressed && styles.pressed,
+        pressed && !isDisabled && styles.pressed,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? colors.textPalette.inverse : colors.accent.base} />
+        <ActivityIndicator
+          size="small"
+          color={variant === "primary" || variant === "accent" ? colors.primaryInk : colors.primaryBase}
+        />
       ) : (
-        <View style={styles.inner}>
-          <Text style={[styles.label, labelStyles[variant], sizeLabel[size]]}>{label}</Text>
+        <View style={styles.content}>
+          {icon}
+          <Text style={[styles.label, LABEL_COLOR[variant], LABEL_SIZE[size]]}>
+            {label}
+          </Text>
         </View>
       )}
     </Pressable>
@@ -95,27 +89,15 @@ export const Button = ({
 };
 
 const styles = StyleSheet.create({
-  button: {
+  base: {
+    borderRadius: radius.button,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-  },
-  label: {
-    fontWeight: "700",
-    letterSpacing: typography.tracking.wide,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  fullWidth: {
-    alignSelf: "stretch",
-  },
-  inner: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
   },
-  pressed: {
-    transform: [{ scale: 0.99 }],
-  },
+  content:  { flexDirection: "row", alignItems: "center", gap: 8 },
+  fullWidth: { width: "100%" },
+  pressed:   { opacity: 0.88 },
+  disabled:  { opacity: 0.45 },
+  label:     { fontWeight: "600", letterSpacing: 0.1 },
 });

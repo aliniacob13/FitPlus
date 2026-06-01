@@ -35,7 +35,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, shadows, spacing, typography } from "@/constants/theme";
+import { colors, radius, spacing, typography } from "@/constants/theme";
 import { aiApi, Conversation } from "@/services/aiApi";
 import { ChatBubble, ChatMessage, TypingBubble } from "@/components/chat/ChatBubble";
 import { ConversationListModal } from "@/components/chat/ConversationList";
@@ -351,9 +351,9 @@ export const ChatScreenBase = ({
 
   // ── Open history screen ───────────────────────────────────────────────────
 
-  const goToHistory = () => {
+  const _goToHistory = useCallback(() => {
     navigation.navigate("ConversationHistory", { agentType });
-  };
+  }, [navigation, agentType]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -386,7 +386,7 @@ export const ChatScreenBase = ({
               <Ionicons
                 name="chatbubbles-outline"
                 size={15}
-                color={colors.textPalette.secondary}
+                color={colors.mutedColor}
               />
               <Text style={styles.headerBtnText}>History</Text>
             </TouchableOpacity>
@@ -400,7 +400,7 @@ export const ChatScreenBase = ({
             <Ionicons
               name="add"
               size={15}
-              color={colors.accent.base}
+              color={colors.primaryBase}
             />
             <Text style={[styles.headerBtnText, styles.newChatBtnText]}>
               New
@@ -417,7 +417,7 @@ export const ChatScreenBase = ({
         {/* ── Message area ── */}
         {isLoadingHistory ? (
           <View style={styles.centered}>
-            <ActivityIndicator color={colors.accent.base} size="large" />
+            <ActivityIndicator color={colors.primaryBase} size="large" />
             <Text style={styles.loadingText}>Loading conversation…</Text>
           </View>
         ) : messages.length === 0 && !isWaiting ? (
@@ -451,7 +451,7 @@ export const ChatScreenBase = ({
           <View style={styles.streamingBar}>
             <ActivityIndicator
               size="small"
-              color={colors.accent.base}
+              color={colors.primaryBase}
               style={{ transform: [{ scale: 0.75 }] }}
             />
 
@@ -467,7 +467,7 @@ export const ChatScreenBase = ({
             value={inputText}
             onChangeText={setInputText}
             placeholder={inputPlaceholder}
-            placeholderTextColor={colors.textPalette.muted}
+            placeholderTextColor={colors.muted2}
             multiline
             maxLength={2000}
             editable={!isBusy}
@@ -476,15 +476,13 @@ export const ChatScreenBase = ({
             onSubmitEditing={() => {
               if (Platform.OS !== "web") void handleSend();
             }}
-            onKeyPress={(e: any) => {
+            onKeyPress={(e) => {
               if (Platform.OS === "web") {
-                const { key, shiftKey } = e.nativeEvent as KeyboardEvent;
-                if (key === "Enter" && !shiftKey) {
-                  // Prevent the newline from being inserted, then send
-                  e.nativeEvent.preventDefault?.();
+                const ke = e.nativeEvent as unknown as KeyboardEvent;
+                if (ke.key === "Enter" && !ke.shiftKey) {
+                  ke.preventDefault?.();
                   void handleSend();
                 }
-                // Shift+Enter: do nothing here → browser inserts newline naturally
               }
             }}
           />
@@ -510,8 +508,8 @@ export const ChatScreenBase = ({
                 size={20}
                 color={
                   canSend
-                    ? colors.textPalette.inverse
-                    : colors.textPalette.muted
+                    ? colors.primaryInk
+                    : colors.muted2
                 }
               />
             </TouchableOpacity>
@@ -536,7 +534,7 @@ export const ChatScreenBase = ({
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.bg.base },
+  safeArea: { flex: 1, backgroundColor: colors.bgBase },
   flex: { flex: 1 },
 
   // Header
@@ -548,20 +546,22 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
     paddingBottom: spacing[3],
     borderBottomWidth: 1,
-    borderColor: colors.borderPalette.default,
-    backgroundColor: colors.bg.surface,
-    ...shadows.sm,
+    borderColor: colors.lineColor,
+    backgroundColor: colors.surfaceBase,
     gap: spacing[2],
   },
   headerLeft: { flex: 1, gap: 2, minWidth: 0 },
   headerTitle: {
-    fontSize: typography.size.md,
-    fontWeight: "700",
-    color: colors.textPalette.primary,
+    fontFamily: "InstrumentSerif_400Regular",
+    fontSize: 18,
+    color: colors.ink,
   },
   headerSub: {
-    fontSize: typography.size.xs,
-    color: colors.textPalette.muted,
+    fontFamily: "JetBrainsMono_500Medium",
+    fontSize: 10,
+    color: colors.mutedColor,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
   },
   headerActions: {
     flexDirection: "row",
@@ -574,21 +574,21 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
-    borderRadius: radius.sm,
+    borderRadius: radius.button,
     borderWidth: 1,
-    borderColor: colors.borderPalette.default,
-    backgroundColor: colors.bg.elevated,
+    borderColor: colors.lineColor,
+    backgroundColor: colors.surface2,
   },
   headerBtnText: {
-    fontSize: typography.size.xs,
+    fontSize: 11,
     fontWeight: "600",
-    color: colors.textPalette.secondary,
+    color: colors.mutedColor,
   },
   newChatBtn: {
-    borderColor: colors.accent.base,
-    backgroundColor: colors.accent.muted,
+    borderColor: colors.primaryBase,
+    backgroundColor: colors.primarySoft,
   },
-  newChatBtnText: { color: colors.accent.base },
+  newChatBtnText: { color: colors.primaryBase },
 
   // Body
   centered: {
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typography.size.sm,
-    color: colors.textPalette.muted,
+    color: colors.mutedColor,
   },
 
   messageList: {
@@ -615,13 +615,13 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     paddingHorizontal: spacing.md,
     paddingVertical: spacing[2],
-    backgroundColor: colors.accent.muted,
+    backgroundColor: colors.primarySoft,
     borderTopWidth: 1,
-    borderColor: colors.accent.base + "40",
+    borderColor: colors.primaryBase + "30",
   },
   streamingText: {
     fontSize: typography.size.xs,
-    color: colors.accent.base,
+    color: colors.primaryBase,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
@@ -632,57 +632,56 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: spacing[2],
     paddingHorizontal: spacing.md,
-    paddingTop: spacing[3],
+    paddingTop: spacing[2],
     paddingBottom: spacing[4],
     borderTopWidth: 1,
-    borderColor: colors.borderPalette.default,
-    backgroundColor: colors.bg.surface,
+    borderColor: colors.lineColor,
+    backgroundColor: colors.surfaceBase,
   },
   textInput: {
     flex: 1,
     minHeight: 44,
     maxHeight: 130,
-    backgroundColor: colors.bg.elevated,
-    borderRadius: radius.lg,
+    backgroundColor: colors.surface2,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.borderPalette.default,
+    borderColor: colors.lineColor,
     paddingHorizontal: spacing.md,
     paddingTop: spacing[3],
     paddingBottom: spacing[3],
     fontSize: typography.size.base,
-    color: colors.textPalette.primary,
+    color: colors.ink,
     lineHeight: 20,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.accent.base,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryBase,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    ...shadows.accent,
   },
   sendBtnDisabled: {
-    backgroundColor: colors.bg.elevated,
+    backgroundColor: colors.surface2,
     shadowOpacity: 0,
     elevation: 0,
   },
   stopBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.bg.elevated,
-    borderWidth: 2,
-    borderColor: colors.textPalette.secondary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface2,
+    borderWidth: 1.5,
+    borderColor: colors.mutedColor,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   stopIcon: {
-    width: 14,
-    height: 14,
+    width: 13,
+    height: 13,
     borderRadius: 2,
-    backgroundColor: colors.textPalette.secondary,
+    backgroundColor: colors.mutedColor,
   },
 });

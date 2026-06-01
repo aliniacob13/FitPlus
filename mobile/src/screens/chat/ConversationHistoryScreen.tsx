@@ -62,18 +62,20 @@ export const ConversationHistoryScreen = () => {
     // Navigate to the chat tab, passing the conversation id as a param so the
     // chat screen can pre-load it.
     const tabScreen = agentType === "workout" ? "Workout" : "Diet";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     navigation.navigate("MainTabs" as any, {
       screen: tabScreen,
       params: { conversationId: conv.id },
-    } as any);
+    });
   };
 
   const handleNewChat = () => {
     const tabScreen = agentType === "workout" ? "Workout" : "Diet";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     navigation.navigate("MainTabs" as any, {
       screen: tabScreen,
       params: { conversationId: undefined },
-    } as any);
+    });
   };
 
   const handleDelete = async (convId: number) => {

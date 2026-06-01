@@ -153,6 +153,8 @@ export const useProfilePicture = (): UseProfilePictureReturn => {
       ],
       { cancelable: true },
     );
+    // launchCamera / launchLibrary are stable component-scope functions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── removeImage ───────────────────────────────────────────────────────────

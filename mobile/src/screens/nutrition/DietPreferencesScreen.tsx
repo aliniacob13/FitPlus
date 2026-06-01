@@ -86,7 +86,9 @@ export const DietPreferencesScreen = () => {
   const API_BASE_URL = "http://172.20.10.4:8000/api/v1";
 
   useEffect(() => {
-    fetchPreferences();
+    void fetchPreferences();
+    // fetchPreferences defined below — stable, intentional empty array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPreferences = async () => {

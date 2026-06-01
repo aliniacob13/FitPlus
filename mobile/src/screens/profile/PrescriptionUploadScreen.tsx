@@ -16,7 +16,6 @@ import * as ImagePicker from "expo-image-picker";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { AppStackParamList } from "@/types/navigation";
@@ -118,7 +117,7 @@ export const PrescriptionUploadScreen = () => {
         
         setSelectedFiles((prev) => [...prev, ...newFiles]);
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Could not select images from gallery.");
     }
   };
@@ -153,7 +152,7 @@ export const PrescriptionUploadScreen = () => {
         
         setSelectedFiles((prev) => [...prev, newFile]);
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Could not take photo.");
     }
   };
@@ -235,7 +234,7 @@ export const PrescriptionUploadScreen = () => {
             uri: file.uri,
             type: file.type || 'image/jpeg',
             name: file.name,
-          } as any);
+          } as unknown as Blob);
           
           if (notes.trim()) {
             formData.append('notes', notes);
@@ -366,6 +365,7 @@ export const PrescriptionUploadScreen = () => {
 
         <Button
           label="View Prescriptions"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onPress={() => navigation.navigate("PrescriptionList" as any)}
           variant="outline"
           fullWidth
