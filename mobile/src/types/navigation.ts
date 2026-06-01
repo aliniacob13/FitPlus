@@ -29,4 +29,5 @@ export type AppStackParamList = {
   SubscriptionPlans: { gymId: number; gymName?: string; website?: string | null };
   PaymentCheckout: { checkoutUrl: string; sessionId: string };
   MySubscriptions: undefined;
+  WeightTracker: undefined;
 };

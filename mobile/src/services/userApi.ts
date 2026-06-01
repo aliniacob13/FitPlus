@@ -41,12 +41,38 @@ export type DietPreferencesPayload = {
   goals: string | null;
 };
 
+// ── Weight log ───────────────────────────────────────────────────────────────
+
+export type WeightLogEntry = {
+  id: number;
+  weight_kg: number;
+  logged_at: string;
+};
+
+export type WeightLogCreatePayload = {
+  weight_kg: number;
+};
+
 // ── API ───────────────────────────────────────────────────────────────────────
 
 export const userApi = {
   me: async (): Promise<UserProfile> => {
     const { data } = await api.get<UserProfile>("/users/me");
     return data;
+  },
+
+  getWeightLog: async (): Promise<WeightLogEntry[]> => {
+    const { data } = await api.get<WeightLogEntry[]>("/users/me/weight-log");
+    return data;
+  },
+
+  addWeightLog: async (payload: WeightLogCreatePayload): Promise<WeightLogEntry> => {
+    const { data } = await api.post<WeightLogEntry>("/users/me/weight-log", payload);
+    return data;
+  },
+
+  deleteWeightLog: async (id: number): Promise<void> => {
+    await api.delete(`/users/me/weight-log/${id}`);
   },
 
   updateMe: async (payload: UserProfileUpdatePayload): Promise<UserProfile> => {
