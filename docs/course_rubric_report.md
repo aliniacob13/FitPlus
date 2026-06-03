@@ -54,21 +54,29 @@ This document summarizes how the **FitPlus** project maps to the course requirem
 
 ## 4. Automated tests and agent evals
 
-**What we did:** API integration tests (auth, users, mocked payments, AI chat, gym smoke), **agent evals** with mocked LLM and YAML scenarios (`golden_cases.yaml`), plus lint/format and coverage in CI.
+**What we did:** API integration tests (auth, users, mocked payments, AI chat, gym smoke), plus two layers of **agent evals**:
+
+- **Mocked evals** (`tests/evals/test_agent_evals.py` + `golden_cases.yaml`) — declarative YAML scenarios, LLM patched with `AsyncMock`; assert HTTP response contracts and DB persistence. Always run in CI.
+- **Live LLM evals** (`tests/evals/test_agent_live_evals.py`) — real API calls to Anthropic via GitHub Actions Secrets; assert semantic output (keywords, multi-turn persistence, conversation listing). Skip gracefully when key absent. Marked `@pytest.mark.live_llm`.
 
 **Where:** [testing.md](testing.md)
 
-**For graders:** Evals are **contract tests** (message persistence, `agent_type`), not subjective “LLM quality” scoring inside PR CI.
+**For graders:** Both eval layers run in CI on every push/PR to `main`. The mocked layer locks in integration contracts; the live layer validates real LLM behaviour end-to-end.
 
 ---
 
 ## 5. Bug reporting and PR-based fix
 
-**What we did:** Bugs filed as **GitHub Issues** (reproduction steps, expected vs. actual behavior), then fixes on a **dedicated branch** and a **Pull Request** that closes the issues (`Closes #…`).
+**What we did:** Bugs filed as **GitHub Issues** (reproduction steps, expected vs. actual behavior), then fixes on a **dedicated `fix/` branch** and a **Pull Request** that closes the issue.
 
-**Where:** **GitHub** only (Issues + PR); optional notes in commit/PR description.
+**Concrete example — PR #16:**
+- **Bug:** Web logout dialog not showing; map favorites filter not loading data from API
+- **Branch:** `fix/web-logout-map-favs-filter`
+- **PR:** [#16 — fix(mobile): web logout confirm and map favs filter from API](https://github.com/aliniacob13/FitPlus/pull/16)
+- **Fix commit:** `1189eae5 fix(mobile): web logout confirm and map favs filter from API`
+- **Chain:** bug reported → `fix/` branch → CI passed → reviewed → merged to `main`
 
-**For graders:** The chain “report → code → review/CI → merge” is visible in GitHub’s UI.
+The full bug reporting and branching process is documented in [contributing.md](contributing.md#bug-reporting-course-requirement).
 
 ---
 
@@ -102,6 +110,4 @@ This document summarizes how the **FitPlus** project maps to the course requirem
 
 ---
 
-*Last updated: created for course submission requirements; numeric grade and detailed AI logs remain the team’s responsibility before the deadline.*
-
-**Note:** Files under `docs/tasks/` and `task_distribution.md` may still mention **Ollama** from early planning. **Current configuration and main documentation** describe **Anthropic** (and OpenAI as an optional alternative in code).
+**Note:** Files under `docs/tasks/` and `task_distribution.md` may mention **Ollama** from early planning. **Current configuration and main documentation** use **Anthropic** (Claude) as the primary LLM provider; OpenAI is supported as an alternative via the same `LLMService` layer.

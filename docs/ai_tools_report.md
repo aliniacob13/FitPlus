@@ -40,7 +40,7 @@ AI tools served two distinct roles in this project:
 | **OCR & label parsing** | `ocr.py` and `test_label_parser.py` implement and test a rule-based nutrition label parser on top of Tesseract. Regex-based field extraction and edge-case handling are well-suited to AI-assisted generation. |
 | **Automated tests** | `conftest.py` uses a savepoint-based transaction isolation strategy (`join_transaction_mode="create_savepoint"`) — an advanced pattern that prevents test data from persisting without needing a separate test database. Test fixture design of this kind is consistent with Claude or ChatGPT being used to design the test architecture. |
 | **User stories & backlog** | `docs/backlog.md` contains 17 well-structured user stories across 5 modules with consistent formatting. The clarity and coverage suggest AI assistance in drafting and reviewing the backlog. |
-| **CI/CD pipeline** | `.github/workflows/ci.yml` and `cd.yml` were generated with AI assistance (Claude). The pipeline uses a real `postgis/postgis:16-3.4` service container matching the production stack, GHA layer caching, and a savepoint-aware test run — details that reflect knowledge of the specific project stack. |
+| **CI/CD pipeline** | `.github/workflows/ci.yml` was generated with AI assistance (Claude). The pipeline uses a real `postgis/postgis:16-3.4` service container matching the production stack, GHA layer caching, live LLM eval secrets, and a savepoint-aware test run — details that reflect knowledge of the specific project stack. |
 | **Documentation** | `CLAUDE.md`, `README.md`, and the `docs/` folder show consistent formatting and cross-linking. AI tools were likely used to draft and maintain documentation in parallel with code changes. |
 
 ---
@@ -56,7 +56,7 @@ AI tools served two distinct roles in this project:
 | PostgreSQL + PostGIS setup | Claude | `docker-compose.yml` with healthchecks, Alembic init, `.env.example` | Switched to `postgis/postgis:16-3.4`, added pgAdmin service |
 | Alembic migrations | Copilot | Migration stubs for each model | Manually verified column types, PostGIS geometry fields, FK constraints |
 | LLM service layer | Claude | Dual OpenAI/Anthropic provider with streaming | Added `LLMProviderError`, fallback response, error message extraction |
-| CI/CD pipeline | Claude | Full GitHub Actions `ci.yml` + `cd.yml` | Verified PostGIS service image, adjusted secrets, added deploy options |
+| CI/CD pipeline | Claude | Full GitHub Actions `ci.yml` (Ruff, Alembic, pytest + coverage, ESLint, Jest, Docker build, live LLM evals via Secrets) | Verified PostGIS service image, wired GitHub Secrets for ANTHROPIC_API_KEY, adjusted job structure |
 
 **Summary:** AI tools handled the majority of boilerplate-heavy infrastructure work (project scaffold, auth, Docker, migrations), freeing Member 1 to focus on correctness, security, and integration. The CI/CD pipeline was generated entirely from AI assistance with stack-specific adjustments. Copilot was most useful for repetitive patterns (Pydantic schemas, route handlers); Claude was more useful for architectural decisions and multi-file tasks.
 

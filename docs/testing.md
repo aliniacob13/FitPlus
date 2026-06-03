@@ -38,13 +38,25 @@ ruff format app tests
 - **Runner:** `backend/tests/evals/test_agent_evals.py` — patches `llm_service.generate`, asserts HTTP responses, message persistence, and DB `agent_type`.
 - These are **contract tests**, not subjective LLM quality scoring.
 
-### Live LLM evaluation (not in default CI)
+### Live LLM evaluations (CI — real API calls)
 
-In **development** we used **Anthropic** (`ANTHROPIC_API_KEY`, `LLM_PROVIDER=anthropic`, models in `.env`). The same `LLMService` can call **OpenAI**, but that is not our primary documented setup.
+`backend/tests/evals/test_agent_live_evals.py` contains **5 tests** that make real API calls through the FastAPI routes and assert on semantic output (keyword presence, conversation persistence across turns). They are marked `@pytest.mark.live_llm` and skip automatically when no API key is present.
 
-CI intentionally leaves API keys empty so tests use the **fallback** or **mock** LLM path — see evals under `tests/evals/`.
+In CI, `ANTHROPIC_API_KEY` is passed from **GitHub Actions Secrets** — the tests run on every push/PR to `main` as long as the secret is configured.
 
-For a local smoke test with a real provider: set `ANTHROPIC_API_KEY` and `LLM_PROVIDER=anthropic` (and the related models) in `backend/.env`, run the backend, and exercise the app or an HTTP client — **never** commit secrets to the repo.
+Covered cases:
+- Workout agent returns a response containing workout-related keywords
+- Workout agent persists a multi-turn conversation (≥4 messages after 2 exchanges)
+- Diet agent returns a response containing nutrition-related keywords
+- Diet agent conversation appears in the `/conversations` list
+
+For a local run: set `ANTHROPIC_API_KEY` and `LLM_PROVIDER=anthropic` in `backend/.env`, then:
+
+```bash
+pytest -v -m live_llm
+```
+
+**Never commit secrets to the repo.**
 
 ## Mobile (Expo)
 
