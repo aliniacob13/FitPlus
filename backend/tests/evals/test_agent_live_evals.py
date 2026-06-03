@@ -17,9 +17,7 @@ import os
 import pytest
 from httpx import AsyncClient
 
-_LIVE_LLM_REASON = (
-    "ANTHROPIC_API_KEY and OPENAI_API_KEY are both unset — skipping live LLM eval"
-)
+_LIVE_LLM_REASON = "ANTHROPIC_API_KEY and OPENAI_API_KEY are both unset — skipping live LLM eval"
 
 _has_key = bool(os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_API_KEY"))
 
@@ -108,9 +106,7 @@ async def test_live_diet_agent_responds(client: AsyncClient, auth_headers: dict)
     )
 
 
-async def test_live_diet_agent_conversation_listed(
-    client: AsyncClient, auth_headers: dict
-) -> None:
+async def test_live_diet_agent_conversation_listed(client: AsyncClient, auth_headers: dict) -> None:
     _skip_if_no_key()
 
     r = await client.post(
