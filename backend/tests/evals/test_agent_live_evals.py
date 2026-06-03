@@ -49,9 +49,9 @@ async def test_live_workout_agent_responds(client: AsyncClient, auth_headers: di
     assert "conversation_id" in body
 
     reply = body["response"].lower()
-    assert any(kw in reply for kw in ["exerciți", "încălzire", "mișcare", "warm", "exercise"]), (
-        f"Workout agent reply missing expected keywords: {body['response'][:300]}"
-    )
+    assert any(
+        kw in reply for kw in ["exerciți", "încălzire", "mișcare", "warm", "exercise"]
+    ), f"Workout agent reply missing expected keywords: {body['response'][:300]}"
 
 
 async def test_live_workout_agent_persists_conversation(
@@ -101,9 +101,9 @@ async def test_live_diet_agent_responds(client: AsyncClient, auth_headers: dict)
     assert response.status_code == 200, response.text
     body = response.json()
     reply = body["response"].lower()
-    assert any(kw in reply for kw in ["proteină", "proteine", "protein", "ouă", "ou", "egg"]), (
-        f"Diet agent reply missing expected keywords: {body['response'][:300]}"
-    )
+    assert any(
+        kw in reply for kw in ["proteină", "proteine", "protein", "ouă", "ou", "egg"]
+    ), f"Diet agent reply missing expected keywords: {body['response'][:300]}"
 
 
 async def test_live_diet_agent_conversation_listed(client: AsyncClient, auth_headers: dict) -> None:
