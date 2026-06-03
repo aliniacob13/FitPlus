@@ -177,6 +177,7 @@ async def create_weight_log(
         weight_kg=payload.weight_kg,
     )
     db.add(weight_log)
+    current_user.weight_kg = payload.weight_kg
     await db.commit()
     await db.refresh(weight_log)
 

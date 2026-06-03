@@ -19,6 +19,7 @@ import { Loader } from "@/components/ui/Loader";
 import { Screen } from "@/components/ui/Screen";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { userApi, WeightLogEntry } from "@/services/userApi";
+import { useUserStore } from "@/store/userStore";
 import { AppStackParamList } from "@/types/navigation";
 
 type NavProp = NativeStackNavigationProp<AppStackParamList, "WeightTracker">;
@@ -35,6 +36,7 @@ const formatShortDate = (isoString: string): string => {
 
 export const WeightTrackerScreen = () => {
   const navigation = useNavigation<NavProp>();
+  const fetchMe = useUserStore((state) => state.fetchMe);
   const [entries, setEntries] = useState<WeightLogEntry[]>([]);
   const [newWeight, setNewWeight] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -113,6 +115,7 @@ export const WeightTrackerScreen = () => {
     try {
       await userApi.addWeightLog({ weight_kg: weight });
       await fetchLogs();
+      void fetchMe();
       setNewWeight("");
       setShowAddForm(false);
     } catch {
@@ -138,9 +141,8 @@ export const WeightTrackerScreen = () => {
   };
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} title="Weight Tracker">
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Weight Tracker</Text>
 
         {loading ? (
           <Loader />

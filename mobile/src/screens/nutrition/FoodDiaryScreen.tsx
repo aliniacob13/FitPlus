@@ -141,9 +141,8 @@ export const FoodDiaryScreen = () => {
   const kcalPercent = Math.round(kcalProgress * 100);
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} title="Food Diary">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Food Diary</Text>
 
         {/* Date navigator */}
         <View style={styles.dateNav}>

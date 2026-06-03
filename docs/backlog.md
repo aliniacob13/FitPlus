@@ -14,7 +14,7 @@
 | US-02 | As a user, I want to see details about a gym (opening hours, equipment) when clicking on it on the map. | Member 3    |
 | US-03 | As a user, I want to get gym recommendations based on criteria, so I can choose the one that fits me best. | Member 3    |
 | US-13 | As a user, I want to save gyms I visit frequently to a favorites list. | Member 3    |
-| US-14 | As a user, I want to leave a review and pictures of the gyms. | Member 3    |
+| US-14 | As a user, I want to leave a review for gyms I visit. | Member 3    |
 
 ### Memberships & Payments
 

@@ -149,13 +149,7 @@ export const SubscriptionPlansScreen = () => {
   const showEmptyState = !loading && !error && plans.length === 0;
 
   return (
-    <Screen scrollable={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>← Back</Text>
-        </Pressable>
-        <Text style={styles.title}>Plans</Text>
-      </View>
+    <Screen scrollable={false} title="Subscription Plans">
       <Text style={styles.subtitle} numberOfLines={2}>
         {gymName ?? `Gym #${gymId}`}
       </Text>

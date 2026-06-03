@@ -221,6 +221,76 @@ async def get_nearby_gyms(
     return [GymResponse(**row) for row in rows]
 
 
+# ── Gym recommendations ──────────────────────────────────────────────────────
+
+
+@router.get("/recommend", response_model=list[GymResponse])
+async def get_recommended_gyms(
+    latitude: Annotated[float, Query(ge=-90.0, le=90.0)],
+    longitude: Annotated[float, Query(ge=-180.0, le=180.0)],
+    radius_m: Annotated[float, Query(gt=0, le=50_000)] = 10_000.0,
+    limit: Annotated[int, Query(ge=1, le=20)] = 5,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(_get_current_user_optional),
+) -> list[GymResponse]:
+    """
+    Returns top-N gyms scored by rating, proximity, and pricing availability.
+    Excludes gyms already favorited by the authenticated user (if logged in).
+    Score = rating * 0.5 + (1 - distance/radius_m) * 0.35 + has_pricing * 0.15
+    """
+    ref_point = cast(
+        func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326),
+        Geography,
+    )
+    gym_location_geog = cast(Gym.location, Geography)
+
+    stmt = (
+        select(
+            Gym.id,
+            Gym.place_id,
+            Gym.name,
+            Gym.address,
+            Gym.phone,
+            Gym.website,
+            Gym.rating,
+            Gym.image_url,
+            Gym.opening_hours,
+            Gym.equipment,
+            Gym.pricing_plans,
+            Gym.review_count,
+            func.ST_Y(Gym.location).label("latitude"),
+            func.ST_X(Gym.location).label("longitude"),
+            func.ST_Distance(gym_location_geog, ref_point).label("distance_m"),
+        )
+        .where(func.ST_DWithin(gym_location_geog, ref_point, radius_m))
+        .where(Gym.rating.isnot(None))
+    )
+
+    result = await db.execute(stmt)
+    rows = list(result.mappings().all())
+
+    # Exclude already-favorited gyms for logged-in users
+    excluded_gym_ids: set[int] = set()
+    if current_user is not None:
+        fav_result = await db.execute(
+            select(FavoriteGym.gym_id).where(FavoriteGym.user_id == current_user.id)
+        )
+        excluded_gym_ids = {row[0] for row in fav_result.all()}
+
+    scored = []
+    for row in rows:
+        if row["id"] in excluded_gym_ids:
+            continue
+        rating_norm = (row["rating"] or 0) / 5.0
+        dist_norm = 1.0 - min(row["distance_m"] / radius_m, 1.0)
+        has_pricing = 1.0 if row["pricing_plans"] else 0.0
+        score = rating_norm * 0.5 + dist_norm * 0.35 + has_pricing * 0.15
+        scored.append((score, dict(row)))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [GymResponse(**item) for _, item in scored[:limit]]
+
+
 # ── Gym pricing (subscriptions) ───────────────────────────────────────────────
 
 

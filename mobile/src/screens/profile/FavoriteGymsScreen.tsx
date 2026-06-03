@@ -103,13 +103,7 @@ export const FavoriteGymsScreen = () => {
   }
 
   return (
-    <Screen scrollable={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backLabel}>← Back</Text>
-        </Pressable>
-        <Text style={styles.title}>My Favorites</Text>
-      </View>
+    <Screen scrollable={false} title="My Favorites">
 
       <FlatList
         style={styles.listFlex}

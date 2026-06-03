@@ -237,7 +237,7 @@ export const ProfileScreen = () => {
       : "No preferences set yet");
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} appHeader>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}

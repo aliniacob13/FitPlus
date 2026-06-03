@@ -221,13 +221,12 @@ export const PlateCoachScreen = () => {
   }, [items]);
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} title="Plate Coach">
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Plate Coach</Text>
         <Text style={styles.dateLabel}>{date}</Text>
 
         {/* Image picker */}

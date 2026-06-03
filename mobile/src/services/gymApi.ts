@@ -108,6 +108,10 @@ export const gymApi = {
     const { data } = await api.post<GymReview>(`/gyms/${gymId}/reviews`, payload);
     return data;
   },
+  getRecommended: async (params: NearbyParams & { limit?: number }): Promise<NearbyGym[]> => {
+    const { data } = await api.get<NearbyGym[]>("/gyms/recommend", { params });
+    return data;
+  },
   getReviews: async (gymId: number): Promise<GymReview[]> => {
     const { data } = await api.get<GymReview[]>(`/gyms/${gymId}/reviews`);
     return data;

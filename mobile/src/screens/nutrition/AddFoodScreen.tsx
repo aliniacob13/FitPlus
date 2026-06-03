@@ -116,9 +116,8 @@ export const AddFoodScreen = () => {
   const preview = selected ? computeFromPer100g(selected.per_100g, selectedGrams) : null;
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} title="Add Food">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Add Food</Text>
         <Text style={styles.dateLabel}>{date}</Text>
 
         {/* Mode switcher */}

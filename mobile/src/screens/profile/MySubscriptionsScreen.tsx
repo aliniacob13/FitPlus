@@ -71,13 +71,7 @@ export const MySubscriptionsScreen = () => {
   );
 
   return (
-    <Screen scrollable={false}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>← Back</Text>
-        </Pressable>
-        <Text style={styles.title}>My subscriptions</Text>
-      </View>
+    <Screen scrollable={false} title="My Subscriptions">
 
       {loading ? (
         <View style={styles.center}>

@@ -369,6 +369,10 @@ export const ChatScreenBase = ({
       {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
+          <Text style={styles.headerBrand}>
+            <Text style={styles.headerBrandFit}>Fit</Text>
+            <Text style={styles.headerBrandPlus}>Plus</Text>
+          </Text>
           <Text style={styles.headerTitle}>{title}</Text>
           <Text style={styles.headerSub} numberOfLines={1}>
             {activeConv ? activeConv.title : subtitle}
@@ -554,6 +558,19 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   headerLeft: { flex: 1, gap: 2, minWidth: 0 },
+  headerBrand: {},
+  headerBrandFit: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textPalette.primary,
+    letterSpacing: -0.2,
+  },
+  headerBrandPlus: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.accent.base,
+    letterSpacing: -0.2,
+  },
   headerTitle: {
     fontSize: typography.size.md,
     fontWeight: "700",

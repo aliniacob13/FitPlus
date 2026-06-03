@@ -217,7 +217,7 @@ export const HomeScreen = () => {
   const greeting = getGreeting();
 
   return (
-    <Screen>
+    <Screen appHeader>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -300,7 +300,7 @@ export const HomeScreen = () => {
         </Card>
 
         {/* Calorie card */}
-        <Card variant="elevated" title="Calories Today" padding="md">
+        <Card variant="elevated" title="Calories Today" padding="md" onPress={() => navigation.navigate("FoodDiary")}>
           <View style={styles.calorieStatsRow}>
             <StatItem value={String(todayKcal)} label="Consumed" />
             <View style={styles.statDivider} />

@@ -160,9 +160,8 @@ export const CalorieTargetScreen = () => {
   const showWeeklyRate = goal === "lose" || goal === "gain";
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} title="Calorie Calculator">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Calorie Calculator</Text>
         <Text style={styles.subtitle}>
           Estimate your daily calorie target based on the Mifflin–St Jeor equation.
         </Text>

@@ -146,13 +146,12 @@ export const LabelScanScreen = () => {
   const canAdd = edited.name.trim().length > 0 && Number(edited.grams) > 0;
 
   return (
-    <Screen scrollable={false}>
+    <Screen scrollable={false} title="Scan Label">
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Scan Label</Text>
         <Text style={styles.dateLabel}>{date}</Text>
 
         {/* Pick image row */}
