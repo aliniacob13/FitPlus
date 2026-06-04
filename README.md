@@ -110,6 +110,7 @@ For detailed diagrams (UML, component architecture, workflows), see the [Archite
 | [AI Tools Report](docs/ai_tools_report.md)          | How AI tools were used throughout development |
 | [pgAdmin Docker Setup](docs/pgadmin_docker_setup.md) | One-command setup for pgAdmin + DB access |
 | [Run Project Guide](docs/run_project_guide.md)      | End-to-end commands: DB, backend, frontend, testing |
+| [▶ Live Demo](https://youtu.be/I-KFNstfaxk)        | Full app walkthrough — all features demonstrated live |
 
 ### Individual Task Sheets
 
