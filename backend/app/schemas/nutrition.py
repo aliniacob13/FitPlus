@@ -102,3 +102,17 @@ class LabelScanResponse(BaseModel):
     serving_size_g: float | None = None
     per_100g: bool = False
     confidence: float  # 0.0 – 1.0; fraction of macro fields successfully parsed
+
+
+# ── Phase 5 — Barcode scan ────────────────────────────────────────────────────
+
+
+class BarcodeScanResponse(BaseModel):
+    found: bool
+    barcode: str
+    product_name: str | None = None
+    kcal: float | None = None
+    fat_g: float | None = None
+    carbs_g: float | None = None
+    protein_g: float | None = None
+    per_100g: bool = True  # Open Food Facts always returns values per 100 g

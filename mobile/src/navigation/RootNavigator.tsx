@@ -2,6 +2,8 @@ import { AuthStack } from "@/navigation/AuthStack";
 import { MainTabs } from "@/navigation/MainTabs";
 import { ConversationHistoryScreen } from "@/screens/chat/ConversationHistoryScreen";
 import { AddFoodScreen } from "@/screens/nutrition/AddFoodScreen";
+import { BarcodeScanScreen } from "@/screens/nutrition/BarcodeScanScreen";
+import { ExerciseLogScreen } from "@/screens/fitness/ExerciseLogScreen";
 import { CalorieTargetScreen } from "@/screens/nutrition/CalorieTargetScreen";
 import { FoodDiaryScreen } from "@/screens/nutrition/FoodDiaryScreen";
 import { LabelScanScreen } from "@/screens/nutrition/LabelScanScreen";
@@ -31,6 +33,7 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="FoodDiary" component={FoodDiaryScreen} />
     <Stack.Screen name="AddFood" component={AddFoodScreen} />
     <Stack.Screen name="LabelScan" component={LabelScanScreen} />
+    <Stack.Screen name="BarcodeScan" component={BarcodeScanScreen} />
     <Stack.Screen name="PlateCoach" component={PlateCoachScreen} />
     <Stack.Screen name="FavoriteGyms" component={FavoriteGymsScreen} />
     <Stack.Screen
@@ -45,6 +48,7 @@ const AuthenticatedStack = () => (
     <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
     <Stack.Screen name="MySubscriptions" component={MySubscriptionsScreen} />
     <Stack.Screen name="WeightTracker" component={WeightTrackerScreen} />
+    <Stack.Screen name="ExerciseLog" component={ExerciseLogScreen} />
   </Stack.Navigator>
 );
 

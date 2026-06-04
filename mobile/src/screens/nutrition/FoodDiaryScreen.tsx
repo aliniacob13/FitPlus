@@ -206,6 +206,13 @@ export const FoodDiaryScreen = () => {
           fullWidth
         />
         <Button
+          label="Scan Barcode"
+          onPress={() => navigation.navigate("BarcodeScan", { date })}
+          variant="ghost"
+          disabled={!hasCalorieTarget}
+          fullWidth
+        />
+        <Button
           label="Analyze Plate"
           onPress={() => navigation.navigate("PlateCoach", { date })}
           variant="ghost"

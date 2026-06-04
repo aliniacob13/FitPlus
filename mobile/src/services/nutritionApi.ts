@@ -120,6 +120,19 @@ export interface LabelScanResult {
   confidence: number; // 0.0 – 1.0
 }
 
+// ── Phase 5 — Barcode scan ────────────────────────────────────────────────────
+
+export interface BarcodeScanResult {
+  found: boolean;
+  barcode: string;
+  product_name: string | null;
+  kcal: number | null;
+  fat_g: number | null;
+  carbs_g: number | null;
+  protein_g: number | null;
+  per_100g: boolean;
+}
+
 // ── Phase 4 — Plate coach ────────────────────────────────────────────────────
 
 export interface PlateItem {
@@ -227,4 +240,8 @@ export const nutritionApi = {
       timeout: 30000, // OCR can take longer than the default 15 s
     });
   },
+
+  // Phase 5 — barcode scan
+  scanBarcode: (barcode: string) =>
+    api.get<BarcodeScanResult>(`/nutrition/barcode/${encodeURIComponent(barcode)}`),
 };

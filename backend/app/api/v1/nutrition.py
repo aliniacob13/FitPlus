@@ -1,7 +1,8 @@
+import re
 from datetime import UTC, datetime
 from datetime import date as DateType
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +12,7 @@ from app.core.database import get_db
 from app.models.food_log import FoodLogEntry
 from app.models.user import User
 from app.schemas.nutrition import (
+    BarcodeScanResponse,
     DailyTotals,
     FoodLogCreateRequest,
     FoodLogDayResponse,
@@ -22,6 +24,7 @@ from app.schemas.nutrition import (
     NutritionTargetRequest,
     NutritionTargetResponse,
 )
+from app.services.barcode_service import BarcodeServiceError, lookup_barcode
 from app.services.nutrition import (
     compute_bmr,
     compute_macros,
@@ -197,6 +200,39 @@ async def label_scan(
         serving_size_g=result.serving_size_g,
         per_100g=result.per_100g,
         confidence=result.confidence,
+    )
+
+
+# ── Phase 5 — Barcode scan ────────────────────────────────────────────────────
+
+_BARCODE_RE = re.compile(r"^\d{6,14}$")
+
+
+@router.get("/nutrition/barcode/{barcode}", response_model=BarcodeScanResponse)
+async def barcode_lookup(
+    barcode: str = Path(..., description="EAN-8, EAN-13, UPC-A, or UPC-E digits"),
+    _current_user: User = Depends(get_current_user),
+) -> BarcodeScanResponse:
+    if not _BARCODE_RE.match(barcode):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Barcode must be 6–14 digits only (EAN-8, EAN-13, UPC-A, UPC-E).",
+        )
+    try:
+        result = await lookup_barcode(barcode)
+    except BarcodeServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=exc.message,
+        ) from exc
+    return BarcodeScanResponse(
+        found=result.found,
+        barcode=result.barcode,
+        product_name=result.product_name,
+        kcal=result.kcal,
+        fat_g=result.fat_g,
+        carbs_g=result.carbs_g,
+        protein_g=result.protein_g,
     )
 
 

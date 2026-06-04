@@ -54,7 +54,7 @@ export const Card = ({ children, variant = "default", onPress, title, subtitle, 
   const content = (
     <>
       {hasHeader ? (
-        <View style={[styles.header, pad > 0 ? { paddingHorizontal: pad, paddingTop: pad } : undefined]}>
+        <View style={[styles.header, { paddingHorizontal: pad > 0 ? pad : spacing.md, paddingTop: pad > 0 ? pad : spacing.md }]}>
           <View style={styles.headerText}>
             {title ? <Text style={styles.title}>{title}</Text> : null}
             {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}

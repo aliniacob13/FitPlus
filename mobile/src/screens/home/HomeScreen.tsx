@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 import { aiApi, Conversation } from "@/services/aiApi";
+import { exerciseApi } from "@/services/exerciseApi";
 import { nutritionApi } from "@/services/nutritionApi";
 import { todayString, useFoodDiaryStore } from "@/store/foodDiaryStore";
 import { useUserStore } from "@/store/userStore";
@@ -38,6 +39,14 @@ const getGreeting = (): string => {
   if (hour < 17) return "Good afternoon";
   return "Good evening";
 };
+
+function fmtDuration(mins: number): string {
+  if (mins === 0) return "—";
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -126,6 +135,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     variant: "secondary",
     description: "Log & chart your weight",
   },
+  {
+    label: "Exercise Log",
+    icon: "flame-outline",
+    screen: "ExerciseLog",
+    type: "stack",
+    variant: "secondary",
+    description: "Track workouts & calories burned",
+  },
 ];
 
 // ── HomeScreen ─────────────────────────────────────────────────────────────────
@@ -139,6 +156,9 @@ export const HomeScreen = () => {
   const diaryKcal = useFoodDiaryStore((state) => state.totals.kcal);
 
   const [todayKcal, setTodayKcal] = useState(0);
+  const [todayExerciseKcal, setTodayExerciseKcal] = useState(0);
+  const [todayExerciseSessions, setTodayExerciseSessions] = useState(0);
+  const [todayExerciseMins, setTodayExerciseMins] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const displayName =
@@ -179,14 +199,24 @@ export const HomeScreen = () => {
     useCallback(() => {
       const load = async () => {
         try {
-          // Calories
           const { data } = await nutritionApi.getFoodLog(todayString());
           setTodayKcal(Math.round(data.totals.kcal));
         } catch {
           setTodayKcal(0);
         }
         try {
-          // Conversations for real stats
+          const log = await exerciseApi.getLog();
+          const today = todayString();
+          const todayEntries = log.filter(
+            (e) => new Date(e.logged_at).toISOString().slice(0, 10) === today,
+          );
+          setTodayExerciseKcal(todayEntries.reduce((s, e) => s + e.kcal_burned, 0));
+          setTodayExerciseSessions(todayEntries.length);
+          setTodayExerciseMins(todayEntries.reduce((s, e) => s + e.duration_minutes, 0));
+        } catch {
+          // keep at 0
+        }
+        try {
           const convs = await aiApi.getConversations();
           setConversations(convs);
         } catch {
@@ -332,6 +362,28 @@ export const HomeScreen = () => {
               <Text style={styles.progressBarLabel}>
                 {Math.round(calorieProgress * 100)}% of daily goal
               </Text>
+            </View>
+          )}
+        </Card>
+
+        {/* Activity Today */}
+        <Card
+          variant="elevated"
+          title="Activity Today"
+          padding="md"
+          onPress={() => navigation.navigate("ExerciseLog")}
+        >
+          <View style={styles.calorieStatsRow}>
+            <StatItem value={String(Math.round(todayExerciseKcal))} label="Burned" />
+            <View style={styles.statDivider} />
+            <StatItem value={String(todayExerciseSessions)} label="Sessions" />
+            <View style={styles.statDivider} />
+            <StatItem value={fmtDuration(todayExerciseMins)} label="Duration" />
+          </View>
+          {todayExerciseSessions === 0 && (
+            <View style={styles.activityHint}>
+              <Ionicons name="information-circle-outline" size={13} color={colors.textPalette.muted} />
+              <Text style={styles.activityHintText}>No exercises logged today — tap to add one</Text>
             </View>
           )}
         </Card>

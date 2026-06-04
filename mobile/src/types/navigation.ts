@@ -19,6 +19,7 @@ export type AppStackParamList = {
   FoodDiary: undefined;
   AddFood: { date: string };
   LabelScan: { date: string };
+  BarcodeScan: { date: string };
   PlateCoach: { date: string };
   FavoriteGyms: undefined;
   /** History screen – pick or delete conversations and navigate to the right chat */
@@ -30,4 +31,5 @@ export type AppStackParamList = {
   PaymentCheckout: { checkoutUrl: string; sessionId: string };
   MySubscriptions: undefined;
   WeightTracker: undefined;
+  ExerciseLog: undefined;
 };

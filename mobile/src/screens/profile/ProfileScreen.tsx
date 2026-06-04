@@ -447,6 +447,14 @@ export const ProfileScreen = () => {
           />
           <NavRowDivider />
           <NavRow
+            icon="flame-outline"
+            iconColor="#FF5252"
+            label="Exercise Log"
+            description="Track workouts and calories burned"
+            onPress={() => navigation.navigate("ExerciseLog")}
+          />
+          <NavRowDivider />
+          <NavRow
             icon="card-outline"
             iconColor={colors.warning}
             label="My Subscriptions"
