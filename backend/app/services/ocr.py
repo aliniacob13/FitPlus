@@ -89,10 +89,7 @@ def _rows_by_position(data: dict) -> str:
         else:
             merged[-1].extend(lines[key])
 
-    return "\n".join(
-        " ".join(w for _, w in sorted(row, key=lambda x: x[0]))
-        for row in merged
-    )
+    return "\n".join(" ".join(w for _, w in sorted(row, key=lambda x: x[0])) for row in merged)
 
 
 def parse_nutrition_label(text: str) -> LabelParseResult:
