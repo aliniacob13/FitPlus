@@ -1,6 +1,11 @@
 """Unit tests for the nutrition label OCR parser (no Tesseract installation needed)."""
 
-from app.services.ocr import LabelParseResult, _rows_by_position, parse_nutrition_label
+from app.services.ocr import (
+    LabelParseResult,
+    _rows_by_position,
+    _try_column_fallback,
+    parse_nutrition_label,
+)
 
 
 def test_parse_full_us_label() -> None:
@@ -180,6 +185,56 @@ def test_rows_by_position_two_column_layout() -> None:
     assert lines[1] == "din care acizi 3,2 g"
     assert lines[2] == "Glucide 45,0 g"
     assert lines[3] == "Proteine 8,5 g"
+
+
+def test_kcal_does_not_capture_next_line_as_calories() -> None:
+    """Regression: '294 kcal\\n10.5 g' must NOT return kcal=10.5.
+
+    The old pattern r'(?:calories?|energy|kcal)\\s*[:\\s]+(\\d+)' would match
+    'kcal\\n10.5' and capture the fat value as calories.
+    """
+    text = "Valoare energetica\n1234 kJ / 294 kcal\n10,5 g\n45,0 g\n8,5 g"
+    r = parse_nutrition_label(text)
+    assert r.kcal == 294.0, f"Expected 294, got {r.kcal}"
+
+
+def test_column_format_fallback() -> None:
+    """When OCR outputs all labels first then all values, the sequential fallback
+    must correctly assign fat/carbs/protein by their fixed Romanian table order."""
+    text = (
+        "Declaratie nutritionala\n"
+        "Pentru 100g\n"
+        "Valoare energetica\n"
+        "Grasimi\n"
+        "din care acizi grasi saturati\n"
+        "Glucide\n"
+        "din care zaharuri\n"
+        "Proteine\n"
+        "Sare\n"
+        "1234 kJ / 294 kcal\n"
+        "10.5 g\n"  # fat  (index 0)
+        "3.2 g\n"  # sat-fat (index 1, skipped)
+        "45.0 g\n"  # carbs (index 2)
+        "12.3 g\n"  # sugars (index 3, skipped)
+        "8.5 g\n"  # protein (index 4)
+        "0.85 g\n"  # salt
+    )
+    r = parse_nutrition_label(text)
+    assert r.kcal == 294.0
+    assert r.fat_g == 10.5
+    assert r.carbs_g == 45.0
+    assert r.protein_g == 8.5
+    assert r.confidence == 1.0
+
+
+def test_try_column_fallback_direct() -> None:
+    """Unit test for the fallback helper in isolation."""
+    text = "294 kcal\n10.5 g\n3.2 g\n45.0 g\n12.3 g\n8.5 g\n0.85 g"
+    result = _try_column_fallback(text)
+    assert result["kcal"] == 294.0
+    assert result["fat_g"] == 10.5
+    assert result["carbs_g"] == 45.0
+    assert result["protein_g"] == 8.5
 
 
 def test_parse_romanian_label_integer_values() -> None:

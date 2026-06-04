@@ -50,8 +50,15 @@ FitPlus is a mobile application that helps users monitor their physical activity
 ### Nutrition & food diary
 - Daily calorie target from profile (TDEE-style calculator), persisted on the user
 - Food search (USDA FoodData Central) and manual logging with day totals
-- **Nutrition label scan:** camera/gallery → OCR + parser → suggested food entry
+- **Nutrition label scan:** camera/gallery → OCR + positional row reconstruction for Romanian two-column tables → suggested food entry
+- **Barcode scan:** point camera at any EAN/UPC barcode → Open Food Facts lookup → macros pre-filled instantly
 - **Plate coach (vision):** photo of a meal → AI estimates items and calories; clarifying follow-ups in chat
+
+### Exercise Log
+- Log any of 12 exercise types (running, cycling, swimming, HIIT, yoga, weights, and more)
+- Automatic calorie calculation using MET values and your body weight
+- Live calorie preview before saving; quick-select duration chips (15 / 30 / 45 / 60 / 90 min)
+- 7-day activity bar chart; today's summary visible directly on the Home screen
 
 ### User Profile
 - Personal fitness profile with goals and restrictions

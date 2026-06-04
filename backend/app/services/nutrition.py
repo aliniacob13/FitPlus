@@ -1,12 +1,12 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class Sex(str, Enum):
+class Sex(StrEnum):
     male = "male"
     female = "female"
 
 
-class ActivityLevel(str, Enum):
+class ActivityLevel(StrEnum):
     sedentary = "sedentary"
     lightly_active = "lightly_active"
     moderately_active = "moderately_active"
@@ -14,7 +14,7 @@ class ActivityLevel(str, Enum):
     extra_active = "extra_active"
 
 
-class Goal(str, Enum):
+class Goal(StrEnum):
     lose = "lose"
     maintain = "maintain"
     gain = "gain"

@@ -167,6 +167,7 @@ _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "
 @router.post("/nutrition/label-scan", response_model=LabelScanResponse)
 async def label_scan(
     image: UploadFile = File(...),
+    debug: bool = Query(default=False),
     _current_user: User = Depends(get_current_user),
 ) -> LabelScanResponse:
     if image.content_type not in _ALLOWED_IMAGE_TYPES:
@@ -200,6 +201,7 @@ async def label_scan(
         serving_size_g=result.serving_size_g,
         per_100g=result.per_100g,
         confidence=result.confidence,
+        raw_ocr_text=text if debug else None,
     )
 
 

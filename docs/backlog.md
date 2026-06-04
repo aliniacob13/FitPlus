@@ -67,6 +67,17 @@ These capabilities extend the nutrition module beyond the base diet chat. They a
 
 ---
 
+## Barcode scan & Exercise log (implemented)
+
+| ID | User story (short) | Delivered |
+|----|-------------------|-----------|
+| **US-N6** | As a user, I want to scan a product barcode so the app fills in nutritional values automatically without me having to read the label. | `GET /nutrition/barcode/{barcode}` — Open Food Facts lookup; `BarcodeScanScreen` with live `CameraView`; dedup guard prevents duplicate API calls from rapid scan callbacks. |
+| **US-E1** | As a user, I want to log a workout session by choosing an exercise type and entering the duration so the app tells me how many calories I burned. | `POST /users/me/exercise-log` — MET-based calculation using profile weight; 12 exercise types; Alembic `0019`. |
+| **US-E2** | As a user, I want to see a weekly summary of my activity so I can track how consistent I've been. | `ExerciseLogScreen`: today's stats card, 7-day `BarChart`, full history list with per-type colour coding. |
+| **US-E3** | As a user, I want to see today's exercise activity on the home screen so I have a quick overview without opening a separate screen. | "Activity Today" card on `HomeScreen` (kcal burned, sessions, total duration), loaded on focus. |
+
+---
+
 ## Development Backlog
 
 Tasks ordered by execution priority. Dependencies are marked.

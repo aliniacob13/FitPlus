@@ -102,6 +102,7 @@ class LabelScanResponse(BaseModel):
     serving_size_g: float | None = None
     per_100g: bool = False
     confidence: float  # 0.0 – 1.0; fraction of macro fields successfully parsed
+    raw_ocr_text: str | None = None  # populated only when debug=true
 
 
 # ── Phase 5 — Barcode scan ────────────────────────────────────────────────────

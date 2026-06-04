@@ -62,7 +62,9 @@ def _rows_by_position(data: dict) -> str:
     Words within the merged line are sorted left-to-right by their X position,
     giving e.g. "Grasimi 10,5 g" instead of two separate lines.
     """
-    _Y_TOLERANCE = 8  # pixels; rows are typically 20-30 px apart on upscaled images
+    # 15 px tolerance: handles slight vertical misalignment between label and
+    # value columns while still separating adjacent rows (typically 20-30 px apart).
+    _Y_TOLERANCE = 15
 
     lines: dict[tuple[int, int, int], list[tuple[int, str]]] = {}
     line_tops: dict[tuple[int, int, int], int] = {}
@@ -93,20 +95,66 @@ def _rows_by_position(data: dict) -> str:
 
 
 def parse_nutrition_label(text: str) -> LabelParseResult:
-    """Parse OCR text into structured macronutrient values using regex heuristics."""
+    """Parse OCR text into structured macronutrient values.
+
+    Tries keyword-based regex first. If confidence is low (< 0.5), also tries
+    a sequential column-format fallback that matches values by their fixed order
+    in the Romanian standard nutrition declaration table.
+    """
     t = _normalize_decimals(text.lower())
 
-    kcal = _first(
+    kcal = _parse_kcal(t)
+    fat_g = _parse_fat(t)
+    carbs_g = _parse_carbs(t)
+    protein_g = _parse_protein(t)
+    serving_size_g = _parse_serving(t)
+    per_100g = bool(re.search(r"per\s*100\s*g|/\s*100\s*g|100\s*g\b|la\s*100\s*g", t))
+
+    found = sum(1 for v in [kcal, fat_g, carbs_g, protein_g] if v is not None)
+
+    # If fewer than 2 macros were found, try the column-format sequential fallback.
+    if found < 2:
+        col = _try_column_fallback(t)
+        kcal = kcal or col.get("kcal")
+        fat_g = fat_g or col.get("fat_g")
+        carbs_g = carbs_g or col.get("carbs_g")
+        protein_g = protein_g or col.get("protein_g")
+        found = sum(1 for v in [kcal, fat_g, carbs_g, protein_g] if v is not None)
+
+    return LabelParseResult(
+        kcal=kcal,
+        fat_g=fat_g,
+        carbs_g=carbs_g,
+        protein_g=protein_g,
+        serving_size_g=serving_size_g,
+        per_100g=per_100g,
+        confidence=round(found / 4.0, 2),
+    )
+
+
+# ── Field parsers ─────────────────────────────────────────────────────────────
+
+
+def _parse_kcal(t: str) -> float | None:
+    return _first(
         t,
         [
-            r"(?:calories?|energy|kcal)\s*[:\s]+(\d+(?:\.\d+)?)",
+            # "calories: 250" / "energy: 200" — keyword BEFORE the number with separator.
+            # NOTE: "kcal" is intentionally excluded here because "294 kcal\n10.5 g"
+            # would cause pattern r"kcal\s*[:\s]+(\d+)" to capture the NEXT line's
+            # value (fat grams) as calories.
+            r"(?:calories?|energy)\s*[:\s]+(\d+(?:\.\d+)?)",
+            # "294 kcal" / "250kcal" — number BEFORE the unit (most Romanian labels).
             r"(\d+(?:\.\d+)?)\s*kcal",
             r"(\d+(?:\.\d+)?)\s*cal\b",
-            # Romanian: "valoare energetica 1234 kJ / 294 kcal"
+            # "valoare energetica 1234 kJ / 294 kcal" — grab the kcal value on the same line.
             r"(?:valoare\s+energetic[aă]|energie)\s[^\n]*?(\d+(?:\.\d+)?)\s*kcal",
         ],
     )
-    fat_g = _first(
+
+
+def _parse_fat(t: str) -> float | None:
+    return _first(
         t,
         [
             r"(?:total\s+)?fat\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
@@ -117,7 +165,10 @@ def parse_nutrition_label(text: str) -> LabelParseResult:
             r"gr[aă]simi(?:\s+totale)?\s*[:\s]+(\d+(?:\.\d+)?)",
         ],
     )
-    carbs_g = _first(
+
+
+def _parse_carbs(t: str) -> float | None:
+    return _first(
         t,
         [
             r"(?:total\s+)?carbohydrate(?:s)?\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
@@ -129,39 +180,82 @@ def parse_nutrition_label(text: str) -> LabelParseResult:
             r"glucide(?:\s+totale)?\s*[:\s]+(\d+(?:\.\d+)?)",
         ],
     )
-    protein_g = _first(
+
+
+def _parse_protein(t: str) -> float | None:
+    return _first(
         t,
         [
             r"protein(?:e|s)?\s*[:\s]+(\d+(?:\.\d+)?)\s*g?",
             r"protein(?:e|s)?\s+(\d+(?:\.\d+)?)",
         ],
     )
-    serving_size_g = _first(
+
+
+def _parse_serving(t: str) -> float | None:
+    return _first(
         t,
         [
             r"serving\s+size\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
             r"portion\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
             r"per\s+serving\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
-            # Romanian: "portie" / "marime portie"
             r"por[tț]ie\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
             r"m[aă]rime\s+por[tț]ie\s*[:\s]+(\d+(?:\.\d+)?)\s*g",
         ],
     )
 
-    per_100g = bool(re.search(r"per\s*100\s*g|/\s*100\s*g|100\s*g\b|la\s*100\s*g", t))
 
-    found = sum(1 for v in [kcal, fat_g, carbs_g, protein_g] if v is not None)
-    confidence = round(found / 4.0, 2)
+# ── Column-format fallback ────────────────────────────────────────────────────
 
-    return LabelParseResult(
-        kcal=kcal,
-        fat_g=fat_g,
-        carbs_g=carbs_g,
-        protein_g=protein_g,
-        serving_size_g=serving_size_g,
-        per_100g=per_100g,
-        confidence=confidence,
-    )
+# Standard Romanian declaration row order after the energy line:
+#   fat, saturated-fat (*sub*), carbs, sugars (*sub*), fibre (*sub*), protein, salt
+# Indices of MAIN rows (skipping sub-rows): fat=0, carbs=2, protein=4 or 5
+_COLUMN_MAIN_INDICES = {"fat_g": 0, "carbs_g": 2, "protein_g": 4}
+
+# A value line in the column-format section: standalone number with optional unit.
+_VALUE_LINE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(?:g|kcal|kj)?\s*$")
+
+
+def _try_column_fallback(t: str) -> dict[str, float | None]:
+    """Sequential fallback for pure column-format OCR output.
+
+    When positional row reconstruction fails (label and value in separate blocks
+    with Y mismatch > tolerance), all labels appear first and all values appear
+    below. In this layout every value line is a standalone number followed by
+    an optional unit. The Romanian standard order is fixed, so we can assign
+    values by their position in the sequence that follows the energy line.
+    """
+    lines = t.splitlines()
+
+    # Find the line that contains the kcal value — this anchors the value section.
+    energy_idx: int | None = None
+    kcal: float | None = None
+    for i, line in enumerate(lines):
+        m = re.search(r"(\d+(?:\.\d+)?)\s*kcal", line)
+        if m:
+            energy_idx = i
+            kcal = float(m.group(1))
+            break
+
+    if energy_idx is None:
+        return {}
+
+    # Collect standalone value lines that follow the energy line.
+    values: list[float] = []
+    for line in lines[energy_idx + 1 :]:
+        m = _VALUE_LINE_RE.match(line)
+        if m:
+            values.append(float(m.group(1)))
+
+    result: dict[str, float | None] = {"kcal": kcal}
+    for field, idx in _COLUMN_MAIN_INDICES.items():
+        if idx < len(values):
+            result[field] = values[idx]
+
+    return result
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def _normalize_decimals(text: str) -> str:

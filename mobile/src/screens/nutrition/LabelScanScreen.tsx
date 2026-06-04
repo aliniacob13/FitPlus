@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -107,9 +108,9 @@ export const LabelScanScreen = () => {
         name: "Scanned Food",
         grams: data.serving_size_g != null ? String(data.serving_size_g) : "100",
         kcal: toField(data.kcal),
-        protein_g: toField(data.protein_g),
-        carbs_g: toField(data.carbs_g),
-        fat_g: toField(data.fat_g),
+        protein_g: "",
+        carbs_g: "",
+        fat_g: "",
       });
     } catch (err) {
       Alert.alert("Scan failed", formatApiError(err));
@@ -154,6 +155,15 @@ export const LabelScanScreen = () => {
       >
         <Text style={styles.dateLabel}>{date}</Text>
 
+        {/* Info banner */}
+        <View style={styles.infoBanner}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.accent.base} />
+          <Text style={styles.infoText}>
+            AI-ul detectează automat numărul de <Text style={styles.infoBold}>calorii</Text> din
+            etichetă. Proteinele, carbohidrații și grăsimile le completezi manual.
+          </Text>
+        </View>
+
         {/* Pick image row */}
         <View style={styles.pickRow}>
           <TouchableOpacity
@@ -191,70 +201,71 @@ export const LabelScanScreen = () => {
         {/* Parsed results */}
         {scanResult != null && !scanning && (
           <Card variant="elevated" padding="md">
-            <View style={styles.confidenceRow}>
-              <Text style={styles.confidenceLabel}>Parse confidence</Text>
-              <Text style={[styles.confidenceValue, { color: confidenceColor }]}>
-                {Math.round(scanResult.confidence * 100)}%
+            {scanResult.per_100g && (
+              <Text style={styles.per100gHint}>
+                Valori detectate per 100g — ajustează gramajul pentru porția ta.
+              </Text>
+            )}
+
+            {/* Detected kcal highlight */}
+            <View style={styles.kcalDetectedRow}>
+              <Ionicons name="flash" size={18} color={colors.accent.base} />
+              <Text style={styles.kcalDetectedLabel}>Calorii detectate automat</Text>
+              <Text style={styles.kcalDetectedValue}>
+                {edited.kcal !== "" ? `${edited.kcal} kcal` : "—"}
               </Text>
             </View>
 
-            {scanResult.confidence < 0.5 && (
-              <Text style={styles.lowConfidenceHint}>
-                Low confidence — fill in the missing values manually before adding.
+            <View style={styles.manualHintRow}>
+              <Ionicons name="pencil-outline" size={14} color={colors.textPalette.muted} />
+              <Text style={styles.manualHintText}>
+                Completează manual proteinele, carbohidrații și grăsimile din etichetă.
               </Text>
-            )}
-
-            {scanResult.per_100g && (
-              <Text style={styles.per100gHint}>
-                Values detected per 100g — adjust serving size to match your portion.
-              </Text>
-            )}
-
-            <Text style={styles.sectionLabel}>Review and edit before saving</Text>
+            </View>
 
             <Input
-              label="Food name"
+              label="Nume produs"
               value={edited.name}
               onChangeText={set("name")}
               autoCapitalize="words"
             />
             <Input
-              label="Serving size (g)"
+              label="Gramaj porție (g)"
               value={edited.grams}
               onChangeText={set("grams")}
               keyboardType="numeric"
             />
             <Input
-              label="Calories (kcal)"
+              label="Calorii (kcal) — detectate automat"
               value={edited.kcal}
               onChangeText={set("kcal")}
               keyboardType="numeric"
               placeholder="—"
             />
             <Input
-              label="Protein (g)"
+              label="Proteine (g) — completează manual"
               value={edited.protein_g}
               onChangeText={set("protein_g")}
               keyboardType="numeric"
-              placeholder="—"
+              placeholder="ex: 8,5"
             />
             <Input
-              label="Carbs (g)"
+              label="Carbohidrați (g) — completează manual"
               value={edited.carbs_g}
               onChangeText={set("carbs_g")}
               keyboardType="numeric"
-              placeholder="—"
+              placeholder="ex: 45"
             />
             <Input
-              label="Fat (g)"
+              label="Grăsimi (g) — completează manual"
               value={edited.fat_g}
               onChangeText={set("fat_g")}
               keyboardType="numeric"
-              placeholder="—"
+              placeholder="ex: 10,5"
             />
 
             <Button
-              label="Add to Diary"
+              label="Adaugă în jurnal"
               onPress={() => void handleAdd()}
               loading={saving}
               disabled={!canAdd}
@@ -264,7 +275,7 @@ export const LabelScanScreen = () => {
         )}
 
         <Text style={styles.disclaimer}>
-          Estimates only — not medical advice. Always verify values from the original label.
+          Estimări orientative — verifică întotdeauna valorile de pe eticheta originală.
         </Text>
 
         <Button label="Cancel" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
@@ -371,5 +382,60 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: colors.textPalette.muted,
     paddingHorizontal: spacing.md,
+  },
+  // Info banner shown above the pick buttons
+  infoBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    backgroundColor: colors.accent.base + "12",
+    borderWidth: 1,
+    borderColor: colors.accent.base + "40",
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: typography.size.sm,
+    color: colors.textPalette.secondary,
+    lineHeight: 18,
+  },
+  infoBold: {
+    fontWeight: "700",
+    color: colors.accent.base,
+  },
+  // Detected kcal highlight inside the result card
+  kcalDetectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.accent.base + "15",
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  kcalDetectedLabel: {
+    flex: 1,
+    fontSize: typography.size.sm,
+    fontWeight: "600",
+    color: colors.textPalette.primary,
+  },
+  kcalDetectedValue: {
+    fontSize: typography.size.lg,
+    fontWeight: "800",
+    color: colors.accent.base,
+  },
+  // Manual fill hint
+  manualHintRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  manualHintText: {
+    flex: 1,
+    ...typography.styles.caption,
+    color: colors.textPalette.muted,
   },
 });

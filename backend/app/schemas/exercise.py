@@ -1,12 +1,12 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 _DEFAULT_WEIGHT_KG = 75.0  # fallback when user has no weight set
 
 
-class ExerciseType(str, Enum):
+class ExerciseType(StrEnum):
     running = "running"
     walking = "walking"
     cycling = "cycling"
