@@ -73,18 +73,36 @@ Unit tests live under `src/**/__tests__/*.test.ts(x)` (Jest + `jest-expo`).
 
 ESLint is configured for incremental tightening: hook rules are enforced (errors fail CI); many legacy issues surface as **warnings** only, so `npm run lint` exits successfully until you adopt `--max-warnings 0`.
 
-## GitHub Actions
+## GitHub Actions (CI/CD)
 
 Workflow: `.github/workflows/ci.yml`
 
-| Job              | Purpose                                              |
-|-----------------|-------------------------------------------------------|
-| `backend`       | Ruff, Alembic `upgrade head`, pytest + coverage XML   |
-| `mobile`        | ESLint, Jest, TypeScript `--noEmit`                   |
-| `docker-backend`| Builds the backend Dockerfile (no push)               |
+| Job              | Trigger            | Purpose                                                       |
+|-----------------|--------------------|---------------------------------------------------------------|
+| `backend`       | push + PR → main   | Ruff, Alembic `upgrade head`, pytest + coverage XML           |
+| `mobile`        | push + PR → main   | ESLint, Jest, TypeScript `--noEmit`                           |
+| `docker-backend`| push + PR → main   | Builds the backend Dockerfile (no push) — verifies it compiles|
+| `publish`       | push → main only   | Builds and **pushes** the backend image to GHCR (CD step)     |
 
 Coverage XML is uploaded as a workflow artifact for inspection; enabling Codecov or similar is optional.
 
+## Continuous Deployment — GHCR
+
+The `publish` job runs **only on direct push to `main`** (not on PRs), after all three CI jobs pass (`needs: [backend, mobile, docker-backend]`). It publishes the backend Docker image to **GitHub Container Registry**:
+
+```
+ghcr.io/aliniacob13/fitplus-backend:latest
+ghcr.io/aliniacob13/fitplus-backend:<git-sha>
+```
+
+Authentication uses the automatic `GITHUB_TOKEN` (no extra secrets needed); the job declares `permissions: packages: write`. The `:latest` tag always points to the most recent successful build on `main`; the SHA tag is immutable and enables precise rollbacks.
+
+The published image is visible under the repository's **Packages** tab on GitHub. To pull it locally:
+
+```bash
+docker pull ghcr.io/aliniacob13/fitplus-backend:latest
+```
+
 ## Docker parity
 
-The `docker-backend` job verifies that `backend/Dockerfile` still builds after dependency or OS package changes (e.g. Tesseract).
+The `docker-backend` job verifies that `backend/Dockerfile` still builds after dependency or OS package changes (e.g. Tesseract). The `publish` job then does the actual push to the registry, reusing the GHA layer cache.

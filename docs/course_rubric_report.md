@@ -15,7 +15,7 @@ This document summarizes how the **FitPlus** project maps to the course requirem
 | **1** | Git source control (branch, merge/rebase, PR, min. 5 commits per student) | [contributing.md](contributing.md) — branch / PR / commit conventions; concrete history lives in the **GitHub repository** (Commits / Pull requests). |
 | **2** | Automated tests (including agent evals) | [testing.md](testing.md) — pytest, Ruff, declarative evals (`tests/evals/`), CI. |
 | **1** | Bug reporting + fix via pull request | Process: **GitHub Issues** (bug description) + **PR** that closes them (`Closes #…`). Evidence = links in the repo; no separate doc required if issues/PRs are public. |
-| **1** | CI/CD pipeline | [testing.md](testing.md) — *GitHub Actions* section; workflow file: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (backend: Ruff, Alembic, pytest + coverage; mobile: ESLint, Jest, TypeScript; Docker backend image build). |
+| **1** | CI/CD pipeline | [testing.md](testing.md) — *GitHub Actions* section; workflow file: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — CI: Ruff, Alembic, pytest + coverage, ESLint, Jest, TypeScript; **CD: publishes backend Docker image to GHCR on every merge to `main`**. |
 | **2** | Report on AI tool usage during development | [ai_tools_report.md](ai_tools_report.md) — tool table + per-member sections; filled incrementally by the team. |
 
 **Note:** In-app LLMs (workout/diet agents, plate vision) are integrated via **cloud APIs**. Our documented setup uses **Anthropic**; the single integration layer is `LLMService` — see `backend/app/services/llm_service.py`.
@@ -82,11 +82,18 @@ The full bug reporting and branching process is documented in [contributing.md](
 
 ## 6. CI/CD pipeline
 
-**What we did:** GitHub Actions workflow on push/PR to `main`: backend checks (Ruff, Alembic migrations, pytest with coverage), mobile (ESLint, Jest, TypeScript), Docker backend image build.
+**What we did:** GitHub Actions workflow (`.github/workflows/ci.yml`) with four jobs:
+
+- **CI jobs** (run on every push and PR to `main`):
+  - `backend` — Ruff lint + format check, Alembic `upgrade head`, pytest with coverage XML artifact
+  - `mobile` — ESLint, Jest (`--ci`), TypeScript `tsc --noEmit`
+  - `docker-backend` — builds the backend Dockerfile to verify it compiles (no push)
+- **CD job** (runs only on push to `main`, after all CI jobs pass):
+  - `publish` — builds and pushes the backend Docker image to **GitHub Container Registry (GHCR)**, tagged as `:latest` and `:<git-sha>`. Uses the automatic `GITHUB_TOKEN`; no external secrets required. The image is visible under the repository's **Packages** tab.
 
 **Where:** [testing.md](testing.md) + [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
-**For graders:** No automated production deploy in this repo; focus is a **quality gate** on each PR.
+**For graders:** Every merge to `main` triggers the full CI quality gate and, on success, publishes a deployable Docker image to `ghcr.io/aliniacob13/fitplus-backend`. The SHA-tagged image enables traceable rollbacks to any previous build.
 
 ---
 
